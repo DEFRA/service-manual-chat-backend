@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "disable_existing_loggers": false,
+  "formatters": {
+      "dev": {
+          "format": "%(levelname)s - %(name)s - %(message)s"
+    }
+  },
+  "handlers": {
+    "console": {
+        "class": "logging.StreamHandler",
+        "stream": "ext://sys.stdout",
+        "formatter": "dev"
+    }
+  },
+  "loggers": {
+    "uvicorn": {
+      "level": "INFO",
+      "propagate": true
+    },
+    "app": {
+      "level": "INFO",
+      "propagate": true
+    }
+  },
+  "root": {
+      "level": "INFO",
+      "handlers": ["console"],
+      "propagate": false
+  }
+}
