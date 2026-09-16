@@ -1,8 +1,8 @@
-# cdp-python-backend-template
+# service-manual-chat-backend
 
 This is work-in-progress. See [To Do List](./TODO.md)
 
-- [cdp-python-backend-template](#cdp-python-backend-template)
+- [service-manual-chat-backend](#service-manual-chat-backend)
   - [Requirements](#requirements)
     - [Python](#python)
     - [Linting and Formatting](#linting-and-formatting)
