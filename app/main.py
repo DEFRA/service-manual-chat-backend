@@ -5,6 +5,7 @@ from logging import getLogger
 import uvicorn
 from fastapi import FastAPI
 
+from app.ask.router import router as ask_router
 from app.common.mongo import get_mongo_client
 from app.common.tracing import TraceIdMiddleware
 from app.config import config
@@ -34,6 +35,7 @@ app.add_middleware(TraceIdMiddleware)
 # Setup Routes
 app.include_router(health_router)
 app.include_router(example_router)
+app.include_router(ask_router)
 
 
 def main() -> None:  # pragma: no cover

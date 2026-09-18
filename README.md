@@ -1,6 +1,116 @@
 # service-manual-chat-backend
 
+Answers questions about the Defra AI digital toolkit for the
+[service-manual-ui](https://github.com/DEFRA/service-manual-ui) Ask the
+toolkit page. `POST /ask` takes a question and returns an answer with its
+sources and, where a rule applies, the rule quoted word for word.
+
 This is work-in-progress. See [To Do List](./TODO.md)
+
+## Try Ask the toolkit locally
+
+Runs the toolkit site and this backend together on your laptop, answering
+from real models in the Bedrock sandbox. About ten minutes the first time,
+most of it image builds. No Python or Node needed on the host.
+
+### You need
+
+- Docker Desktop, running.
+- Git access to this repo and to
+  [DEFRA/service-manual-ui](https://github.com/DEFRA/service-manual-ui).
+- Your own Bedrock sandbox API key. Ask Joel if you do not have one.
+
+### Set up
+
+1. Clone both repos side by side, so `../service-manual-ui` exists next to
+   this checkout:
+
+   ```bash
+   git clone git@github.com:DEFRA/service-manual-chat-backend.git
+   git clone git@github.com:DEFRA/service-manual-ui.git
+   cd service-manual-chat-backend
+   ```
+
+   Until the two pull requests merge, check out the branches:
+   `cait-275-set-up-local-development` in both repos.
+   Without the front-end branch the site ignores the backend and answers
+   from canned fixtures.
+
+2. Create `compose/secrets.env` from the example and paste your key in:
+
+   ```bash
+   cp compose/secrets.env.example compose/secrets.env
+   ```
+
+   The file is gitignored. Nothing else needs a personal value.
+
+3. Start everything:
+
+   ```bash
+   ASK_ENGINE=bedrock docker compose --profile service up --build
+   ```
+
+4. Open <http://localhost:3000/ai-toolkit/ask> and ask a question. An answer
+   takes about five seconds.
+
+Leave out `ASK_ENGINE=bedrock` to get canned answers with no key at all.
+`Ctrl+C` stops it; `docker compose --profile service down` removes the
+containers.
+
+### What to edit
+
+- **The prompt**, `prompts/system.md`. Mounted into the container, so the
+  next question uses your edit. No restart.
+- **The pages**, `../service-manual-ui/src/server/ai-ask/*.njk` and the
+  partials under `src/server/common/templates/partials/ask-*.njk`. Mounted,
+  so refresh the browser. Styles in `src/client/stylesheets` need
+  `docker compose exec frontend npm run build:frontend`.
+- **The backend**, `app/`. Synced into the container by
+  `docker compose --profile service up --watch`, and uvicorn reloads.
+- **The model**. Set `BEDROCK_MODEL_ID` to any London model id the sandbox
+  has, for example
+  `BEDROCK_MODEL_ID=anthropic.claude-3-haiku-20240307-v1:0 ASK_ENGINE=bedrock docker compose --profile service up`.
+
+### Settings
+
+All read from the environment by `app/config.py`. Compose sets the ones
+marked so; the rest are optional.
+
+| Variable | Default | What it does |
+| :-- | :-- | :-- |
+| `ASK_ENGINE` | `stub` | `stub` answers from canned fixtures with no key. `bedrock` calls Amazon Bedrock. |
+| `AWS_BEARER_TOKEN_BEDROCK` | none | Your sandbox API key, in `compose/secrets.env`. Read by boto3 directly. Not needed on CDP, where the task role signs requests. |
+| `BEDROCK_MODEL_ID` | `anthropic.claude-sonnet-4-6` | Plain model id locally; an inference profile id or ARN on CDP. |
+| `BEDROCK_REGION` | `eu-west-2` | London. No cross-region inference. |
+| `BEDROCK_GUARDRAIL_ID`, `BEDROCK_GUARDRAIL_VERSION` | none | Empty locally. On CDP the platform gives one guardrail per profile. |
+| `CONTENT_DIR` | `content` | The toolkit markdown pages the model answers from. Compose mounts `../service-manual-ui/src/content` here (override the host path with `CONTENT_DIR=... docker compose ...`). |
+| `SYSTEM_PROMPT_PATH` | `prompts/system.md` | The prompt. Compose mounts `./prompts`. |
+| `AWS_ENDPOINT_URL_BEDROCK_RUNTIME` | set by compose | Points Bedrock at real AWS while `AWS_ENDPOINT_URL` sends everything else to localstack. Needed wherever both are set. |
+| `FRONTEND_DIR` | `../service-manual-ui` | Compose only: where the site checkout is. |
+
+### If it does not work
+
+- **`Internal Server Error` from `/ask` and `KeyError: 'output'` in the
+  logs.** The Bedrock call went to localstack. Check
+  `AWS_ENDPOINT_URL_BEDROCK_RUNTIME` is set (compose sets it; the dev
+  script sets it too).
+- **`UnrecognizedClientException` or `403` from Bedrock.** The key is
+  missing, mistyped or expired. Check `compose/secrets.env` has one line,
+  no quotes, no spaces, then `docker compose --profile service up` again so
+  the container re-reads it.
+- **`ValidationException` naming the model.** That model id is not enabled
+  in the sandbox. Try the default.
+- **The site answers instantly with the same few canned answers.** Either
+  `ASK_ENGINE` was not set, or `service-manual-ui` is not on the
+  `cait-275-set-up-local-development` branch.
+- **Port 3000 or 8085 already in use.** Stop whatever holds it; the site
+  must be on 3000 for its links to work.
+- **Startup fails on Mongo.** The template pings Mongo at boot even though
+  `/ask` never uses it. Run through compose, which starts Mongo, rather than
+  `python -m app.main` alone.
+
+The sandbox has no guardrails. Local use only, toolkit content only, and
+never paste real correspondence in.
 
 - [service-manual-chat-backend](#service-manual-chat-backend)
   - [Requirements](#requirements)
@@ -199,6 +309,52 @@ uv run pytest
 | `GET: /example/test` | Simple example endpoint        |
 | `GET: /example/db`   | Database query example         |
 | `GET: /example/http` | HTTP client example            |
+| `POST: /ask`         | Answer a toolkit question      |
+
+`POST /ask` takes:
+
+```json
+{ "question": "Can I paste personal data into Copilot?", "previous_question": null, "conversation_id": null }
+```
+
+`question` is 1 to 500 characters. `previous_question` lets a follow-up
+("what about research data?") be read against what came before. It returns
+the shape `service-manual-ui` maps in `src/server/ai-ask/answer.js`:
+
+```json
+{
+  "status": "answered",
+  "message": "Plain English explanation, two to four sentences.",
+  "rule_verbatim": {
+    "text": "The rule, copied word for word from the page it cites.",
+    "source": { "title": "Keeping data safe", "url": "/ai-toolkit/guidance/keeping-data-safe", "section": "Remove personal data from anything you put in" }
+  },
+  "sources": [
+    { "title": "Keeping data safe", "url": "/ai-toolkit/guidance/keeping-data-safe", "section": null }
+  ]
+}
+```
+
+`rule_verbatim` is `null` when no rule applies, and is dropped by the
+backend if the quoted words are not on the cited page. `sources` only ever
+names pages in `CONTENT_DIR`.
+
+`status` is one of six outcomes. `message` is always present; the other
+fields depend on the status.
+
+| Status | Means | Extra fields |
+| :-- | :-- | :-- |
+| `answered` | The pages answer the question. | `rule_verbatim`, `sources` |
+| `need_more_detail` | Too broad. The reader picks a narrower question, or types one. | `options`, 2 to 4 short phrases |
+| `cannot_answer` | No answer here. | `reason`: `outside_toolkit` or `no_guidance_yet` |
+| `talk_to_a_person` | About the reader's own project; the team is the right place. | `sources` may point at the nearest page |
+| `blocked` | Refused, in neutral words. | none |
+| `error` | The backend got no answer. Try again. | none |
+
+With `ASK_ENGINE=stub` each outcome has a trigger, so the screens can be
+built without a model: "help me" (need more detail), "parking" (outside the
+toolkit), "buying" (no guidance yet), "my project" (talk to a person),
+"medical" (blocked), "simulate an error" (error).
 
 ## Custom Cloudwatch Metrics
 

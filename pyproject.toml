@@ -11,6 +11,7 @@ dependencies = [
     "ecs-logging==2.2.0",
     "fastapi==0.129.0",
     "httpx==0.28.1",
+    "pydantic-ai-slim[bedrock]>=2.43.0",
     "pydantic-settings==2.9.1",
     "pymongo[aws,encryption,snappy,zstd]==4.13.1",
     "uvicorn==0.34.3",

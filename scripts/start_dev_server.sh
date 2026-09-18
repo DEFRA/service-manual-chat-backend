@@ -22,6 +22,11 @@ sleep 5
 # Set environment variables for local development
 export PORT=8085
 export AWS_ENDPOINT_URL=http://localhost:4566
+# Bedrock is the one AWS service that must reach AWS itself, not localstack.
+export AWS_ENDPOINT_URL_BEDROCK_RUNTIME=https://bedrock-runtime.${BEDROCK_REGION:-eu-west-2}.amazonaws.com
+# The toolkit pages and the prompt, as compose mounts them.
+export CONTENT_DIR=${CONTENT_DIR:-../service-manual-ui/src/content}
+export PYDANTIC_AI_NO_BANNER=1
 export MONGO_URI=mongodb://localhost:27017/
 export ENV=dev
 export HOST=0.0.0.0

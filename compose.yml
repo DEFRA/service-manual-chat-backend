@@ -56,6 +56,21 @@ services:
       AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL:-http://localstack:4566}
       MONGO_URI: ${MONGO_URI:-mongodb://mongodb:27017/}
       HOST: ${HOST:-0.0.0.0}
+      # stub answers with no key; bedrock needs AWS_BEARER_TOKEN_BEDROCK in
+      # compose/secrets.env (gitignored) and reaches the London sandbox.
+      ASK_ENGINE: ${ASK_ENGINE:-stub}
+      # AWS_ENDPOINT_URL above sends every AWS call to localstack. Bedrock is
+      # the one service that must reach AWS itself, and this service-specific
+      # variable takes precedence in boto3.
+      AWS_ENDPOINT_URL_BEDROCK_RUNTIME: https://bedrock-runtime.${BEDROCK_REGION:-eu-west-2}.amazonaws.com
+      CONTENT_DIR: /home/nonroot/content
+      PYDANTIC_AI_NO_BANNER: 1
+    volumes:
+      # The toolkit pages come straight from the sibling front-end checkout,
+      # so the backend answers from exactly what the site serves.
+      - ${CONTENT_DIR:-../service-manual-ui/src/content}:/home/nonroot/content:ro
+      # Edit the prompt while the service runs; no rebuild needed.
+      - ./prompts:/home/nonroot/prompts:ro
     develop:
       watch:
         - action: sync
@@ -80,6 +95,39 @@ services:
         - action: rebuild
           path: ./pyproject.toml
           target: /home/nonroot/pyproject.toml
+    networks:
+      - cdp-tenant
+
+  # The toolkit site from the sibling checkout, with Ask the toolkit switched
+  # on and pointed at this backend. Its templates are mounted, so an edit to
+  # a .njk file shows on the next request. Styles need a rebuild:
+  # docker compose exec frontend npm run build:frontend
+  frontend:
+    build:
+      context: ${FRONTEND_DIR:-../service-manual-ui}
+      target: development
+    ports:
+      - 3000:3000
+    depends_on:
+      - service
+    profiles:
+      - service
+    environment:
+      PORT: 3000
+      NODE_ENV: development
+      ENABLE_AI_CONTENT: "true"
+      AI_TOOLKIT_ASK_ENABLED: "true"
+      AI_TOOLKIT_ASK_API_URL: http://service:8085
+      LOCALSTACK_ENDPOINT: http://localstack:4566
+      # Dummy values so the site boots. Nothing here sends email.
+      SESSION_COOKIE_PASSWORD: local-compose-session-cookie-password
+      AI_TOOLKIT_NOTIFY_KEY: dummy-notify-key-unused
+      AI_TOOLKIT_TRIAGE_TEMPLATE_ID: 89ee0b57-0fc3-47f5-b833-98f7a7ff2826
+      AI_TOOLKIT_CONFIRMATION_TEMPLATE_ID: b91e6fbc-565f-48ab-955f-b3ef040f6125
+      AICE_SHARED_MAILBOX_EMAIL: demo@example.com
+      AI_TRIAGE_AUTOMATION_ENABLED: "false"
+    volumes:
+      - ${FRONTEND_DIR:-../service-manual-ui}/src:/home/node/src
     networks:
       - cdp-tenant
 

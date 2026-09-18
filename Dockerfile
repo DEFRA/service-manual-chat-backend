@@ -14,6 +14,7 @@ COPY --chown=nonroot:nonroot pyproject.toml .
 COPY --chown=nonroot:nonroot README.md .
 COPY --chown=nonroot:nonroot uv.lock .
 COPY --chown=nonroot:nonroot app/ ./app/
+COPY --chown=nonroot:nonroot prompts/ ./prompts/
 
 RUN --mount=type=cache,target=/home/nonroot/.cache/uv,uid=1000,gid=1000 \
     uv sync --locked --link-mode=copy
@@ -45,6 +46,7 @@ COPY --from=development /home/nonroot/pyproject.toml .
 COPY --chown=nonroot:nonroot README.md .
 COPY --from=development /home/nonroot/uv.lock .
 COPY --from=development /home/nonroot/app ./app
+COPY --from=development /home/nonroot/prompts ./prompts
 
 COPY logging.json .
 
