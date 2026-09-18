@@ -31,10 +31,10 @@ most of it image builds. No Python or Node needed on the host.
    cd service-manual-chat-backend
    ```
 
-   Until the two pull requests merge, check out the branches:
-   `cait-275-set-up-local-development` in both repos.
-   Without the front-end branch the site ignores the backend and answers
-   from canned fixtures.
+   Until the front-end pull request merges, check out the
+   `cait-275-set-up-local-development` branch in `service-manual-ui`.
+   Without it the site ignores the backend and answers from canned
+   fixtures.
 
 2. Create `compose/secrets.env` from the example and paste your key in:
 
