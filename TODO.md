@@ -16,7 +16,7 @@ In Jira: prompt caching (CAIT-279), the quote check (CAIT-280), the prompt
 fix for the seven failure patterns (CAIT-281), deploy to CDP dev including
 the Mongo ping at boot and mapping a guardrail intervention to `blocked`
 (CAIT-282), repeatable evaluation (CAIT-283), clearing the template's
-example routes, Sonar and dependabot (story 08, key to follow).
+example routes, Sonar and dependabot (CAIT-284).
 
 ## Template chores
 
