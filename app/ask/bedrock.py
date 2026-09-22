@@ -20,14 +20,14 @@ from app.config import config
 
 logger = getLogger(__name__)
 
-# Models that return 403 "your request did not allow prompt caching" when sent
-# a cache point. Matched as a substring so an inference profile ARN that
-# carries the model id is caught too.
-MODELS_WITHOUT_PROMPT_CACHING = ("anthropic.claude-3-haiku",)
+
+def models_without_prompt_caching() -> list[str]:
+    names = config.bedrock_models_without_prompt_caching.split(",")
+    return [name.strip() for name in names if name.strip()]
 
 
 def caches_instructions(model_id: str) -> bool:
-    return not any(name in model_id for name in MODELS_WITHOUT_PROMPT_CACHING)
+    return not any(name in model_id for name in models_without_prompt_caching())
 
 
 def model_settings() -> BedrockModelSettings:
