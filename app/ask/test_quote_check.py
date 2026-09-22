@@ -44,6 +44,26 @@ def test_words_treat_emphasis_marks_as_punctuation_but_keep_an_inner_underscore(
     ]
 
 
+def test_plain_text_removes_a_link_target_in_angle_brackets_parentheses_and_all():
+    text = plain_text(
+        "See [Travelling securely](<https://intranet.example/Travel(1).aspx>) first."
+    )
+    assert text == "See Travelling securely first."
+
+
+def test_words_give_stray_punctuation_from_a_stripped_tag_to_the_word_before():
+    got = [
+        (w.text, w.starts_sentence, w.ends_sentence)
+        for w in words('Read <a href="/x">this</a>. Then that')
+    ]
+    assert got == [
+        ("read", True, False),
+        ("this", False, True),
+        ("then", True, False),
+        ("that", False, True),
+    ]
+
+
 def test_words_mark_sentence_boundaries_across_blocks():
     page = "First one. Second\n\n<li>Third</li>\n<li>Fourth (x).</li>"
     got = [(w.text, w.starts_sentence, w.ends_sentence) for w in words(page)]

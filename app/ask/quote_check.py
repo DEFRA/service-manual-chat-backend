@@ -49,8 +49,10 @@ INLINE_TAGS = frozenset(
 # After the tag name comes either `>` or a space or slash and then whatever,
 # so the name and the rest never overlap and the scan is linear.
 TAG = re.compile(r"<\s*/?([a-zA-Z][a-zA-Z0-9]*)(?:[\s/][^<>]*)?>")
-IMAGE = re.compile(r"!\[([^\[\]]*)\]\([^()]*\)")
-LINK = re.compile(r"\[([^\[\]]*)\]\([^()]*\)")
+# A link target is either wrapped in angle brackets, which is how Markdown
+# writes a URL holding parentheses, or runs to the first closing one.
+IMAGE = re.compile(r"!\[([^\[\]]*)\]\((?:<[^<>]*>|[^()<>]*)\)")
+LINK = re.compile(r"\[([^\[\]]*)\]\((?:<[^<>]*>|[^()<>]*)\)")
 # Heading marks, list markers and block quotes at the start of a line.
 BLOCK_MARKER = re.compile(r"^ *(?:#{1,6}|[-*+]|\d+[.)]) +", re.MULTILINE)
 BLOCK_QUOTE = re.compile(r"^ *> *", re.MULTILINE)
@@ -129,8 +131,17 @@ def words(markdown: str) -> list[Word]:
     result: list[Word] = []
     for block in BLANK_LINE.split(plain_text(markdown)):
         tokens = block.split()
-        kept = [(PUNCTUATION_AT_ENDS.sub("", token).lower(), token) for token in tokens]
-        kept = [(word, token) for word, token in kept if word]
+        kept: list[tuple[str, str]] = []
+        for token in tokens:
+            word = PUNCTUATION_AT_ENDS.sub("", token).lower()
+            if word:
+                kept.append((word, token))
+            elif kept:
+                # Punctuation on its own, as in `<a href="/x">this</a>.` once
+                # the tag is gone, belongs to the word before it: that is where
+                # the sentence ends.
+                previous_word, previous_token = kept[-1]
+                kept[-1] = (previous_word, previous_token + token)
         for i, (word, token) in enumerate(kept):
             first = i == 0
             last = i == len(kept) - 1
