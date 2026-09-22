@@ -93,7 +93,7 @@ marked so; the rest are optional.
 | `BEDROCK_REGION` | `eu-west-2` | London. No cross-region inference. |
 | `BEDROCK_MODELS_WITHOUT_PROMPT_CACHING` | `anthropic.claude-3-haiku` | Comma separated. A model id containing any of these is sent no cache point. |
 | `BEDROCK_GUARDRAIL_ID`, `BEDROCK_GUARDRAIL_VERSION` | none | Empty locally. On CDP the platform gives one guardrail per profile. |
-| `CONTENT_DIR` | `content` | The toolkit markdown pages the model answers from. Compose mounts `../service-manual-ui/src/content` here (override the host path with `CONTENT_DIR=... docker compose ...`). |
+| `CONTENT_DIR` | `content` | The toolkit markdown pages the model answers from. Compose mounts `../service-manual-ui/src/content` here (override the host path with `CONTENT_DIR=... docker compose ...`). The image carries its own copy, see [Toolkit pages in the image](#toolkit-pages-in-the-image). |
 | `SYSTEM_PROMPT_PATH` | `prompts/system.md` | The prompt. Compose mounts `./prompts`. |
 | `AWS_ENDPOINT_URL_BEDROCK_RUNTIME` | set by compose | Points Bedrock at real AWS while `AWS_ENDPOINT_URL` sends everything else to localstack. Needed wherever both are set. |
 | `FRONTEND_DIR` | `../service-manual-ui` | Compose only: where the site checkout is. |
@@ -166,6 +166,22 @@ pre-commit install
 ```
 
 This opinionated template uses the [`Fast API`](https://fastapi.tiangolo.com/) Python API framework.
+
+### Toolkit pages in the image
+
+CDP has no sibling checkout of the site, so the image carries the pages. The
+Dockerfile runs `scripts/fetch_content.py`, which downloads the
+service-manual-ui tarball at the commit in `ARG CONTENT_REF`, keeps
+`src/content/ai-toolkit.md` and `src/content/ai-toolkit/**/*.md`, and writes
+the commit to `content/REF`. At startup the service logs
+`toolkit content dir=... ref=... pages=...`, so the log says which content
+answered. Locally compose bind-mounts the checkout over `content/`, and the
+ref logs as `mounted`.
+
+To ship new pages, change `CONTENT_REF` in the Dockerfile to the
+service-manual-ui commit you want and merge. Stale is fine on dev; a content
+change means a backend redeploy. The build needs github.com, which the CDP
+build and a local `docker compose build` both have.
 
 ### Environment Variable Configuration
 

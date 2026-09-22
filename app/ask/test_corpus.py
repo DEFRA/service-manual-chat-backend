@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from app.ask.corpus import as_context, load_corpus, parse_page, verify
+from app.ask.corpus import as_context, content_ref, load_corpus, parse_page, verify
 from app.ask.schemas import Answer, RuleVerbatim, Source
 
 PAGE = """---
@@ -118,3 +118,12 @@ def test_verify_drops_sources_outside_the_corpus(content_dir):
     assert verify(answer, load_corpus(content_dir)).sources == [
         Source(title="a", url="/ai-toolkit")
     ]
+
+
+def test_content_ref_is_none_for_a_mount(content_dir):
+    assert content_ref(content_dir) is None
+
+
+def test_content_ref_reads_the_baked_in_ref(content_dir):
+    (content_dir / "REF").write_text("caefc03\n")
+    assert content_ref(content_dir) == "caefc03"
