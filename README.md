@@ -31,11 +31,6 @@ most of it image builds. No Python or Node needed on the host.
    cd service-manual-chat-backend
    ```
 
-   Until the front-end pull request merges, check out the
-   `cait-275-set-up-local-development` branch in `service-manual-ui`.
-   Without it the site ignores the backend and answers from canned
-   fixtures.
-
 2. Create `compose/secrets.env` from the example and paste your key in:
 
    ```bash
@@ -120,8 +115,8 @@ marked so; the rest are optional.
   passed between questions, or something in the prompt or pages changed
   between them. Check the instructions are identical call to call.
 - **The site answers instantly with the same few canned answers.** Either
-  `ASK_ENGINE` was not set, or `service-manual-ui` is not on the
-  `cait-275-set-up-local-development` branch.
+  `ASK_ENGINE` was not set, or `service-manual-ui` is on a branch older
+  than the `AI_TOOLKIT_ASK_API_URL` change.
 - **Port 3000 or 8085 already in use.** Stop whatever holds it; the site
   must be on 3000 for its links to work.
 - **Startup fails on Mongo.** The template pings Mongo at boot even though
