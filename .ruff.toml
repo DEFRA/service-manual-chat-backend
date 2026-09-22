@@ -67,6 +67,7 @@ ignore = [
 "__init__.py" = ["E402", "F401"]
 "tests/**/*.py" = ["S101"]  # Allow assert in tests
 "app/**/test_*.py" = ["S101"]  # Allow assert in app test files
+"scripts/test_*.py" = ["S101"]  # Allow assert in script test files
 
 # Enable auto-fixing
 fixable = ["ALL"]
@@ -74,6 +75,7 @@ unfixable = []
 
 [lint.isort]
 known-third-party = ["fastapi", "pydantic", "motor", "pytest"]
+known-first-party = ["app", "fetch_content"]
 
 [format]
 # Like Black, use double quotes for strings

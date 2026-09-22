@@ -73,3 +73,23 @@ def test_main_no_proxy_in_config(mocker, monkeypatch):
 
     assert os.environ.get("HTTP_PROXY") is None
     assert os.environ.get("HTTPS_PROXY") is None
+
+
+def test_log_content_names_the_ref_and_page_count(tmp_path, monkeypatch, caplog):
+    (tmp_path / "ai-toolkit.md").write_text("---\ntitle: AI toolkit\n---\nHome\n")
+    (tmp_path / "REF").write_text("caefc03\n")
+    monkeypatch.setattr(main_mod.config, "content_dir", str(tmp_path))
+
+    with caplog.at_level("INFO", logger="app.main"):
+        main_mod.log_content()
+
+    assert f"toolkit content dir={tmp_path} ref=caefc03 pages=1" in caplog.text
+
+
+def test_log_content_says_mounted_without_a_ref(tmp_path, monkeypatch, caplog):
+    monkeypatch.setattr(main_mod.config, "content_dir", str(tmp_path))
+
+    with caplog.at_level("INFO", logger="app.main"):
+        main_mod.log_content()
+
+    assert "ref=mounted pages=0" in caplog.text

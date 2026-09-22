@@ -36,6 +36,18 @@ def parse_page(url: str, text: str) -> Page:
     return Page(url=url, title=title, body=body.strip())
 
 
+def content_ref(content_dir: Path) -> str | None:
+    """The service-manual-ui ref the pages came from, or None for a mount.
+
+    `scripts/fetch_content.py` writes `REF` next to the pages when it bakes
+    them into the image. A bind mount of the site checkout has no such file.
+    """
+    ref_file = content_dir / "REF"
+    if not ref_file.is_file():
+        return None
+    return ref_file.read_text(encoding="utf-8").strip() or None
+
+
 def load_corpus(content_dir: Path, prefix: str = "ai-toolkit") -> dict[str, Page]:
     """Every markdown page under the prefix, keyed by URL.
 

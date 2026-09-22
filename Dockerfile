@@ -2,6 +2,9 @@
 ARG PARENT_VERSION=2.2.1-python3.14.3
 ARG PORT=8085
 ARG PORT_DEBUG=8086
+# The service-manual-ui commit whose toolkit pages are baked into the image.
+# Bump it to ship new content; compose bind-mounts a checkout over it locally.
+ARG CONTENT_REF=caefc03575b060faf642a65edbee20da15d55ee5
 
 FROM defradigital/python-development:${PARENT_VERSION} AS development
 
@@ -15,6 +18,10 @@ COPY --chown=nonroot:nonroot README.md .
 COPY --chown=nonroot:nonroot uv.lock .
 COPY --chown=nonroot:nonroot app/ ./app/
 COPY --chown=nonroot:nonroot prompts/ ./prompts/
+COPY --chown=nonroot:nonroot scripts/fetch_content.py ./scripts/
+
+ARG CONTENT_REF
+RUN python3 scripts/fetch_content.py --ref ${CONTENT_REF} --dest content
 
 RUN --mount=type=cache,target=/home/nonroot/.cache/uv,uid=1000,gid=1000 \
     uv sync --locked --link-mode=copy
@@ -47,6 +54,7 @@ COPY --chown=nonroot:nonroot README.md .
 COPY --from=development /home/nonroot/uv.lock .
 COPY --from=development /home/nonroot/app ./app
 COPY --from=development /home/nonroot/prompts ./prompts
+COPY --from=development /home/nonroot/content ./content
 
 COPY logging.json .
 
