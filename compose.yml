@@ -124,6 +124,7 @@ services:
       AI_TOOLKIT_NOTIFY_KEY: dummy-notify-key-unused
       AI_TOOLKIT_TRIAGE_TEMPLATE_ID: 89ee0b57-0fc3-47f5-b833-98f7a7ff2826
       AI_TOOLKIT_CONFIRMATION_TEMPLATE_ID: b91e6fbc-565f-48ab-955f-b3ef040f6125
+      VERIFICATION_CODE_EMAIL_TEMPLATE_ID: dummy-verification-template-unused
       AICE_SHARED_MAILBOX_EMAIL: demo@example.com
       AI_TRIAGE_AUTOMATION_ENABLED: "false"
     volumes:
