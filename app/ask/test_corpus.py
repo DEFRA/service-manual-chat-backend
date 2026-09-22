@@ -53,6 +53,16 @@ def test_as_context_wraps_each_page(content_dir):
     assert "</page>" in context
 
 
+def test_as_context_strips_inline_tags_but_keeps_blocks(content_dir):
+    (content_dir / "ai-toolkit" / "guidance" / "incident.md").write_text(
+        "---\ntitle: Report an AI incident\n---\n"
+        "<ul>\n<li><strong>Stop.</strong> The <em>rest</em>.</li>\n</ul>\n"
+    )
+    context = as_context(load_corpus(content_dir))
+    assert "<ul>\n<li>Stop. The rest.</li>\n</ul>" in context
+    assert "<strong>" not in context
+
+
 def rule(text: str, url: str = "/ai-toolkit/guidance/using-data-with-ai"):
     return RuleVerbatim(text=text, source=Source(title="t", url=url))
 
@@ -66,13 +76,28 @@ def test_verify_keeps_a_quote_that_appears_despite_line_wrapping(content_dir):
     assert verify(answer, load_corpus(content_dir)).rule_verbatim == rule(quoted)
 
 
-def test_verify_drops_a_reworded_quote(content_dir):
+def test_verify_drops_a_reworded_quote(content_dir, caplog):
     answer = Answer(
         status="answered",
         message="m",
         rule_verbatim=rule("Remove personal data before pasting it in."),
     )
     assert verify(answer, load_corpus(content_dir)).rule_verbatim is None
+    assert "outcome=not_found" in caplog.text
+    assert "personal data" not in caplog.text
+
+
+def test_verify_drops_a_quote_that_stops_part_way_through_a_sentence(
+    content_dir, caplog
+):
+    answer = Answer(
+        status="answered",
+        message="m",
+        rule_verbatim=rule("The DPIA route is for a service you are building"),
+    )
+    assert verify(answer, load_corpus(content_dir)).rule_verbatim is None
+    assert "outcome=partial" in caplog.text
+    assert "DPIA" not in caplog.text
 
 
 def test_verify_drops_a_quote_from_an_unknown_page(content_dir):

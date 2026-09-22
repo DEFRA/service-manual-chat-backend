@@ -336,8 +336,9 @@ the shape `service-manual-ui` maps in `src/server/ai-ask/answer.js`:
 ```
 
 `rule_verbatim` is `null` when no rule applies, and is dropped by the
-backend if the quoted words are not on the cited page. `sources` only ever
-names pages in `CONTENT_DIR`.
+backend if the quoted words are not on the cited page, or are only part of a
+sentence there (`app/ask/quote_check.py`). `sources` only ever names pages in
+`CONTENT_DIR`.
 
 `status` is one of six outcomes. `message` is always present; the other
 fields depend on the status.

@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from logging import getLogger
 from pathlib import Path
 
+from app.ask.quote_check import check_quote, strip_inline_tags
 from app.ask.schemas import Answer, Source
 
 logger = getLogger(__name__)
@@ -54,21 +55,16 @@ def load_corpus(content_dir: Path, prefix: str = "ai-toolkit") -> dict[str, Page
     return pages
 
 
-def normalise(text: str) -> str:
-    return re.sub(r"\s+", " ", text).strip()
-
-
-def quote_appears_on_page(quote: str, page: Page) -> bool:
-    return normalise(quote) in normalise(page.body)
-
-
 def verify(answer: Answer, corpus: dict[str, Page]) -> Answer:
     """Keep only what the corpus backs up.
 
     A source is kept only if it names a page we hold. A quoted rule is kept
-    only if the words really appear on the page it cites. The front end does
-    the same check, but the API should be trustworthy on its own: a wrong
-    answer about a rule is the failure that matters most.
+    only if its words really appear on the page it cites, whole and in order:
+    a quote that starts or stops part way through a sentence is dropped too,
+    and logged as its own failure, because a rule quoted selectively can say
+    the opposite of the rule. The front end does the same check, but the API
+    should be trustworthy on its own: a wrong answer about a rule is the
+    failure that matters most.
     """
     sources = [s for s in answer.sources if s.url in corpus]
     dropped = len(answer.sources) - len(sources)
@@ -78,11 +74,14 @@ def verify(answer: Answer, corpus: dict[str, Page]) -> Answer:
     rule = answer.rule_verbatim
     if rule is not None:
         page = corpus.get(rule.source.url)
-        if page is None or not quote_appears_on_page(rule.text, page):
-            # Logged by page and length only: model output could echo what
-            # the person typed, which must never reach the logs.
+        outcome = "no_page" if page is None else check_quote(rule.text, page.body)
+        if outcome != "ok":
+            # Logged by page, length and which check failed, never the words:
+            # model output could echo what the person typed, which must never
+            # reach the logs.
             logger.warning(
-                "Dropped a quoted rule not found on its page url=%s length=%d",
+                "Dropped a quoted rule outcome=%s url=%s length=%d",
+                outcome,
                 rule.source.url,
                 len(rule.text),
             )
@@ -97,9 +96,14 @@ def as_context(corpus: dict[str, Page]) -> str:
     About 35k tokens for 43 pages. Fine for a local loop where the
     instructions are cached; retrieval (E3) replaces this before anything
     faces the public.
+
+    Inline tags are stripped so the model reads a rule the way the reader
+    does. Ten rules sit inside `<li><strong>`, and a model that quotes through
+    the tags is quoting text nobody sees.
     """
     return "\n\n".join(
-        f'<page url="{page.url}" title="{page.title}">\n{page.body}\n</page>'
+        f'<page url="{page.url}" title="{page.title}">\n'
+        f"{strip_inline_tags(page.body)}\n</page>"
         for page in corpus.values()
     )
 
