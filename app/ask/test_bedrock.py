@@ -13,6 +13,7 @@ from app.ask.bedrock import (
     bedrock_engine,
     caches_instructions,
     model_settings,
+    models_without_prompt_caching,
     user_prompt,
 )
 
@@ -58,6 +59,24 @@ def test_caching_is_off_for_a_model_that_refuses_it(monkeypatch):
         bedrock.config, "bedrock_model_id", "anthropic.claude-3-haiku-20240307-v1:0"
     )
     assert model_settings()["bedrock_cache_instructions"] is False
+
+
+def test_the_models_that_refuse_caching_come_from_config(monkeypatch):
+    monkeypatch.setattr(
+        bedrock.config,
+        "bedrock_models_without_prompt_caching",
+        " amazon.nova-micro, anthropic.claude-3-haiku ,",
+    )
+    assert models_without_prompt_caching() == [
+        "amazon.nova-micro",
+        "anthropic.claude-3-haiku",
+    ]
+    assert not caches_instructions("amazon.nova-micro-v1:0")
+    assert caches_instructions("anthropic.claude-sonnet-4-6")
+
+    monkeypatch.setattr(bedrock.config, "bedrock_models_without_prompt_caching", "")
+    assert models_without_prompt_caching() == []
+    assert caches_instructions("anthropic.claude-3-haiku-20240307-v1:0")
 
 
 async def test_the_request_built_for_bedrock_ends_its_system_prompt_with_a_cache_point():

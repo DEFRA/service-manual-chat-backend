@@ -71,7 +71,8 @@ containers.
   has, for example
   `BEDROCK_MODEL_ID=anthropic.claude-3-haiku-20240307-v1:0 ASK_ENGINE=bedrock docker compose --profile service up`.
   Claude 3 Haiku refuses prompt caching, so the backend turns it off for
-  that model and every question pays full price.
+  that model and every question pays full price. The list of models that
+  refuse it is `BEDROCK_MODELS_WITHOUT_PROMPT_CACHING`.
 
 ### What a question costs
 
@@ -95,6 +96,7 @@ marked so; the rest are optional.
 | `AWS_BEARER_TOKEN_BEDROCK` | none | Your sandbox API key, in `compose/secrets.env`. Read by boto3 directly. Not needed on CDP, where the task role signs requests. |
 | `BEDROCK_MODEL_ID` | `anthropic.claude-sonnet-4-6` | Plain model id locally; an inference profile id or ARN on CDP. |
 | `BEDROCK_REGION` | `eu-west-2` | London. No cross-region inference. |
+| `BEDROCK_MODELS_WITHOUT_PROMPT_CACHING` | `anthropic.claude-3-haiku` | Comma separated. A model id containing any of these is sent no cache point. |
 | `BEDROCK_GUARDRAIL_ID`, `BEDROCK_GUARDRAIL_VERSION` | none | Empty locally. On CDP the platform gives one guardrail per profile. |
 | `CONTENT_DIR` | `content` | The toolkit markdown pages the model answers from. Compose mounts `../service-manual-ui/src/content` here (override the host path with `CONTENT_DIR=... docker compose ...`). |
 | `SYSTEM_PROMPT_PATH` | `prompts/system.md` | The prompt. Compose mounts `./prompts`. |
@@ -114,8 +116,7 @@ marked so; the rest are optional.
 - **`ValidationException` naming the model.** That model id is not enabled
   in the sandbox. Try the default.
 - **`403` saying "your request did not allow prompt caching".** That model
-  refuses cache points. Add it to `MODELS_WITHOUT_PROMPT_CACHING` in
-  `app/ask/bedrock.py`.
+  refuses cache points. Add it to `BEDROCK_MODELS_WITHOUT_PROMPT_CACHING`.
 - **`cache_read_tokens=0` on every question.** Either more than 5 minutes
   passed between questions, or something in the prompt or pages changed
   between them. Check the instructions are identical call to call.

@@ -24,6 +24,10 @@ class AppConfig(BaseSettings):
     # or ARN on CDP. eu-west-2 is London; no cross-region inference.
     bedrock_model_id: str = "anthropic.claude-sonnet-4-6"
     bedrock_region: str = "eu-west-2"
+    # Models that return 403 "your request did not allow prompt caching" when
+    # sent a cache point. Comma separated, matched as a substring of the model
+    # id so an inference profile ARN carrying the id is caught too.
+    bedrock_models_without_prompt_caching: str = "anthropic.claude-3-haiku"
     # Empty locally. On CDP the platform gives one guardrail per profile.
     bedrock_guardrail_id: str | None = None
     bedrock_guardrail_version: str | None = None
