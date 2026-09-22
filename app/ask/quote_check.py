@@ -10,7 +10,8 @@ dangerous than one that paraphrases openly.
 The comparison is made against the page as a reader sees it. Many rules are
 written inside markup, `<li><strong>The rule.</strong> The explanation.</li>`,
 or hold a Markdown link, and a word-for-word quote of either does not appear
-in the raw source. Tags, link targets and emphasis marks are removed first.
+in the raw source. Tags and link targets are removed first, and emphasis
+marks count as punctuation.
 
 service-manual-ui has the same check in `src/server/ai-ask/quote-check.js`,
 and both are run against the one list of cases in `quote_check_cases.json`.
@@ -45,18 +46,22 @@ INLINE_TAGS = frozenset(
     }
 )
 
-TAG = re.compile(r"<\s*/?\s*([a-zA-Z][a-zA-Z0-9]*)[^<>]*>")
-IMAGE = re.compile(r"!\[([^\]]*)\]\([^)]*\)")
-LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
-# Emphasis marks sit at a word boundary; an underscore inside a word does not.
-EMPHASIS = re.compile(r"(?<!\w)[*_]+|[*_]+(?!\w)")
+# After the tag name comes either `>` or a space or slash and then whatever,
+# so the name and the rest never overlap and the scan is linear.
+TAG = re.compile(r"<\s*/?([a-zA-Z][a-zA-Z0-9]*)(?:[\s/][^<>]*)?>")
+IMAGE = re.compile(r"!\[([^\[\]]*)\]\([^()]*\)")
+LINK = re.compile(r"\[([^\[\]]*)\]\([^()]*\)")
 # Heading marks, list markers and block quotes at the start of a line.
-BLOCK_MARKER = re.compile(
-    r"^[ \t]*(?:#{1,6}[ \t]+|[-*+][ \t]+|\d+[.)][ \t]+|>[ \t]*)", re.MULTILINE
-)
+BLOCK_MARKER = re.compile(r"^ *(?:#{1,6}|[-*+]|\d+[.)]) +", re.MULTILINE)
+BLOCK_QUOTE = re.compile(r"^ *> *", re.MULTILINE)
 BLANK_LINE = re.compile(r"\n[ \t]*\n")
-PUNCTUATION_AT_ENDS = re.compile(r"^\W+|\W+$")
-CLOSERS = "\"')]"
+# Punctuation, brackets and emphasis marks at either end of a token are not
+# part of the word. "(ATRS)." and "ATRS" are the same word, "**Using.**" is
+# "Using", and a bare "-" is no word at all.
+PUNCTUATION_AT_ENDS = re.compile(r"^[\W_]+|[\W_]+$")
+# What can follow a full stop and still be the same sentence end: closing
+# quotes and brackets, and Markdown emphasis marks.
+CLOSERS = "\"')]*_"
 SENTENCE_END = ".!?:"
 
 ENTITIES = {
@@ -99,13 +104,13 @@ def strip_inline_tags(markdown: str) -> str:
 def plain_text(markdown: str) -> str:
     """The page as a reader sees it, with a blank line between blocks."""
     text = BLOCK_MARKER.sub("\n\n", markdown)
+    text = BLOCK_QUOTE.sub("\n\n", text)
     text = TAG.sub(_tag_to_text, text)
     text = IMAGE.sub(r"\1", text)
     text = LINK.sub(r"\1", text)
     for entity, char in ENTITIES.items():
         text = text.replace(entity, char)
-    text = text.translate(TYPOGRAPHY)
-    return EMPHASIS.sub(" ", text)
+    return text.translate(TYPOGRAPHY)
 
 
 @dataclass(frozen=True)
@@ -124,8 +129,6 @@ def words(markdown: str) -> list[Word]:
     result: list[Word] = []
     for block in BLANK_LINE.split(plain_text(markdown)):
         tokens = block.split()
-        # Punctuation at either end of a token is not part of the word.
-        # "(ATRS)." and "ATRS" are the same word; a bare "-" is no word at all.
         kept = [(PUNCTUATION_AT_ENDS.sub("", token).lower(), token) for token in tokens]
         kept = [(word, token) for word, token in kept if word]
         for i, (word, token) in enumerate(kept):

@@ -25,14 +25,23 @@ def test_every_shared_page_is_used():
     assert used == set(CASES["pages"])
 
 
-def test_plain_text_removes_link_targets_tags_and_emphasis():
+def test_plain_text_removes_link_targets_and_tags():
     text = plain_text(
-        'See the [tools radar](/ai-toolkit/tools) and <a href="/x">this</a>, '
-        "which is **important** and _also_ my_variable."
+        'See the [tools radar](/ai-toolkit/tools) and <a href="/x">this</a>.'
     )
-    assert " ".join(text.split()) == (
-        "See the tools radar and this , which is important and also my_variable."
-    )
+    assert " ".join(text.split()) == "See the tools radar and this ."
+
+
+def test_words_treat_emphasis_marks_as_punctuation_but_keep_an_inner_underscore():
+    got = [
+        (w.text, w.starts_sentence, w.ends_sentence)
+        for w in words("**Using.** _Also_ my_variable")
+    ]
+    assert got == [
+        ("using", True, True),
+        ("also", True, False),
+        ("my_variable", False, True),
+    ]
 
 
 def test_words_mark_sentence_boundaries_across_blocks():
