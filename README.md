@@ -70,6 +70,19 @@ containers.
 - **The model**. Set `BEDROCK_MODEL_ID` to any London model id the sandbox
   has, for example
   `BEDROCK_MODEL_ID=anthropic.claude-3-haiku-20240307-v1:0 ASK_ENGINE=bedrock docker compose --profile service up`.
+  Claude 3 Haiku refuses prompt caching, so the backend turns it off for
+  that model and every question pays full price.
+
+### What a question costs
+
+The whole toolkit goes to the model as instructions, about 26,000 tokens,
+with a Bedrock cache point after it. The cache lives for 5 minutes and a
+cached read costs a tenth of a fresh token, so a warm question on Claude
+Sonnet 4.6 is about 1p and a cold one about 8p. Every answer logs
+`input_tokens`, `output_tokens`, `cache_read_tokens` and
+`cache_write_tokens`. Two questions inside 5 minutes should show
+`cache_read_tokens` above 20,000 on the second. Nothing that changes per
+request may go into the instructions: the cache key is the exact text.
 
 ### Settings
 
@@ -100,6 +113,12 @@ marked so; the rest are optional.
   the container re-reads it.
 - **`ValidationException` naming the model.** That model id is not enabled
   in the sandbox. Try the default.
+- **`403` saying "your request did not allow prompt caching".** That model
+  refuses cache points. Add it to `MODELS_WITHOUT_PROMPT_CACHING` in
+  `app/ask/bedrock.py`.
+- **`cache_read_tokens=0` on every question.** Either more than 5 minutes
+  passed between questions, or something in the prompt or pages changed
+  between them. Check the instructions are identical call to call.
 - **The site answers instantly with the same few canned answers.** Either
   `ASK_ENGINE` was not set, or `service-manual-ui` is not on the
   `cait-275-set-up-local-development` branch.
