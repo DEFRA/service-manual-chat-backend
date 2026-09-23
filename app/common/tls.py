@@ -18,8 +18,8 @@ def extract_all_certs():
         if var_name.startswith("TRUSTSTORE_"):
             try:
                 decoded_value = base64.b64decode(var_value)
-            except base64.binascii.Error as err:
-                logger.error("Error decoding value for %s. Skipping. %s", var_name, err)
+            except base64.binascii.Error:
+                logger.exception("Error decoding value for %s. Skipping.", var_name)
                 continue
             with tempfile.NamedTemporaryFile(
                 mode="wb", delete=False, prefix=var_name, suffix=".pem"
@@ -37,8 +37,8 @@ def load_certs_into_context(certs):
         try:
             ctx.load_verify_locations(certs[key])
             logger.info("Added %s to truststore", key)
-        except Exception as err:
-            logger.error("Failed to load cert %s: %s", key, err)
+        except Exception:
+            logger.exception("Failed to load cert %s", key)
     return ctx
 
 

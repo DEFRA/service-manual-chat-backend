@@ -41,6 +41,15 @@ def test_extract_keeps_only_toolkit_markdown(tmp_path):
     assert not (tmp_path / "ai-toolkit-triage.md").exists()
 
 
+def test_extract_refuses_a_path_that_escapes_dest(tmp_path):
+    archive = tarball({"src/content/ai-toolkit/../../../escape.md": "out"})
+
+    with pytest.raises(SystemExit, match="outside"):
+        fetch_content.extract(archive, tmp_path / "content")
+
+    assert not (tmp_path / "escape.md").exists()
+
+
 def test_fetch_records_the_ref(tmp_path, monkeypatch):
     urls = []
 

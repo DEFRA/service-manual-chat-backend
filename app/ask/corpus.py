@@ -16,8 +16,8 @@ from app.ask.schemas import Answer, Source
 
 logger = getLogger(__name__)
 
-FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
 TITLE = re.compile(r"^title:\s*(.+?)\s*$", re.MULTILINE)
+FENCE = "---\n"
 
 
 @dataclass(frozen=True)
@@ -27,10 +27,17 @@ class Page:
     body: str
 
 
+def split_frontmatter(text: str) -> tuple[str, str]:
+    """The YAML between the opening and closing fences, and what follows."""
+    if text.startswith(FENCE):
+        end = text.find("\n" + FENCE, len(FENCE))
+        if end != -1:
+            return text[len(FENCE) : end], text[end + 1 + len(FENCE) :]
+    return "", text
+
+
 def parse_page(url: str, text: str) -> Page:
-    match = FRONTMATTER.match(text)
-    frontmatter = match.group(1) if match else ""
-    body = text[match.end() :] if match else text
+    frontmatter, body = split_frontmatter(text)
     title_match = TITLE.search(frontmatter)
     title = title_match.group(1).strip("'\"") if title_match else url
     return Page(url=url, title=title, body=body.strip())

@@ -53,6 +53,9 @@ def extract(archive: bytes, dest: Path) -> list[Path]:
             if not is_page(relative):
                 continue
             target = dest / relative
+            if not target.resolve().is_relative_to(dest.resolve()):
+                message = f"refusing to write outside {dest}: {member.name}"
+                raise SystemExit(message)
             target.parent.mkdir(parents=True, exist_ok=True)
             with tar.extractfile(member) as source:  # type: ignore[union-attr]
                 target.write_bytes(source.read())

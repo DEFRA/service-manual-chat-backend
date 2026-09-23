@@ -34,7 +34,7 @@ async def get_mongo_client() -> AsyncMongoClient:
     return client
 
 
-async def get_db(client: AsyncMongoClient = Depends(get_mongo_client)) -> AsyncDatabase:
+def get_db(client: AsyncMongoClient = Depends(get_mongo_client)) -> AsyncDatabase:
     global db
     if db is None:
         db = client.get_database(config.mongo_database)
@@ -42,6 +42,6 @@ async def get_db(client: AsyncMongoClient = Depends(get_mongo_client)) -> AsyncD
 
 
 async def check_connection(client: AsyncMongoClient):
-    database = await get_db(client)
+    database = get_db(client)
     response = await database.command("ping")
     logger.info("MongoDB PING %s", response)

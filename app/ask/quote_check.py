@@ -60,7 +60,6 @@ BLANK_LINE = re.compile(r"\n[ \t]*\n")
 # Punctuation, brackets and emphasis marks at either end of a token are not
 # part of the word. "(ATRS)." and "ATRS" are the same word, "**Using.**" is
 # "Using", and a bare "-" is no word at all.
-PUNCTUATION_AT_ENDS = re.compile(r"^[\W_]+|[\W_]+$")
 # What can follow a full stop and still be the same sentence end: closing
 # quotes and brackets, and Markdown emphasis marks.
 CLOSERS = "\"')]*_"
@@ -122,6 +121,15 @@ class Word:
     ends_sentence: bool
 
 
+def _strip_punctuation(token: str) -> str:
+    start, end = 0, len(token)
+    while start < end and not token[start].isalnum():
+        start += 1
+    while end > start and not token[end - 1].isalnum():
+        end -= 1
+    return token[start:end]
+
+
 def _ends_sentence(token: str) -> bool:
     return token.rstrip(CLOSERS).endswith(tuple(SENTENCE_END))
 
@@ -133,7 +141,7 @@ def words(markdown: str) -> list[Word]:
         tokens = block.split()
         kept: list[tuple[str, str]] = []
         for token in tokens:
-            word = PUNCTUATION_AT_ENDS.sub("", token).lower()
+            word = _strip_punctuation(token).lower()
             if word:
                 kept.append((word, token))
             elif kept:
