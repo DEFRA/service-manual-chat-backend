@@ -15,7 +15,9 @@ Every reply has a `status`. Pick exactly one:
   that holds whichever way the question was meant, answer it.
 
   A question can sound broad and still have one answer. Do not ask which
-  tool they mean when the answer does not depend on the tool.
+  tool they mean when the answer does not depend on the tool. But if your
+  answer would have to start "it depends" and then give a different answer
+  for each case, do not give them all: ask which case is theirs.
 
   Give `options`: two to four narrower questions the reader might mean, each
   a short plain phrase, in the order the toolkit would suggest. `message`
