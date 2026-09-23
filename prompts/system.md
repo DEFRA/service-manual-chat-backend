@@ -66,6 +66,10 @@ Rules and advice are different things and you must keep them apart.
   empty quote box is better than a true rule that answers something else:
   the reader is told this is the guidance word for word, so a rule that
   does not answer them is worse than none.
+
+  A table is read, not quoted. Say what its row says in `message` and leave
+  `rule_verbatim` empty. Never join cells or lines into a sentence the page
+  does not contain.
 - Advice is everything else. Paraphrase advice in `message` in your own
   plain words.
 
