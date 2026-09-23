@@ -1,4 +1,5 @@
 from logging import getLogger
+from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
@@ -9,8 +10,10 @@ router = APIRouter()
 logger = getLogger(__name__)
 
 
-@router.post("/ask", response_model=Answer)
-async def ask(body: AskRequest, engine: AnswerEngine = Depends(get_engine)) -> Answer:
+@router.post("/ask")
+async def ask(
+    body: AskRequest, engine: Annotated[AnswerEngine, Depends(get_engine)]
+) -> Answer:
     # The question is what a person typed and may say anything about them, so
     # it never reaches the logs. Length and whether it is a follow-up do.
     logger.info(

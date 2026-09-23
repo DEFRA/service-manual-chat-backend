@@ -7,7 +7,7 @@ echo "Starting development environment..."
 
 # Check if Docker is running
 if ! docker info > /dev/null 2>&1; then
-    echo "Error: Docker is not running. Please start Docker and try again."
+    echo "Error: Docker is not running. Please start Docker and try again." >&2
     exit 1
 fi
 
@@ -34,30 +34,31 @@ export LOG_CONFIG=logging-dev.json
 
 # Load application environment variables
 echo "Loading environment variables..."
-if [ -f compose/aws.env ]; then
+if [[ -f compose/aws.env ]]; then
     export $(grep -v '^#' compose/aws.env | xargs)
 else
-    echo "Error: compose/aws.env file not found. This file is required."
+    echo "Error: compose/aws.env file not found. This file is required." >&2
     exit 1
 fi
 
 echo "Loading secrets..."
-if [ -f compose/secrets.env ]; then
+if [[ -f compose/secrets.env ]]; then
     export $(grep -v '^#' compose/secrets.env | xargs)
 else
-    echo "Error: compose/secrets.env file not found. This file is required."
+    echo "Error: compose/secrets.env file not found. This file is required." >&2
     exit 1
 fi
 
 # Check uv is available
 if ! command -v uv &> /dev/null; then
-    echo "Error: uv is not installed. Please install uv as per the README."
+    echo "Error: uv is not installed. Please install uv as per the README." >&2
     exit 1
 fi
 
 # Start the application
 echo "Starting FastAPI application..."
-uv run uvicorn app.main:app --host $HOST --port $PORT --reload --log-config=$LOG_CONFIG
+# --no-build is not an option: pymongo has no wheel for this Python yet.
+uv run uvicorn app.main:app --host $HOST --port $PORT --reload --log-config=$LOG_CONFIG # NOSONAR
 
 # Cleanup function
 cleanup() {

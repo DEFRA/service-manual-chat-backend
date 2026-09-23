@@ -40,12 +40,9 @@ def test_reason_belongs_to_cannot_answer_only():
 
 
 def test_only_an_answer_quotes_a_rule():
+    rule = RuleVerbatim(text="x", source=SOURCE)
     with pytest.raises(ValidationError, match="only an answer"):
-        Answer(
-            status="talk_to_a_person",
-            message="m",
-            rule_verbatim=RuleVerbatim(text="x", source=SOURCE),
-        )
+        Answer(status="talk_to_a_person", message="m", rule_verbatim=rule)
 
 
 def test_status_outside_the_six_is_rejected():

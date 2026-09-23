@@ -16,8 +16,5 @@ def test_counter_handles_exception(mocker):
     # Should not raise exception but catch it
     counter("test_metric", 123)
 
-    # Verify error was logged
-    assert mock_logger.error.call_count == 1
-    args, _ = mock_logger.error.call_args
-    assert "Error calling put_metric" in args[0]
-    assert str(args[1]) == "Test Error"
+    # Verify error was logged with its traceback
+    mock_logger.exception.assert_called_once_with("Error calling put_metric")

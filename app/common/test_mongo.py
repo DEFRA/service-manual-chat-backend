@@ -55,10 +55,10 @@ async def test_get_mongo_client_with_custom_tls(mocker, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_get_mongo_client_returns_existing(mocker):
+async def test_get_mongo_client_returns_existing(mocker, monkeypatch):
     # Set an existing client
     existing_client = mocker.Mock()
-    mongo.client = existing_client
+    monkeypatch.setattr(mongo, "client", existing_client)
 
     mock_client_cls = mocker.patch("app.common.mongo.AsyncMongoClient")
 
@@ -69,18 +69,17 @@ async def test_get_mongo_client_returns_existing(mocker):
     mock_client_cls.assert_not_called()
 
 
-@pytest.mark.asyncio
-async def test_get_db(mocker):
+def test_get_db(mocker):
     mock_client = mocker.MagicMock()
     mock_db = mocker.Mock()
     mock_client.get_database.return_value = mock_db
 
     # First call initializes
-    result = await mongo.get_db(mock_client)
+    result = mongo.get_db(mock_client)
     assert result == mock_db
     mock_client.get_database.assert_called_once_with(config.mongo_database)
 
     # Second call returns cached
-    result2 = await mongo.get_db(mock_client)
+    result2 = mongo.get_db(mock_client)
     assert result2 == mock_db
     assert mock_client.get_database.call_count == 1
