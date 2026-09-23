@@ -333,14 +333,11 @@ uv run pytest
 
 ## API endpoints
 
-| Endpoint             | Description                    |
-| :------------------- | :----------------------------- |
-| `GET: /docs`         | Automatic API Swagger docs     |
-| `GET: /health`       | Health check endpoint          |
-| `GET: /example/test` | Simple example endpoint        |
-| `GET: /example/db`   | Database query example         |
-| `GET: /example/http` | HTTP client example            |
-| `POST: /ask`         | Answer a toolkit question      |
+| Endpoint       | Description                |
+| :------------- | :------------------------- |
+| `GET: /docs`   | Automatic API Swagger docs |
+| `GET: /health` | Health check endpoint      |
+| `POST: /ask`   | Answer a toolkit question  |
 
 `POST /ask` takes:
 
@@ -398,12 +395,18 @@ In order to make this library work in the environments, the environment variable
 
 ### Dependabot
 
-We have added an example dependabot configuration file to the repository. You can enable it by renaming
-the [.github/example.dependabot.yml](.github/example.dependabot.yml) to `.github/dependabot.yml`
+[.github/dependabot.yml](.github/dependabot.yml) checks direct Python
+dependencies and GitHub Actions every Monday morning and opens up to ten pull
+requests at a time.
 
 ### SonarCloud
 
-Instructions for setting up SonarCloud can be found in [sonar-project.properties](./sonar-project.properties)
+Every pull request and every build of `main` runs a SonarCloud scan with the
+coverage pytest writes to `coverage.xml`. Results are at
+<https://sonarcloud.io/project/overview?id=DEFRA_service-manual-chat-backend>.
+The scan reads [sonar-project.properties](./sonar-project.properties) and
+needs the `SONAR_TOKEN` repository secret. Dependabot's pull requests skip the
+scan because they cannot read secrets.
 
 ## Licence
 

@@ -11,7 +11,6 @@ from app.ask.router import router as ask_router
 from app.common.mongo import get_mongo_client
 from app.common.tracing import TraceIdMiddleware
 from app.config import config
-from app.example.router import router as example_router
 from app.health.router import router as health_router
 
 logger = getLogger(__name__)
@@ -50,7 +49,6 @@ app.add_middleware(TraceIdMiddleware)
 
 # Setup Routes
 app.include_router(health_router)
-app.include_router(example_router)
 app.include_router(ask_router)
 
 
