@@ -68,7 +68,8 @@ def fetch(ref: str, dest: Path) -> list[Path]:
     if not written:
         message = f"no toolkit pages found in {REPO} at {ref}"
         raise SystemExit(message)
-    (dest / REF_FILE).write_text(f"{ref}\n", encoding="utf-8")
+    # dest is wherever the operator asked for the pages, by design.
+    (dest / REF_FILE).write_text(f"{ref}\n", encoding="utf-8")  # NOSONAR
     return written
 
 

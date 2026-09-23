@@ -6,7 +6,6 @@ the content directory without the `.md`, which is the same mapping the front
 end uses when it checks a quote against a page.
 """
 
-import re
 from dataclasses import dataclass
 from logging import getLogger
 from pathlib import Path
@@ -16,7 +15,6 @@ from app.ask.schemas import Answer, Source
 
 logger = getLogger(__name__)
 
-TITLE = re.compile(r"^title:\s*(.+?)\s*$", re.MULTILINE)
 FENCE = "---\n"
 
 
@@ -36,10 +34,17 @@ def split_frontmatter(text: str) -> tuple[str, str]:
     return "", text
 
 
+def title_in(frontmatter: str) -> str | None:
+    for line in frontmatter.splitlines():
+        key, sep, value = line.partition(":")
+        if sep and key == "title":
+            return value.strip().strip("'\"")
+    return None
+
+
 def parse_page(url: str, text: str) -> Page:
     frontmatter, body = split_frontmatter(text)
-    title_match = TITLE.search(frontmatter)
-    title = title_match.group(1).strip("'\"") if title_match else url
+    title = title_in(frontmatter) or url
     return Page(url=url, title=title, body=body.strip())
 
 
