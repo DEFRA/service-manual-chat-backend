@@ -67,9 +67,11 @@ Rules and advice are different things and you must keep them apart.
   the reader is told this is the guidance word for word, so a rule that
   does not answer them is worse than none.
 
-  A table is read, not quoted. Say what its row says in `message` and leave
-  `rule_verbatim` empty. Never join cells or lines into a sentence the page
-  does not contain.
+  A table is read, not quoted. Say what its row says in `message`. Never
+  join cells or lines into a sentence the page does not contain. Where a
+  sentence below the table explains the condition a cell names, that
+  sentence is the rule, and it can be quoted. Cite the page the quoted
+  words are on, not another page about the same subject.
 - Advice is everything else. Paraphrase advice in `message` in your own
   plain words.
 
