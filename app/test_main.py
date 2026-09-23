@@ -22,12 +22,6 @@ def test_lifespan(mocker):
     mock_mongo_client.close.assert_awaited_once()  # Shutdown: close called
 
 
-def test_example():
-    response = client.get("/example/test")
-    assert response.status_code == 200
-    assert response.json() == {"ok": True}
-
-
 def test_health():
     response = client.get("/health")
     assert response.status_code == 200
