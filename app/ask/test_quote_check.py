@@ -80,3 +80,14 @@ def test_words_mark_sentence_boundaries_across_blocks():
 def test_strip_inline_tags_keeps_block_tags():
     body = '<ul class="x">\n<li><strong>Stop.</strong> Now <a href="/y">go</a>.</li>\n</ul>'
     assert strip_inline_tags(body) == '<ul class="x">\n<li>Stop. Now go.</li>\n</ul>'
+
+
+def test_words_number_each_table_cell_and_leave_the_text_around_it_unnumbered():
+    page = "Before.\n\n<table><tr><th>A b</th><td>C</td></tr></table>\n\nAfter."
+    assert [(w.text, w.cell) for w in words(page)] == [
+        ("before", None),
+        ("a", 1),
+        ("b", 1),
+        ("c", 2),
+        ("after", None),
+    ]

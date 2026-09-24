@@ -22,7 +22,7 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-Outcome = Literal["ok", "not_found", "partial", "empty"]
+Outcome = Literal["ok", "not_found", "partial", "stitched", "empty"]
 
 # Tags that sit inside a sentence. Every other tag ends a block, and a block
 # boundary is a sentence boundary: a list item that is a fragment with no full
@@ -57,6 +57,11 @@ LINK = re.compile(r"\[([^\[\]]*)\]\((?:<[^<>]*>|[^()<>]*)\)")
 BLOCK_MARKER = re.compile(r"^ *(?:#{1,6}|[-*+]|\d+[.)]) +", re.MULTILINE)
 BLOCK_QUOTE = re.compile(r"^ *> *", re.MULTILINE)
 BLANK_LINE = re.compile(r"\n[ \t]*\n")
+# A table cell's opening tag. Each cell becomes its own block, marked so a
+# quote cannot be stitched together out of cells: a row read across is not a
+# sentence, however whole each cell is.
+CELL_OPEN = re.compile(r"<\s*t[dh]\b[^<>]*>", re.IGNORECASE)
+CELL_MARK = "\ue000"  # private use: never on a page, dropped before matching
 # Punctuation, brackets and emphasis marks at either end of a token are not
 # part of the word. "(ATRS)." and "ATRS" are the same word, "**Using.**" is
 # "Using", and a bare "-" is no word at all.
@@ -119,6 +124,7 @@ class Word:
     text: str
     starts_sentence: bool
     ends_sentence: bool
+    cell: int | None
 
 
 def _strip_punctuation(token: str) -> str:
@@ -135,9 +141,17 @@ def _ends_sentence(token: str) -> bool:
 
 
 def words(markdown: str) -> list[Word]:
-    """The page's words in order, each knowing whether a sentence starts or ends on it."""
+    """The page's words in order, each knowing whether a sentence starts or ends
+    on it and which table cell, if any, it sits in."""
     result: list[Word] = []
-    for block in BLANK_LINE.split(plain_text(markdown)):
+    marked = CELL_OPEN.sub(lambda m: m.group(0) + CELL_MARK, markdown)
+    cells = 0
+    for block in BLANK_LINE.split(plain_text(marked)):
+        cell = None
+        if CELL_MARK in block:
+            cells += 1
+            cell = cells
+            block = block.replace(CELL_MARK, " ")
         tokens = block.split()
         kept: list[tuple[str, str]] = []
         for token in tokens:
@@ -154,7 +168,7 @@ def words(markdown: str) -> list[Word]:
             first = i == 0
             last = i == len(kept) - 1
             starts = first or _ends_sentence(kept[i - 1][1])
-            result.append(Word(word, starts, last or _ends_sentence(token)))
+            result.append(Word(word, starts, last or _ends_sentence(token), cell))
     return result
 
 
@@ -162,8 +176,12 @@ def check_quote(quote: str, page_markdown: str) -> Outcome:
     """Whether the quote is on the page, word for word and whole.
 
     `ok`: the words appear in order and run from the start of a sentence to
-    the end of one. `partial`: the words appear but the quote starts or stops
-    part way through a sentence, so a condition may have been dropped.
+    the end of one. `stitched`: the words appear in order but the match takes
+    in a table cell and something outside it, another cell or the text
+    around the table, so they were never one sentence. A quote may still run
+    across whole list items: the four incident steps are one quote.
+    `partial`: the words appear but the quote starts or stops part way
+    through a sentence, so a condition may have been dropped.
     `not_found`: a word was changed, added or removed. `empty`: nothing left
     to check once markup and whitespace are gone, which would otherwise match
     every page.
@@ -173,11 +191,16 @@ def check_quote(quote: str, page_markdown: str) -> Outcome:
         return "empty"
     page = words(page_markdown)
     n = len(wanted)
-    found = False
+    outcome: Outcome = "not_found"
     for start in range(len(page) - n + 1):
         if [word.text for word in page[start : start + n]] != wanted:
             continue
-        found = True
-        if page[start].starts_sentence and page[start + n - 1].ends_sentence:
+        matched = page[start : start + n]
+        cells = {word.cell for word in matched}
+        if len(cells) > 1:
+            outcome = "stitched"
+        elif matched[0].starts_sentence and matched[-1].ends_sentence:
             return "ok"
-    return "partial" if found else "not_found"
+        elif outcome == "not_found":
+            outcome = "partial"
+    return outcome
