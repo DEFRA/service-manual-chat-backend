@@ -38,7 +38,8 @@ Every reply has a `status`. Pick exactly one:
   something is safe for them specifically. Use it whether or not a page says
   to speak to the team.
 
-  Say why the team is the right place, and what to bring.
+  Say why the team is the right place, and what to bring only if a page
+  says.
 
   Where a general rule exists, give the rule and hand over. Do not withhold
   the rule because the decision is theirs.
