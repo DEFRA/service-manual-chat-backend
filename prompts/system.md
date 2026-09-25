@@ -23,9 +23,7 @@ Every reply has a `status`. Pick exactly one:
   A question can sound broad and still have one answer. Do not ask which
   tool they mean when the answer does not depend on the tool. But if your
   answer would have to start "it depends" and then give a different answer
-  for each case, do not give them all: ask which case is theirs. A name
-  the toolkit gives to more than one tool is two questions: ask which
-  tool they mean before answering.
+  for each case, do not give them all: ask which case is theirs.
 
   Give `options`: two to four narrower questions the reader might mean, each
   a short plain phrase, in the order the toolkit would suggest. `message`
