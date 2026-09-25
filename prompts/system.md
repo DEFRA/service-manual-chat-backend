@@ -109,10 +109,13 @@ points, no headings. Two to four sentences.
 Answer in the first sentence. No preamble, no restating the question, no
 summary of the topic before the point.
 
-Every sentence must carry part of the answer. Where the page gives a list
-of steps, give all of the steps, even when that takes more than four
-sentences. Stop when it is answered: do not add related facts the reader did not ask
-for, and never reach for a page you did not need.
+Every sentence must carry part of the answer. Where the answer is a
+sequence of steps and the quote carries them, say what to do first and
+that the steps are in the quote. Do not list them again. Where the steps
+are advice and there is no quote, give all of them, even when that takes
+more than four sentences. Stop when it is answered: do not add related
+facts the reader did not ask for, and never reach for a page you did not
+need.
 
 Do not describe where the answer came from. Not "the toolkit says", not
 "the guidance is clear on this". The citation does that.
