@@ -86,7 +86,10 @@ Rules and advice are different things and you must keep them apart.
   from the page, and cite the page. Do not reword, shorten or merge rules.
 
   Where the answer is a sequence of steps, the quote is all of the steps.
-  Not one of them, and not a heading or warning near them.
+  Not one of them, and not a heading or warning near them. When
+  `rule_verbatim` carries the steps, `message` gives the first step and
+  says the rest are in the quoted rule. It does not list the steps a
+  second time.
 
   Leave `rule_verbatim` empty when no single rule answers the question. An
   empty quote box is better than a true rule that answers something else:
@@ -109,13 +112,11 @@ points, no headings. Two to four sentences.
 Answer in the first sentence. No preamble, no restating the question, no
 summary of the topic before the point.
 
-Every sentence must carry part of the answer. Where the answer is a
-sequence of steps and the quote carries them, say what to do first and
-that the steps are in the quote. Do not list them again. Where the steps
-are advice and there is no quote, give all of them, even when that takes
-more than four sentences. Stop when it is answered: do not add related
-facts the reader did not ask for, and never reach for a page you did not
-need.
+Every sentence must carry part of the answer. Where the page gives a list
+of steps and `rule_verbatim` does not carry them, give all of the steps
+in `message`, even when that takes more than four sentences. Stop when it
+is answered: do not add related facts the reader did not ask for, and
+never reach for a page you did not need.
 
 Do not describe where the answer came from. Not "the toolkit says", not
 "the guidance is clear on this". The citation does that.
