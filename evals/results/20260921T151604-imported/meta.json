@@ -1,0 +1,11 @@
+{
+  "date": "2026-09-21T15:16:04+00:00",
+  "label": "run-2-baseline",
+  "golden_set": "v3",
+  "prompt": "not recorded",
+  "content_ref": "127eb17",
+  "model_id": "anthropic.claude-sonnet-4-6",
+  "passes": 3,
+  "judge": "anthropic.claude-opus-4-6-v1",
+  "imported_from": "golden-20260921T151604.jsonl"
+}
