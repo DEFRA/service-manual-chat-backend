@@ -71,6 +71,7 @@ warns if the run used a different version; pass `--set` with that version's
 | `writing.py` | The writing counts |
 | `prices.json` | Dated London prices, for the cost line |
 | `results/` | One directory per run: `meta.json`, `answers.jsonl.gz`, `verdicts.json.gz`, `report.json`. Committed, so any number can be re-checked |
+| `results/*-imported/` | The 21 and 25 September 2026 runs, made with the throw-away harness this replaces and brought in with `python -m evals import`. They are the baselines the new code was checked against |
 
 When the golden set changes on Confluence, paste the page into `golden-set.md`,
 replace people's names with their roles (this repo is public), run
@@ -115,3 +116,28 @@ Each rule is the golden set's, and dated where it was settled.
 A run cannot claim a bar on one pass. Between runs of the same prompt, Grounded
 and Complete move by three to five: a row has moved only if it changes on all
 three passes.
+
+## Why not Pydantic Evals
+
+Considered on 28 September 2026, from the Pydantic Evals docs (`Dataset` and
+`LLMJudge`), since the backend already uses Pydantic AI. Decided against.
+
+| Need | Pydantic Evals | This harness |
+|---|---|---|
+| Three passes of every question | Yes, `Dataset.evaluate(repeat=...)` | Yes, `--passes 3` |
+| Concurrency limit | Yes, `max_concurrency` | Yes |
+| Stop at a token ceiling | Not documented | Yes, `--max-tokens` |
+| A judge that reads all the toolkit pages, cached | No. `LLMJudge` takes a rubric string, with no documented way to add fixed context or a cache point | Yes. The pages are the cached instructions; most judge tokens are cache reads |
+| Grounded, Complete and the row's rule from one judge call | No. One `LLMJudge` per verdict, so about three times the judge cost | Yes, one call returns all three |
+| Re-score saved answers with no model calls | No. A task is required; the only route is one that looks answers up from a file | Yes, `score` |
+| Six bars as ranges across passes, pass or fail per bar | No. Reports are per-case scores and averages | Yes |
+
+The two things that make the set affordable and honest, a cached judge that
+sees the whole toolkit and re-scoring without model calls, are the two things
+Pydantic Evals does not do. Building on it would mean wrapping this judge in a
+custom evaluator, faking re-scoring with a lookup task, and writing a custom
+report: this harness again, inside a framework, with a new dependency.
+
+Worth revisiting if `LLMJudge` accepts fixed, cached context or returns several
+verdicts from one call, or if Defra's AI platform ships an evaluation service
+teams are expected to use.

@@ -214,7 +214,7 @@ async def judge_again(args) -> None:
 
 
 def import_run(args) -> None:
-    """A prototype run (cui_sketchpad prototypes/model-comparison) as a run directory."""
+    """A run from the harness used before this one (golden-*.jsonl, one line per answer) as a run directory."""
     records = [
         json.loads(line) for line in args.jsonl.read_text(encoding="utf-8").splitlines()
     ]
@@ -355,7 +355,7 @@ def parser() -> argparse.ArgumentParser:
     agree_cmd.set_defaults(handler=agree)
     agree_cmd.add_argument("runs", nargs="+", type=resolved)
 
-    import_cmd = commands.add_parser("import", help="bring in a prototype run")
+    import_cmd = commands.add_parser("import", help="bring in a run from the earlier harness")
     import_cmd.set_defaults(handler=import_run)
     import_cmd.add_argument("jsonl", type=resolved)
     import_cmd.add_argument(
