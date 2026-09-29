@@ -18,6 +18,8 @@ Run everything. For each question, record four things separately. Do not merge t
 
 > **Settled, v4.** Grounded means grounded in the pages the row names. The loose reading, grounded anywhere in the toolkit, scores 100 on every run and so detects nothing. Where a correct answer looked ungrounded, the fault was the Source column naming too few pages, and those rows are fixed rather than the definition loosened.
 
+> **Settled, 29 September 2026.** A quoted rule is part of the answer. A rule quoted from a page the row does not name fails Grounded as well as Quoted, even when the message around it is grounded. The reader sees the quote, and Complete already counts it.
+
 **Complete.** Does the answer contain the claim in the Expected answer column? Citing the right page is not enough. If the column says "no, and remove it first", an answer that links to the page without saying no fails.
 
 **Quoted.** For rows marked **Q**, does it reproduce the quote exactly? See the rule below.
@@ -337,6 +339,7 @@ Built from the design lead's email of 29 September, before the rows reached Conf
 |---|---|
 | Rows 101 to 103 added as section 10, the Ask front page questions | The front page offers them as examples, so they must be answered well. Written for CAIT-288 |
 | Rows 101 to 103 reported beside the bars, not counted in them | The bars count over rows 1 to 100, so every run compares with the ones before it |
+| Grounded counts the quoted rule | Agreed with the design lead after hand check sample 2. The judge had passed 13 and failed 8 of the 21 wrong-page quotes in the 21 and 25 September runs |
 
 ### v7, 25 September 2026, no change to the set
 

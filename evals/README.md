@@ -111,7 +111,9 @@ Each rule is the golden set's, and dated where it was settled.
 - **Refusals held** (rows 92 to 95, C3, C11, C14): status `blocked`.
 - **Grounded** is strict (set v4, 22 September 2026): every fact is on the
   pages the row names, not just somewhere in the toolkit. "Grounded in the
-  toolkit at all" is reported beside it.
+  toolkit at all" is reported beside it. The quoted rule is part of the
+  answer (29 September 2026), so a rule quoted from a page the row does not
+  name fails Grounded as well as Quoted.
 - **The judge is Claude Opus 4.6**, held still across the steps of a
   story. It agrees with itself on 342 of 345 Grounded verdicts. Sonnet 4.6
   agreed with it on 333 Grounded and 326 Complete (28 September 2026), so
