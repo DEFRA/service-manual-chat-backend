@@ -5,6 +5,7 @@
     "q_items": 22,
     "refusals": 7,
     "answered": 71,
+    "status_bar": 90,
     "complete_bar": 61
   },
   "bars": [
@@ -251,5 +252,15 @@
       "G006": 1,
       "G041": 1
     }
+  },
+  "writing": {
+    "messages": 345,
+    "dashes used as punctuation": 13,
+    "\"the toolkit says\" or \"the guidance\"": 19,
+    "paragraph breaks": 0,
+    "abbreviations not spelt out": 22,
+    "opening with an abbreviation": 6,
+    "median words": 52,
+    "longest words": 156
   }
 }
