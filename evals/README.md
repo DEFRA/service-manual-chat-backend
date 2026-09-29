@@ -84,6 +84,10 @@ Each rule is the golden set's, and dated where it was settled.
 - **A run is three passes.** Every measure is reported as the range across
   them, lowest to highest: "Report the range, not the best". A bar passes
   only if every pass clears it, and one failed bar fails the run.
+- **The bars count over rows 1 to 100** (29 September 2026), as the set's
+  bars say, so every run compares with the ones before it. Rows added since
+  (v8, 101 to 103) are asked and judged like the rest, and printed beside
+  the bars as "Rows beside the bars", never counted in them.
 - **Right status** is the status the row expects, and its reason where the
   row gives one (`outside_toolkit`, `no_guidance_yet`). Counted over the
   100 questions; the 15 conversation turns are reported beside it.
