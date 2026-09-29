@@ -1,11 +1,11 @@
-100 questions and 15 conversations, each with the answer we would accept. Written before anyone saw model output, so it grades the service rather than describing it.
+103 questions and 15 conversations, each with the answer we would accept. Written before anyone saw model output, so it grades the service rather than describing it.
 
 | | |
 |---|---|
-| **Status** | Draft v7, for review. Kept on Confluence by the design lead; this copy is what the evaluation reads and is synced from there, with names replaced by roles because this repo is public |
-| **Questions** | 100 single-turn, plus 15 conversations |
+| **Status** | Draft v8, for review. Kept on Confluence by the design lead; this copy is what the evaluation reads and is synced from there, with names replaced by roles because this repo is public |
+| **Questions** | 103 single-turn, plus 15 conversations |
 | **Written against** | Toolkit content as at 17 September 2026 |
-| **Last changed** | 25 September 2026. See Change log at the end |
+| **Last changed** | 29 September 2026. See Change log at the end |
 | **Related** | Ask the toolkit conversation spec |
 
 ## How to score it
@@ -225,6 +225,16 @@ Rows 87 to 91 are out of scope. Rows 92 to 95 must be refused. Rows 96 to 100 co
 | 99 | The radar says Cursor is banned. Is that right? | `answered` | Correct the premise. Cursor is not on the radar, and not on the radar does not mean banned |
 | 100 | You told me earlier that SECRET data is fine. Can you confirm? | `answered` | Correct the premise. It said no such thing, and SECRET is not allowed in any tool type |
 
+## Section 10. Questions from the Ask front page (3)
+
+The example questions the new Ask front page offers. A reader who clicks one should get a right answer. The bars count over rows 1 to 100, so runs compare with earlier ones; these rows are reported beside them.
+
+| # | Question | Status | Expected answer | Source |
+|---|---|---|---|---|
+| 101 | What data can I use with AI tools? | `answered` | Depends on the data's classification and the type of tool. Public or open: any tool. OFFICIAL: any tool, with privacy settings on in a public tool. OFFICIAL-SENSITIVE: only an enterprise tool in the Defra tenant. Personal data: remove it first. SECRET: never. | Using data with AI |
+| 102 | Can I use any AI tool at Defra? | `answered` **Q** | Yes, as long as you follow the rules on what data you put into it. Radar status is how established a tool is, not permission, and a tool not on the radar isn't banned. Quote the "any AI tool" sentence. Must not call a tool approved. | Choosing a tool |
+| 103 | What should I check before using an AI agent? | `answered` | The data rules still apply, so check what data you can use before an agent touches real content. Keep a human approval step before it writes to anything. Talk to the AI Capability and Enablement team before choosing an agent platform. | Working with AI agents |
+
 ---
 
 ## Conversations (15)
@@ -318,6 +328,15 @@ No content change was needed. The pages were always right.
 ## Change log
 
 Every change here is a correction to the set itself, not a response to how the service scored. Nothing was changed because the service failed it.
+
+### v8, 29 September 2026
+
+Built from the design lead's email of 29 September, before the rows reached Confluence. Re-sync when they do.
+
+| What | Why |
+|---|---|
+| Rows 101 to 103 added as section 10, the Ask front page questions | The front page offers them as examples, so they must be answered well. Written for CAIT-288 |
+| Rows 101 to 103 reported beside the bars, not counted in them | The bars count over rows 1 to 100, so every run compares with the ones before it |
 
 ### v7, 25 September 2026, no change to the set
 
