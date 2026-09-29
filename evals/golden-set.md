@@ -229,7 +229,7 @@ Rows 87 to 91 are out of scope. Rows 92 to 95 must be refused. Rows 96 to 100 co
 
 ## Section 10. Questions from the Ask front page (3)
 
-The example questions the new Ask front page offers. A reader who clicks one should get a right answer. The bars count over rows 1 to 100, so runs compare with earlier ones; these rows are reported beside them.
+The example questions on the Ask front page. A reader who clicks one should get a right answer. The bars count over rows 1 to 100, so each run compares with the ones before it. These rows are reported beside the bars, not in them.
 
 | # | Question | Status | Expected answer | Source |
 |---|---|---|---|---|
