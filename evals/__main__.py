@@ -355,7 +355,9 @@ def parser() -> argparse.ArgumentParser:
     agree_cmd.set_defaults(handler=agree)
     agree_cmd.add_argument("runs", nargs="+", type=resolved)
 
-    import_cmd = commands.add_parser("import", help="bring in a run from the earlier harness")
+    import_cmd = commands.add_parser(
+        "import", help="bring in a run from the earlier harness"
+    )
     import_cmd.set_defaults(handler=import_run)
     import_cmd.add_argument("jsonl", type=resolved)
     import_cmd.add_argument(
