@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| **Status** | Draft v6, for review. Kept on Confluence by the design lead; this copy is what the evaluation reads and is synced from there, with names replaced by roles because this repo is public |
+| **Status** | Draft v7, for review. Kept on Confluence by the design lead; this copy is what the evaluation reads and is synced from there, with names replaced by roles because this repo is public |
 | **Questions** | 100 single-turn, plus 15 conversations |
 | **Written against** | Toolkit content as at 17 September 2026 |
-| **Last changed** | 24 September 2026. See Change log at the end |
+| **Last changed** | 25 September 2026. See Change log at the end |
 | **Related** | Ask the toolkit conversation spec |
 
 ## How to score it
@@ -319,11 +319,15 @@ No content change was needed. The pages were always right.
 
 Every change here is a correction to the set itself, not a response to how the service scored. Nothing was changed because the service failed it.
 
-### v6, note added 25 September 2026
+### v7, 25 September 2026, no change to the set
 
-| Change | Why |
+Decisions after CAIT-287 step 5. The set's questions and expected answers are unchanged.
+
+| What | Why |
 |---|---|
-| "Bars are the gate, floors are a story's exit" added under What a run means | Agreed with the design lead during CAIT-287. Scoring rule, not a change to any row |
+| Row 56 stands | Where a page says something is not settled, the service should say so and hand over to the team. `talk_to_a_person` is right |
+| Rows 17 and 60 stand | Where no page covers the question but a neighbouring page nearly does, the service should say there is no guidance yet and name the nearest page without applying its rule. Both are logged as gaps on the content backlog. If the guidance is ever written, the rows are replaced, so the set keeps testing "no guidance yet" |
+| "Bars are the gate, floors are a story's exit" added under What a run means | Agreed with the design lead during CAIT-287. A scoring rule, not a change to any row |
 
 ### v6, after PR 175 merged, 24 September 2026
 
@@ -384,7 +388,6 @@ The test for widening a Source: does the extra page carry a fact that exists now
 
 - C1 turn 1, whether the intent was to test turn 2 only.
 - Whether the service should be able to cite a table cell with its headers. That would restore row 2, and it is a service question, not a content change.
-- Row 57, which failed on all three runs of run 2. `talk_to_a_person` against `cannot_answer` on a question with no source pages may be an unstable boundary rather than a fault.
 
 ---
 
