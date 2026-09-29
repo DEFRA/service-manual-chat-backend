@@ -333,11 +333,11 @@ Every change here is a correction to the set itself, not a response to how the s
 
 ### v8, 29 September 2026
 
-Built from the design lead's email of 29 September, before the rows reached Confluence. Re-sync when they do.
+Three rows added for CAIT-288. Rows 1 to 100 are unchanged.
 
 | What | Why |
 |---|---|
-| Rows 101 to 103 added as section 10, the Ask front page questions | The front page offers them as examples, so they must be answered well. Written for CAIT-288 |
+| Rows 101 to 103 added as section 10, the Ask front page questions | The front page offers them as examples, so a reader who clicks one should get a right answer |
 | Rows 101 to 103 reported beside the bars, not counted in them | The bars count over rows 1 to 100, so every run compares with the ones before it |
 | Grounded counts the quoted rule | Agreed with the design lead after hand check sample 2. The judge had passed 13 and failed 8 of the 21 wrong-page quotes in the 21 and 25 September runs |
 
