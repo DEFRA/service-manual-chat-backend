@@ -7,18 +7,16 @@ locally, an inference profile and guardrail on CDP.
 
 from collections.abc import Awaitable, Callable
 
-from app.ask.schemas import Answer
+from app.ask.schemas import Answer, Turn
 from app.ask.stub import stub_answer
 from app.config import config
 
-AnswerEngine = Callable[[str, str | None], Awaitable[Answer]]
+AnswerEngine = Callable[[str, list[Turn]], Awaitable[Answer]]
 
 
-async def stub_engine(  # NOSONAR
-    question: str, previous_question: str | None
-) -> Answer:
+async def stub_engine(question: str, history: list[Turn]) -> Answer:  # NOSONAR
     # Nothing to await, but an engine is awaitable so the router need not care.
-    return stub_answer(question, previous_question)
+    return stub_answer(question, history)
 
 
 def get_engine() -> AnswerEngine:

@@ -9,7 +9,7 @@ cites.
 
 import re
 
-from app.ask.schemas import Answer, RuleVerbatim, Source
+from app.ask.schemas import Answer, RuleVerbatim, Source, Turn
 
 USING_DATA = Source(
     title="Using data with AI",
@@ -170,7 +170,7 @@ def reads_as_follow_up(asked: str) -> bool:
     )
 
 
-def stub_answer(question: str, previous_question: str | None = None) -> Answer:
+def stub_answer(question: str, history: list[Turn] | None = None) -> Answer:
     """Pick the stub answer for a question.
 
     Following up is the normal case, not the exception, so a question that
@@ -182,13 +182,9 @@ def stub_answer(question: str, previous_question: str | None = None) -> Answer:
         GENERAL_ANSWER,
     )
 
-    if (
-        not previous_question
-        or not reads_as_follow_up(asked)
-        or answer.status != "answered"
-    ):
+    if not history or not reads_as_follow_up(asked) or answer.status != "answered":
         return answer
 
     return answer.model_copy(
-        update={"message": f'Still on "{previous_question}": {answer.message}'}
+        update={"message": f'Still on "{history[-1].question}": {answer.message}'}
     )

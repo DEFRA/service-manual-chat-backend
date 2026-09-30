@@ -354,11 +354,23 @@ About £9 with a Bedrock sandbox key. See [evals/README.md](./evals/README.md).
 `POST /ask` takes:
 
 ```json
-{ "question": "Can I paste personal data into Copilot?", "previous_question": null, "conversation_id": null }
+{
+  "question": "That's wrong, there is more detail in each section",
+  "history": [
+    { "question": "What are the rules on data?", "status": "answered", "message": "Remove personal data first...", "options": [] },
+    { "question": "Tell me more", "status": "answered", "message": "The data guidance has three sections...", "options": [] }
+  ],
+  "conversation_id": null
+}
 ```
 
-`question` is 1 to 500 characters. `previous_question` lets a follow-up
-("what about research data?") be read against what came before. It returns
+`question` is 1 to 500 characters. `history` is the conversation so far,
+oldest first, at most 4 turns, so a follow-up ("that's wrong") can be read
+against what came before. Each turn carries the answer's words only, up to
+2,000 characters, and `options` when it asked for more detail. Blocked turns
+are left out of the prompt. The conversation is kept only in the front end's
+session. `previous_question`, a single earlier question, is still accepted
+until the front end sends `history`. It returns
 the shape `service-manual-ui` maps in `src/server/ai-ask/answer.js`:
 
 ```json

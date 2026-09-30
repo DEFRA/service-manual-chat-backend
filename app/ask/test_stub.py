@@ -1,5 +1,6 @@
 import pytest
 
+from app.ask.schemas import Turn
 from app.ask.stub import (
     CHOOSING_A_TOOL_ANSWER,
     GENERAL_ANSWER,
@@ -7,6 +8,10 @@ from app.ask.stub import (
     reads_as_follow_up,
     stub_answer,
 )
+
+
+def asked_before(question: str) -> list[Turn]:
+    return [Turn(question=question, status="answered", message="m")]
 
 
 @pytest.mark.parametrize(
@@ -25,15 +30,17 @@ def test_first_question_is_never_a_follow_up():
     assert stub_answer("what about agents?") == GENERAL_ANSWER
 
 
-def test_follow_up_names_the_previous_question():
-    answer = stub_answer("what about agents?", previous_question="Can I use Copilot?")
+def test_follow_up_names_the_last_question_in_the_history():
+    answer = stub_answer(
+        "what about agents?", history=asked_before("Can I use Copilot?")
+    )
     assert answer.message.startswith('Still on "Can I use Copilot?": ')
     assert answer.sources == GENERAL_ANSWER.sources
 
 
 def test_new_subject_after_a_question_is_not_a_follow_up():
     question = "Which tool should our team pick for summarising long official documents"
-    answer = stub_answer(question, previous_question="Can I use Copilot?")
+    answer = stub_answer(question, history=asked_before("Can I use Copilot?"))
     assert answer == CHOOSING_A_TOOL_ANSWER
 
 
@@ -89,6 +96,6 @@ def test_need_more_detail_offers_two_to_four_options():
 
 
 def test_only_an_answer_is_treated_as_a_follow_up():
-    answer = stub_answer("and expenses?", previous_question="Can I use Copilot?")
+    answer = stub_answer("and expenses?", history=asked_before("Can I use Copilot?"))
     assert answer.status == "cannot_answer"
     assert not answer.message.startswith("Still on")
