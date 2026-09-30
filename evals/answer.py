@@ -18,11 +18,18 @@ CONCURRENCY = 4
 async def ask(agent, question: dict, corpus) -> dict:
     from app.ask.bedrock import user_prompt
     from app.ask.corpus import verify
+    from app.ask.schemas import AskRequest
 
     started = time.perf_counter()
     try:
         result = await agent.run(
-            user_prompt(question["question"], question.get("previous_question"))
+            user_prompt(
+                question["question"],
+                AskRequest(
+                    question=question["question"],
+                    previous_question=question.get("previous_question"),
+                ).conversation(),
+            )
         )
     except Exception as error:  # noqa: BLE001 - every failure is a finding
         return {

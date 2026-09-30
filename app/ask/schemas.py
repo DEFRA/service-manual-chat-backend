@@ -11,21 +11,12 @@ rule, it never rewrites one. The front end checks the quote against the page
 and drops it if the words differ, so a paraphrase is not shown, it is lost.
 """
 
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, StringConstraints, model_validator
 
 # Matches MAX_QUESTION_LENGTH in service-manual-ui `src/server/ai-ask/constants.js`.
 MAX_QUESTION_LENGTH = 500
-
-
-class AskRequest(BaseModel):
-    question: str = Field(min_length=1, max_length=MAX_QUESTION_LENGTH)
-    # The question asked before this one, so a follow-up ("what about agents?")
-    # can be read against it. Sent by the front end from its session; a durable
-    # conversation lives here later, this is enough for a local loop.
-    previous_question: str | None = Field(default=None, max_length=MAX_QUESTION_LENGTH)
-    conversation_id: str | None = None
 
 
 class Source(BaseModel):
@@ -100,3 +91,46 @@ class Answer(BaseModel):
             msg = "only an answer quotes a rule"
             raise ValueError(msg)
         return self
+
+
+# Match MAX_HISTORY_TURNS and MAX_MESSAGE_LENGTH in service-manual-ui
+# `src/server/ai-ask/constants.js`. Four turns because "What was my second
+# question?" after four questions (golden set C15) needs all four. The longest
+# message in the golden set runs is about 1,200 characters; the front end cuts
+# anything past the cap rather than have every later question refused.
+MAX_HISTORY_TURNS = 4
+MAX_MESSAGE_LENGTH = 2000
+
+
+class Turn(BaseModel):
+    """One earlier exchange, as the reader saw it.
+
+    Only the words: no sources and no quoted rule. `options` matters for
+    need_more_detail, whose message alone ("Which of these is closest?")
+    does not say what "Security." was chosen from.
+    """
+
+    question: str = Field(min_length=1, max_length=MAX_QUESTION_LENGTH)
+    status: Status
+    message: str = Field(max_length=MAX_MESSAGE_LENGTH)
+    options: list[Annotated[str, StringConstraints(max_length=MAX_QUESTION_LENGTH)]] = (
+        Field(default_factory=list, max_length=MAX_OPTIONS)
+    )
+
+
+class AskRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=MAX_QUESTION_LENGTH)
+    # The conversation so far, oldest first, so "that's wrong" can be read
+    # against what came before. Sent by the front end from its session, which
+    # is the only place the conversation is kept.
+    history: list[Turn] = Field(default_factory=list, max_length=MAX_HISTORY_TURNS)
+    # The one earlier question the front end sent before `history`. Kept so
+    # the backend can deploy first; remove once the front end sends history.
+    previous_question: str | None = Field(default=None, max_length=MAX_QUESTION_LENGTH)
+    conversation_id: str | None = None
+
+    def conversation(self) -> list[Turn]:
+        if self.history or not self.previous_question:
+            return self.history
+        # The old front end sends no answer, so there is none to pass on.
+        return [Turn(question=self.previous_question, status="answered", message="")]

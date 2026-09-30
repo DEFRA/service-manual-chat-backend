@@ -3,10 +3,11 @@ from fastapi.testclient import TestClient
 
 from app.ask import engine as engine_mod
 from app.ask.engine import get_engine, stub_engine
-from app.ask.schemas import MAX_QUESTION_LENGTH
+from app.ask.schemas import MAX_HISTORY_TURNS, MAX_MESSAGE_LENGTH, MAX_QUESTION_LENGTH
 from app.main import app
 
 client = TestClient(app)
+TURN = {"question": "Copilot?", "status": "answered", "message": "m"}
 
 
 def test_ask_returns_the_wire_shape():
@@ -25,7 +26,24 @@ def test_ask_returns_the_wire_shape():
     }
 
 
-def test_ask_answers_a_follow_up_against_the_previous_question():
+def test_ask_answers_a_follow_up_against_the_history():
+    response = client.post(
+        "/ask",
+        json={
+            "question": "what about agents?",
+            "history": [
+                {"question": "Parking?", "status": "cannot_answer", "message": "m"},
+                {"question": "Copilot?", "status": "answered", "message": "m"},
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["message"].startswith('Still on "Copilot?": ')
+
+
+def test_ask_still_takes_the_previous_question_alone():
+    # What the front end sends until it sends history. Remove with the field.
     response = client.post(
         "/ask",
         json={"question": "what about agents?", "previous_question": "Copilot?"},
@@ -33,6 +51,34 @@ def test_ask_answers_a_follow_up_against_the_previous_question():
 
     assert response.status_code == 200
     assert response.json()["message"].startswith('Still on "Copilot?": ')
+
+
+def test_history_wins_over_the_previous_question():
+    response = client.post(
+        "/ask",
+        json={
+            "question": "what about agents?",
+            "previous_question": "Parking?",
+            "history": [{"question": "Copilot?", "status": "answered", "message": "m"}],
+        },
+    )
+
+    assert response.json()["message"].startswith('Still on "Copilot?": ')
+
+
+def test_ask_logs_the_number_of_history_turns_and_not_the_words(caplog):
+    caplog.set_level("INFO", logger="app.ask.router")
+    client.post(
+        "/ask",
+        json={
+            "question": "what about agents?",
+            "history": [{"question": "Copilot?", "status": "answered", "message": "m"}],
+        },
+    )
+
+    assert "history_turns=1" in caplog.text
+    assert "Copilot" not in caplog.text
+    assert "agents" not in caplog.text
 
 
 def test_ask_can_return_each_of_the_other_outcomes():
@@ -60,9 +106,17 @@ def test_ask_without_a_rule_sends_null_not_missing():
         {},
         {"question": ""},
         {"question": "x" * (MAX_QUESTION_LENGTH + 1)},
+        {"question": "q", "history": [TURN] * (MAX_HISTORY_TURNS + 1)},
+        {
+            "question": "q",
+            "history": [{**TURN, "message": "x" * (MAX_MESSAGE_LENGTH + 1)}],
+        },
+        {"question": "q", "history": [{**TURN, "question": ""}]},
+        {"question": "q", "history": [{**TURN, "status": "shrug"}]},
+        {"question": "q", "history": [{**TURN, "options": ["o"] * 5}]},
     ],
 )
-def test_ask_rejects_a_bad_question(body):
+def test_ask_rejects_a_bad_request(body):
     assert client.post("/ask", json=body).status_code == 422
 
 

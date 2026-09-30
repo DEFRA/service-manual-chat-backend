@@ -15,10 +15,11 @@ async def ask(
     body: AskRequest, engine: Annotated[AnswerEngine, Depends(get_engine)]
 ) -> Answer:
     # The question is what a person typed and may say anything about them, so
-    # it never reaches the logs. Length and whether it is a follow-up do.
+    # it never reaches the logs. Length and how much history came with it do.
+    history = body.conversation()
     logger.info(
-        "ask question_length=%d follow_up=%s",
+        "ask question_length=%d history_turns=%d",
         len(body.question),
-        body.previous_question is not None,
+        len(history),
     )
-    return await engine(body.question, body.previous_question)
+    return await engine(body.question, history)
