@@ -9,7 +9,8 @@ The quoted rule counts for Grounded (settled 29 September 2026): the judge had
 passed 13 and failed 8 of 21 wrong-page quotes when the prompt did not say.
 Even when the same point is on the named page (30 September 2026): the judge
 passed J06 because its quote added no new facts, then because row 4 expects
-no quote.
+no quote. The reason comes before the verdicts (30 September 2026): J06's
+reason once ended "This fails" after the verdict was written as a pass.
 
 The judge is held still across the steps of a story, so bars are comparable.
 Opus 4.6 agrees with itself on 342 of 345 Grounded verdicts; Sonnet 4.6
@@ -77,16 +78,18 @@ answer states? Otherwise leave right_rule null. Three rules for this verdict:
   leaves something out, and a quote of the wrong rule fails even when the
   message states the right one.
 
-Do not reward length or tone. Give one sentence of reason naming the fact or
-claim that decided a fail, or "nothing" if all pass."""
+Do not reward length or tone. Write the reason before the verdicts: one
+sentence naming the fact or claim that decided a fail, or "nothing" if all
+pass. The verdicts must follow from it."""
 
 
 class Verdict(BaseModel):
+    # The reason comes first so the verdicts follow from it (30 September 2026).
+    reason: str
     grounded_in_named_sources: bool
     grounded_in_toolkit: bool
     complete: bool
     right_rule: bool | None = None
-    reason: str
 
 
 def merge_verdicts(

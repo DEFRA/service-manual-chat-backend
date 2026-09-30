@@ -1,6 +1,6 @@
 import json
 
-from evals.judge import PROMPT, merge_verdicts, shown_to_judge
+from evals.judge import PROMPT, Verdict, merge_verdicts, shown_to_judge
 
 
 def verdict(qid, run=1, **marks):
@@ -108,3 +108,10 @@ def test_the_judge_is_told_a_wrong_page_quote_fails_grounded_even_when_the_point
     assert "even when the same point is on the named page" in flat
     # Row 4 expects no quote, and the judge then excused it: "no quoted rule was expected".
     assert "whether or not a quoted rule is expected" in flat
+
+
+def test_the_judge_gives_its_reason_before_its_verdicts():
+    # J06 on 30 September: the reason ended "This fails grounded_in_named_sources"
+    # after the verdict had already been written as a pass.
+    assert list(Verdict.model_json_schema()["properties"])[0] == "reason"
+    assert "before the verdicts" in " ".join(PROMPT.split())
