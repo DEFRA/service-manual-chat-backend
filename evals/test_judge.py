@@ -1,4 +1,6 @@
-from evals.judge import merge_verdicts
+import json
+
+from evals.judge import PROMPT, merge_verdicts, shown_to_judge
 
 
 def verdict(qid, run=1, **marks):
@@ -56,3 +58,53 @@ def test_records_not_re_judged_are_untouched_and_new_ones_are_added():
     merged = merge_verdicts(OLD, fresh, only=["right_rule"])
     assert [m["question_id"] for m in merged] == ["G041", "G042"]
     assert merged[0]["marks"] == OLD[0]["marks"]
+
+
+INCIDENT = "/ai-toolkit/guidance/report-an-ai-incident"
+DATA_SAFE = "/ai-toolkit/guidance/keeping-data-safe"
+TITLES = {INCIDENT: "Report an AI incident", DATA_SAFE: "Keeping data safe"}
+
+
+def test_the_judge_sees_a_wrong_page_quote_the_reader_did_not():
+    # J11 in hand-check sample 2: row 41 names Report an AI incident, the quote came
+    # from Keeping data safe, and the old backend check dropped it before display.
+    quote = {
+        "text": "You must remove all personal data",
+        "source": {"title": "Keeping data safe", "url": DATA_SAFE},
+    }
+    record = {
+        "answer": {
+            "status": "answered",
+            "message": "Stop using the tool.",
+            "rule_verbatim": quote,
+        },
+        "verified": {
+            "status": "answered",
+            "message": "Stop using the tool.",
+            "rule_verbatim": None,
+        },
+    }
+    question = {
+        "question": "What do I do if I put personal data into an AI tool?",
+        "expected_status": ["answered"],
+        "expected_answer": "The four steps.",
+        "expects_rule": True,
+        "expected_pages": [INCIDENT],
+    }
+    shown = shown_to_judge(record, question, TITLES)
+    assert f"Named source pages: Report an AI incident ({INCIDENT})" in shown
+    answer = json.loads(shown.split("Answer to score:\n", 1)[1])
+    assert answer["rule_verbatim"]["source"]["url"] == DATA_SAFE
+
+
+def test_the_judge_is_told_a_wrong_page_quote_fails_grounded_even_when_the_point_is_on_the_named_page():
+    # J06: row 4's answer quoted Keeping data safe for a point Using data with AI also
+    # makes, and the judge passed it because the quote added no new facts.
+    flat = " ".join(PROMPT.split())
+    assert (
+        "fails grounded_in_named_sources, even when the message around it is grounded"
+        in flat
+    )
+    assert "even when the same point is on the named page" in flat
+    # Row 4 expects no quote, and the judge then excused it: "no quoted rule was expected".
+    assert "whether or not a quoted rule is expected" in flat

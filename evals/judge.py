@@ -7,6 +7,9 @@ Status and the words of a quote are not judged here: code checks those.
 Whether the quoted rule is the one the row asks for is (set v4, item 8).
 The quoted rule counts for Grounded (settled 29 September 2026): the judge had
 passed 13 and failed 8 of 21 wrong-page quotes when the prompt did not say.
+Even when the same point is on the named page (30 September 2026): the judge
+passed J06 because its quote added no new facts, then because row 4 expects
+no quote.
 
 The judge is held still across the steps of a story, so bars are comparable.
 Opus 4.6 agrees with itself on 342 of 345 Grounded verdicts; Sonnet 4.6
@@ -42,7 +45,8 @@ An answer that declines, asks for more detail or refuses, and states no
 facts, is grounded.
 The quoted rule is part of the answer. A rule quoted from a page not named
 for this question fails grounded_in_named_sources, even when the message
-around it is grounded.
+around it is grounded, even when the same point is on the named page, and
+whether or not a quoted rule is expected for this question.
 
 Complete. "Does the answer contain the claim in the Expected answer column?
 Citing the right page is not enough. If the column says 'no, and remove it
