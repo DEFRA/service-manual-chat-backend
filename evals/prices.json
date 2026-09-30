@@ -1,0 +1,21 @@
+{
+  "read_on": "2026-09-17",
+  "source": "AWS public price list, eu-west-2, on-demand standard tier, in-region (not Global or Geo). https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonBedrock/current/eu-west-2/index.json (published 2026-09-15) for Amazon and OpenAI models; .../AmazonBedrockFoundationModels/current/eu-west-2/index.json (published 2026-09-11) for Anthropic models.",
+  "unit": "US dollars per 1 million tokens",
+  "usd_to_gbp": 0.75,
+  "usd_to_gbp_note": "Round figure for planning, not a quoted rate. Change it here and re-run cost.py.",
+  "models": {
+    "anthropic.claude-sonnet-4-6": {
+      "input": 3.3,
+      "output": 16.5,
+      "cache_write": 4.125,
+      "cache_read": 0.33
+    },
+    "anthropic.claude-opus-4-6-v1": {
+      "input": 5.5,
+      "output": 27.5,
+      "cache_write": 6.875,
+      "cache_read": 0.55
+    }
+  }
+}

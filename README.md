@@ -331,6 +331,18 @@ To test the application run:
 uv run pytest
 ```
 
+## The golden set evaluation
+
+Every prompt or content change is checked against the golden set: 100
+questions and 15 conversation turns with the answers we would accept. One
+command asks them all three times and prints the six bars:
+
+```bash
+uv run python -m evals run --label what-this-run-tests
+```
+
+About £9 with a Bedrock sandbox key. See [evals/README.md](./evals/README.md).
+
 ## API endpoints
 
 | Endpoint       | Description                |
