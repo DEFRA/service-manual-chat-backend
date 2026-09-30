@@ -11,9 +11,9 @@
   "judged": 345,
   "of": 345,
   "judge_tokens": {
-    "input_tokens": 8412877,
-    "cache_read_tokens": 8138266,
-    "cache_write_tokens": 23521,
-    "output_tokens": 49668
+    "input_tokens": 8368581,
+    "cache_read_tokens": 8096040,
+    "cache_write_tokens": 23535,
+    "output_tokens": 82158
   }
 }
