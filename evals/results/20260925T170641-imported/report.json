@@ -20,7 +20,7 @@
       "bar": "Quoted (the row's rule)",
       "measure": "quoted, the row's rule",
       "needs": "all 22",
-      "range": "17 to 19",
+      "range": "17 to 18",
       "passed": false
     },
     {
@@ -34,7 +34,7 @@
       "bar": "Grounded in the named pages",
       "measure": "grounded in the named pages",
       "needs": "all 100",
-      "range": "91 to 94",
+      "range": "88 to 90",
       "passed": false
     },
     {
@@ -136,19 +136,19 @@
     },
     "grounded in the named pages": {
       "per_pass": [
-        94,
-        93,
-        91
+        90,
+        88,
+        88
       ],
-      "range": "91 to 94"
+      "range": "88 to 90"
     },
     "grounded in the toolkit at all": {
       "per_pass": [
         100,
         100,
-        99
+        100
       ],
-      "range": "99 to 100"
+      "range": "100"
     },
     "complete": {
       "per_pass": [
@@ -161,10 +161,10 @@
     "quoted, the row's rule": {
       "per_pass": [
         18,
-        19,
+        18,
         17
       ],
-      "range": "17 to 19"
+      "range": "17 to 18"
     }
   },
   "failures": {
@@ -203,13 +203,19 @@
     },
     "grounded_in_named_sources": {
       "G001": 3,
+      "G005": 3,
+      "G006": 2,
+      "G019": 3,
+      "G022": 1,
       "G029": 1,
-      "G049": 1,
+      "G038": 1,
       "G050": 1,
       "G054": 3,
+      "G058": 1,
       "G060": 3,
+      "G063": 1,
       "G065": 2,
-      "G071": 2,
+      "G071": 3,
       "G073": 1,
       "G074": 3,
       "G076": 2
@@ -224,10 +230,8 @@
       "G074": 2
     },
     "wrong_rule": {
-      "G026": 3
-    },
-    "grounded_in_toolkit": {
-      "G001": 1
+      "G026": 3,
+      "G037": 1
     }
   },
   "writing": {

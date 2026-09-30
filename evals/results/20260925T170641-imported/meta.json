@@ -7,5 +7,13 @@
   "model_id": "anthropic.claude-sonnet-4-6",
   "passes": 3,
   "judge": "anthropic.claude-opus-4-6-v1",
-  "imported_from": "golden-20260925T170641.jsonl"
+  "imported_from": "golden-20260925T170641.jsonl",
+  "judged": 345,
+  "of": 345,
+  "judge_tokens": {
+    "input_tokens": 8412877,
+    "cache_read_tokens": 8138266,
+    "cache_write_tokens": 23521,
+    "output_tokens": 49668
+  }
 }

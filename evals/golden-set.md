@@ -333,13 +333,14 @@ Every change here is a correction to the set itself, not a response to how the s
 
 ### v8, 29 September 2026
 
-Three rows added for CAIT-288. Rows 1 to 100 are unchanged.
+Three rows added for CAIT-288, and one scoring rule agreed. Rows 1 to 100 are unchanged.
 
 | What | Why |
 |---|---|
 | Rows 101 to 103 added as section 10, the Ask front page questions | The front page offers them as examples, so a reader who clicks one should get a right answer |
 | Rows 101 to 103 reported beside the bars, not counted in them | The bars count over rows 1 to 100, so every run compares with the ones before it |
-| Grounded counts the quoted rule | Agreed with the design lead after hand check sample 2. The judge had passed 13 and failed 8 of the 21 wrong-page quotes in the 21 and 25 September runs |
+| Grounded counts the quoted rule | Agreed after hand check sample 2. The judge had passed 13 and failed 8 of the 21 wrong-page quotes in the 21 and 25 September runs |
+| 9c re-judged under the quoted rule | Same answers and same judge model, with the new instruction, including that a quote from a page the row does not name fails Grounded even when the same point is on the named page. Grounded in the named pages was 91 to 94 under the old instruction and is 88 to 90 under the new one. Quoted, the row's rule, was 17 to 19 and is 17 to 18. The measure got stricter; the service did not get worse. Figures from before 29 September are not comparable with figures after it |
 
 ### v7, 25 September 2026, no change to the set
 
