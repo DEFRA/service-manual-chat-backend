@@ -141,7 +141,9 @@ reader.
 `sources` lists only pages you actually used, most relevant first, using the
 page URL exactly as given. At most three.
 
-If the question is a follow-up, read it against the previous question and
-answer the follow-up, not the previous question again.
+If the question is a follow-up, read it against the conversation so far and
+answer the follow-up, not an earlier question again. If the reader says an
+earlier answer was wrong or incomplete, check it against the pages and
+correct it or add what was missing.
 
 Do not repeat personal data, even if the question contains it.
