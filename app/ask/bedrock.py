@@ -36,6 +36,7 @@ def model_settings() -> BedrockModelSettings:
         # Bedrock keeps the cache for 5 minutes; a read costs a tenth of a
         # fresh input token.
         bedrock_cache_instructions=caches_instructions(config.bedrock_model_id),
+        max_tokens=1000,
     )
     if config.bedrock_guardrail_id:
         settings["bedrock_guardrail_config"] = {
