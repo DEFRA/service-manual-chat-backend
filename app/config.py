@@ -31,6 +31,7 @@ class AppConfig(BaseSettings):
     # Empty locally. On CDP the platform gives one guardrail per profile.
     bedrock_guardrail_id: str | None = None
     bedrock_guardrail_version: str | None = None
+    ask_daily_ceiling: int = 600
     # The toolkit pages the model answers from and the prompt it follows.
     content_dir: str = "content"
     system_prompt_path: str = "prompts/system.md"

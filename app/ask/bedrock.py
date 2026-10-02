@@ -7,19 +7,33 @@ output shape changes between the two.
 """
 
 import json
+import os
+from datetime import UTC, datetime
 from functools import lru_cache
 from logging import getLogger
 from pathlib import Path
 
 from pydantic_ai import Agent
+from pydantic_ai.messages import ModelMessage, ModelResponse
+from pydantic_ai.models import ModelRequestParameters
 from pydantic_ai.models.bedrock import BedrockConverseModel, BedrockModelSettings
+from pydantic_ai.models.wrapper import WrapperModel
 from pydantic_ai.providers.bedrock import BedrockProvider
+from pydantic_ai.settings import ModelSettings
+from pymongo import ReturnDocument
 
 from app.ask.corpus import as_context, load_corpus, verify
 from app.ask.schemas import Answer, Turn
+from app.common.mongo import get_db, get_mongo_client
 from app.config import config
 
 logger = getLogger(__name__)
+
+# The boto3 client retries throttled calls on its own, invisibly to this
+# module's counter. One attempt only: the agent's own retries=1 is the one
+# retry layer. Must be set before BedrockProvider builds its client.
+os.environ["AWS_MAX_ATTEMPTS"] = "1"
+os.environ["AWS_RETRY_MODE"] = "standard"
 
 
 def models_without_prompt_caching() -> list[str]:
@@ -56,6 +70,64 @@ def instructions() -> str:
     return f"{prompt}\n\n# The toolkit pages\n\n{as_context(corpus)}"
 
 
+ASK_DAILY_USAGE_COLLECTION = "ask_daily_usage"
+
+
+class CeilingReachedError(Exception):
+    """The day's ceiling on Bedrock requests has been reached."""
+
+    def __init__(self, count: int):
+        super().__init__(f"ask daily ceiling reached at {count}")
+        self.count = count
+
+
+class DailyUsageUnavailableError(Exception):
+    """The daily usage counter could not be read or written."""
+
+
+def _today() -> str:
+    return datetime.now(UTC).strftime("%Y-%m-%d")
+
+
+async def _increment_daily_usage() -> int:
+    # One atomic increment-and-read per Bedrock request. $inc with upsert=True
+    # is a single atomic operation in MongoDB, so two concurrent requests at
+    # the ceiling get distinct counts and only one can be at or under it.
+    try:
+        client = await get_mongo_client()
+        db = get_db(client)
+        doc = await db[ASK_DAILY_USAGE_COLLECTION].find_one_and_update(
+            {"_id": _today()},
+            {"$inc": {"attempts": 1}},
+            upsert=True,
+            return_document=ReturnDocument.AFTER,
+        )
+    except Exception as error:
+        msg = "could not reach MongoDB for the daily usage counter"
+        raise DailyUsageUnavailableError(msg) from error
+    return doc["attempts"]
+
+
+class CountingModel(WrapperModel):
+    """Counts every request against the day's ceiling before it reaches Bedrock.
+
+    Only ever built inside `bedrock_engine`, the /ask path. Never wrap
+    `agent()` itself: the golden set evaluation builds that agent directly
+    and must never be counted and must never need MongoDB.
+    """
+
+    async def request(
+        self,
+        messages: list[ModelMessage],
+        model_settings: ModelSettings | None,
+        model_request_parameters: ModelRequestParameters,
+    ) -> ModelResponse:
+        count = await _increment_daily_usage()
+        if count > config.ask_daily_ceiling:
+            raise CeilingReachedError(count)
+        return await super().request(messages, model_settings, model_request_parameters)
+
+
 @lru_cache(maxsize=2)
 def agent_for(instructions_text: str) -> Agent[None, Answer]:
     # The instructions go in as a string, not a function. Pydantic AI only
@@ -71,7 +143,7 @@ def agent_for(instructions_text: str) -> Agent[None, Answer]:
         output_type=Answer,
         instructions=instructions_text,
         model_settings=model_settings(),
-        retries=2,
+        retries=1,
     )
 
 
@@ -115,9 +187,38 @@ ERROR_ANSWER = Answer(
 )
 
 
+CEILING_ANSWER = Answer(
+    status="error",
+    message=(
+        "[PLACEHOLDER: pending Chris] The toolkit could not answer just now. "
+        "It's reached today's limit, try again tomorrow."
+    ),
+)
+
+
 async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
+    the_agent = agent()
     try:
-        result = await agent().run(user_prompt(question, history))
+        # _get_model_outside_run() resolves whatever model is live right now:
+        # a test's agent().override(model=...) if one is active, otherwise the
+        # real BedrockConverseModel. Wrapping that, rather than the agent's own
+        # .model, keeps existing FunctionModel-based tests working unchanged.
+        live_model = the_agent._get_model_outside_run()
+        with the_agent.override(model=CountingModel(live_model)):
+            result = await the_agent.run(user_prompt(question, history))
+    except CeilingReachedError as ceiling:
+        logger.warning(
+            "ask daily ceiling reached count=%d ceiling=%d",
+            ceiling.count,
+            config.ask_daily_ceiling,
+        )
+        return CEILING_ANSWER
+    except DailyUsageUnavailableError:
+        # The cause (a Mongo error) goes to the logs; never the question.
+        logger.warning(
+            "ask daily usage counter unavailable, refusing the call", exc_info=True
+        )
+        return ERROR_ANSWER
     except Exception:
         # Whatever went wrong between here and the model: timeout, throttling,
         # an output that never validated. The reader gets the error outcome
