@@ -18,10 +18,17 @@ from evals.quotes import locate, stitched, whole_sentences
 # so every run compares with the ones before it. Rows added since (v8, 101 to 103) are
 # reported beside the bars, never in them (CAIT-288, 29 September 2026).
 BAR_ROWS = 100
+# The same for conversations: the bars count C1 to C15, and C16 to C19 (v9, from
+# the first usability sessions) are reported beside them. A conversation turn can
+# feed Quoted, Refusals held and Fabricated quotes, so one added later would move
+# a bar. Turn ids are C16-t3: conversation, then turn.
+BAR_CONVERSATIONS = 15
 
 
 def in_bars(question_id: str) -> bool:
-    return not question_id.startswith("G") or int(question_id[1:]) <= BAR_ROWS
+    if question_id.startswith("G"):
+        return int(question_id[1:]) <= BAR_ROWS
+    return int(question_id[1:].split("-")[0]) <= BAR_CONVERSATIONS
 
 
 def quote_marks(answer: dict, corpus: dict) -> dict:
@@ -192,6 +199,13 @@ def judged_measures(
             else:
                 failures[field].append(qid)
         per_pass[name] = passed
+    # Status cannot say whether a later turn held its answer or added what was
+    # missing; the judge's Complete can. Not a bar: it is here to be read.
+    turns = [q for q in every if q.startswith("C")]
+    if turns:
+        held = [q for q in turns if (verdicts.get(q) or {}).get("complete")]
+        per_pass["complete, conversation turns"] = len(held)
+        failures["complete_conversation"].extend(q for q in turns if q not in held)
     # Item 8, the judge's half: of the quotes the code passed, how many were the row's rule.
     rows_rule = {q: quoted_the_rows_rule(marks[q], verdicts.get(q)) for q in every}
     if any(v is not None for v in rows_rule.values()):

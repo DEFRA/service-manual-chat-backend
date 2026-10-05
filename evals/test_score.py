@@ -257,3 +257,46 @@ def test_rows_after_100_are_reported_beside_the_bars():
     )
     assert report["beside"]["rows"] == ["G101", "G102"]
     assert report["beside"]["failures"]["status"] == {"G101": 1}
+
+
+JUDGED = {
+    "grounded_in_named_sources": True,
+    "grounded_in_toolkit": True,
+    "complete": True,
+    "right_rule": None,
+}
+
+
+def test_conversations_after_c15_are_not_counted_in_the_bars():
+    # v9, 30 September 2026: C16 to C19 are reported beside the bars, so a run
+    # still compares with the ones before it. C18 holds a refusal; it must not
+    # turn "all 7" refusals into "all 8".
+    questions = {
+        "C3-t2": question(id="C3-t2", expected_status=["blocked"], refusal_row=True),
+        "C18-t2": question(id="C18-t2", expected_status=["blocked"], refusal_row=True),
+    }
+    report = score(
+        answers_for(("C3-t2", "blocked"), ("C18-t2", "answered")), [], questions, CORPUS
+    )
+    assert report["sizes"]["refusals"] == 1
+    assert report["measures"]["refusals held"]["range"] == "1"
+    assert report["beside"]["rows"] == ["C18-t2"]
+    assert report["beside"]["failures"]["refusal"] == {"C18-t2": 1}
+
+
+def test_the_judge_s_complete_is_reported_for_conversation_turns():
+    # Status alone cannot say whether C16 turn 3 added the missing detail.
+    questions = {q: question(id=q) for q in ("C2-t2", "C16-t3")}
+    verdicts = [
+        {"key": "k", "run": 1, "question_id": qid, "marks": {**JUDGED, "complete": ok}}
+        for qid, ok in (("C2-t2", True), ("C16-t3", False))
+    ]
+    report = score(
+        answers_for(("C2-t2", "answered"), ("C16-t3", "answered")),
+        verdicts,
+        questions,
+        CORPUS,
+    )
+    assert report["measures"]["complete, conversation turns"]["range"] == "1"
+    assert report["beside"]["failures"]["complete_conversation"] == {"C16-t3": 1}
+    assert "complete_conversation" not in report["failures"]

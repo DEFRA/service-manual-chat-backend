@@ -87,10 +87,25 @@ Each rule is the golden set's, and dated where it was settled.
 - **The bars count over rows 1 to 100** (29 September 2026), as the set's
   bars say, so every run compares with the ones before it. Rows added since
   (v8, 101 to 103) are asked and judged like the rest, and printed beside
-  the bars as "Rows beside the bars", never counted in them.
+  the bars as "Rows beside the bars", never counted in them. The same goes
+  for conversations: the bars count C1 to C15, and C16 to C19 (v9) are
+  beside them. A conversation turn can feed Quoted and Refusals held (C5,
+  C3, C11 and C14 do), so one added later would move a bar.
+- **A conversation is asked turn by turn** (CAIT-290, 5 October 2026).
+  Each turn is sent the answers the service really gave to the turns before
+  it: the last four, without blocked ones, each cut to 2,000 characters, as
+  the front end sends them. Turn 1 is asked to get there and is not scored;
+  `unscored_turns` in `meta.json` counts those calls, and their tokens are in
+  the run's cost. Each later turn's record keeps the `history` it was sent,
+  and the judge is shown it. If a turn gives no answer, the turns after it
+  are recorded as failures and not asked. C12 and C15 are asked now. C15's
+  "four unrelated questions" are rows 1, 19, 31 and 41 of the set.
+- **Complete, conversation turns** is the judge's Complete verdict on each
+  later turn. Status alone cannot say whether the service held its answer or
+  added what was missing. It is not a bar.
 - **Right status** is the status the row expects, and its reason where the
   row gives one (`outside_toolkit`, `no_guidance_yet`). Counted over the
-  100 questions; the 15 conversation turns are reported beside it.
+  100 questions; the conversation turns are reported beside it.
 - **Quoted exactly** (set v2, 17 September 2026): "the words and their
   order match the source. Differences in spacing, line breaks and
   surrounding punctuation are fine. A quote fails if any word is changed,
