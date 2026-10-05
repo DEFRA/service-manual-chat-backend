@@ -10,6 +10,7 @@ from pydantic_ai.providers.bedrock import BedrockProvider
 
 from app.ask import bedrock
 from app.ask.bedrock import (
+    StopsAtABlock,
     agent,
     bedrock_engine,
     caches_instructions,
@@ -353,6 +354,90 @@ async def test_engine_retries_when_the_model_replies_in_prose():
 
     assert answer.message == "m"
     assert len(calls) == 2
+
+
+GUARDRAIL_TEXT = "Sorry, the model cannot answer this question."
+
+
+def blocked_reply(calls: list):
+    # What Bedrock sends back when a guardrail steps in: its own fixed text,
+    # not a tool call, with the stop reason Pydantic AI maps to content_filter.
+    def respond(_messages, _info: AgentInfo) -> ModelResponse:
+        calls.append(1)
+        return ModelResponse(
+            parts=[TextPart(content=GUARDRAIL_TEXT)],
+            finish_reason="content_filter",
+            provider_details={"finish_reason": "guardrail_intervened"},
+        )
+
+    return StopsAtABlock(FunctionModel(respond))
+
+
+async def test_a_question_the_guardrail_blocks_gets_the_blocked_status():
+    with agent().override(model=blocked_reply([])):
+        answer = await bedrock_engine("q", [])
+
+    assert answer.status == "blocked"
+    assert answer == bedrock.BLOCKED_ANSWER
+    assert GUARDRAIL_TEXT not in answer.message
+
+
+async def test_a_blocked_question_is_asked_once():
+    calls = []
+
+    with agent().override(model=blocked_reply(calls)):
+        await bedrock_engine("q", [])
+
+    assert len(calls) == 1
+
+
+async def test_a_block_is_logged_with_its_reasons_and_nothing_anyone_wrote(caplog):
+    private_question = "what counts as personal data on my project"
+
+    with caplog.at_level("WARNING"), agent().override(model=blocked_reply([])):
+        await bedrock_engine(private_question, [])
+
+    logged = "\n".join(record.getMessage() for record in caplog.records)
+    assert "finish_reason=content_filter" in logged
+    assert "stop_reason=guardrail_intervened" in logged
+    assert private_question not in logged
+    assert GUARDRAIL_TEXT not in logged
+    assert not any(record.exc_info for record in caplog.records)
+
+
+async def test_a_block_that_gives_no_stop_reason_is_still_blocked(caplog):
+    def respond(_messages, _info: AgentInfo) -> ModelResponse:
+        return ModelResponse(parts=[], finish_reason="content_filter")
+
+    model = StopsAtABlock(FunctionModel(respond))
+    with caplog.at_level("WARNING"), agent().override(model=model):
+        answer = await bedrock_engine("q", [])
+
+    assert answer == bedrock.BLOCKED_ANSWER
+    assert "stop_reason=None" in caplog.text
+
+
+async def test_a_reply_in_the_wrong_shape_that_is_not_a_block_is_still_an_error():
+    calls = []
+
+    def respond(_messages, _info: AgentInfo) -> ModelResponse:
+        calls.append(1)
+        return ModelResponse(
+            parts=[TextPart(content="still prose")], finish_reason="stop"
+        )
+
+    with agent().override(model=StopsAtABlock(FunctionModel(respond))):
+        answer = await bedrock_engine("q", [])
+
+    assert answer.status == "error"
+    assert len(calls) == 3
+
+
+def test_the_agent_the_service_runs_stops_at_a_block():
+    model = agent().model
+
+    assert isinstance(model, StopsAtABlock)
+    assert isinstance(model.wrapped, BedrockConverseModel)
 
 
 async def test_engine_turns_a_failure_into_the_error_outcome():
