@@ -1,4 +1,4 @@
-from evals.score import bars, mark, quoted_the_rows_rule, spread
+from evals.score import bars, mark, quoted_the_rows_rule, score, spread
 
 URL = "/ai-toolkit/guidance/security"
 CORPUS = {
@@ -227,3 +227,33 @@ def test_an_unjudged_run_cannot_pass_grounded_or_complete():
     table = {b["bar"]: b for b in bars(unjudged, SIZES)}
     assert table["Complete"]["range"] == "not judged"
     assert table["Complete"]["passed"] is False
+
+
+def answers_for(*rows):
+    """One pass: (question id, status) pairs as answer records."""
+    return [
+        {**record(status=status, rule=None), "key": "k", "run": 1, "question_id": qid}
+        for qid, status in rows
+    ]
+
+
+def test_rows_after_100_are_not_counted_in_the_bars():
+    questions = {q: question(id=q) for q in ("G100", "G101")}
+    report = score(
+        answers_for(("G100", "answered"), ("G101", "blocked")), [], questions, CORPUS
+    )
+    assert report["sizes"]["singles"] == 1
+    assert report["measures"]["right status"]["range"] == "1"
+    assert "G101" not in report["failures"].get("status", {})
+
+
+def test_rows_after_100_are_reported_beside_the_bars():
+    questions = {q: question(id=q) for q in ("G100", "G101", "G102")}
+    report = score(
+        answers_for(("G100", "answered"), ("G101", "blocked"), ("G102", "answered")),
+        [],
+        questions,
+        CORPUS,
+    )
+    assert report["beside"]["rows"] == ["G101", "G102"]
+    assert report["beside"]["failures"]["status"] == {"G101": 1}

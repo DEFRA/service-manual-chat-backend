@@ -132,6 +132,17 @@ def show(run: Path, report: dict) -> None:
     lines += ["", "Writing, messages across all passes:"]
     lines += [f"  {name:44} {value}" for name, value in report["writing"].items()]
     lines += ["", "Rows failing a bar (row x passes):"]
+    lines += failing(report["failures"])
+    beside = report.get("beside")
+    if beside:
+        rows = beside["rows"]
+        lines += ["", f"Rows beside the bars, {rows[0]} to {rows[-1]} (row x passes):"]
+        lines += failing(beside["failures"]) or ["  none failed"]
+    print("\n".join(lines))
+
+
+def failing(failures: dict[str, dict[str, int]]) -> list[str]:
+    lines = []
     for measure in (
         "status",
         "quoted",
@@ -141,12 +152,12 @@ def show(run: Path, report: dict) -> None:
         "refusal",
         "fabricated",
     ):
-        rows = report["failures"].get(measure)
+        rows = failures.get(measure)
         if rows:
             lines.append(
                 f"  {measure}: " + ", ".join(f"{q}x{n}" for q, n in rows.items())
             )
-    print("\n".join(lines))
+    return lines
 
 
 async def run_all(args) -> Path:

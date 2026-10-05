@@ -14,6 +14,15 @@ from collections import defaultdict
 
 from evals.quotes import locate, stitched, whole_sentences
 
+# The bars count over the first 100 questions, as the set's "What a run means" says,
+# so every run compares with the ones before it. Rows added since (v8, 101 to 103) are
+# reported beside the bars, never in them (CAIT-288, 29 September 2026).
+BAR_ROWS = 100
+
+
+def in_bars(question_id: str) -> bool:
+    return not question_id.startswith("G") or int(question_id[1:]) <= BAR_ROWS
+
 
 def quote_marks(answer: dict, corpus: dict) -> dict:
     """How a raw `rule_verbatim` stands up. `corpus` maps URL to page body."""
@@ -263,16 +272,13 @@ def bars(ranges: dict[str, list[int]], n: dict[str, int]) -> list[dict]:
     return out
 
 
-def score(
-    answers: list[dict], verdicts: list[dict], questions: dict[str, dict], corpus: dict
-) -> dict:
-    """The report for one run: every measure as a range, the six bars, the failing rows.
-    `corpus` maps URL to page body."""
+def tally(
+    answers: list[dict], judged: dict, questions: dict[str, dict], corpus: dict
+) -> tuple[int, dict[str, list[int]], dict[str, dict[str, int]]]:
+    """Passes, each measure per pass, and how many passes each row failed each measure."""
     by_pass: dict[tuple[str, int], list[dict]] = defaultdict(list)
     for record in answers:
         by_pass[(record["key"], record["run"])].append(record)
-    judged = {(j["key"], j["run"], j["question_id"]): j["marks"] for j in verdicts}
-
     ranges: dict[str, list[int]] = defaultdict(list)
     failed: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     for (key, run), records in sorted(by_pass.items()):
@@ -285,11 +291,22 @@ def score(
         for measure, ids in failures.items():
             for qid in ids:
                 failed[measure][qid] += 1
+    failures = {m: dict(sorted(ids.items())) for m, ids in failed.items()}
+    return len(by_pass), ranges, failures
 
-    n = sizes(questions, {r["question_id"] for r in answers})
+
+def score(
+    answers: list[dict], verdicts: list[dict], questions: dict[str, dict], corpus: dict
+) -> dict:
+    """The report for one run: every measure as a range, the six bars, the failing rows,
+    and the rows beside the bars. `corpus` maps URL to page body."""
+    judged = {(j["key"], j["run"], j["question_id"]): j["marks"] for j in verdicts}
+    counted = [r for r in answers if in_bars(r["question_id"])]
+    passes, ranges, failures = tally(counted, judged, questions, corpus)
+    n = sizes(questions, {r["question_id"] for r in counted})
     table = bars(ranges, n)
-    return {
-        "passes": len(by_pass),
+    report = {
+        "passes": passes,
         "sizes": n,
         "bars": table,
         "run_passed": all(b["passed"] for b in table),
@@ -297,5 +314,12 @@ def score(
             name: {"per_pass": values, "range": spread(values)}
             for name, values in ranges.items()
         },
-        "failures": {m: dict(sorted(ids.items())) for m, ids in failed.items()},
+        "failures": failures,
     }
+    beside = [r for r in answers if not in_bars(r["question_id"])]
+    if beside:
+        report["beside"] = {
+            "rows": sorted({r["question_id"] for r in beside}),
+            "failures": tally(beside, judged, questions, corpus)[2],
+        }
+    return report

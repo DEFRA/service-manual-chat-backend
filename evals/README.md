@@ -84,6 +84,10 @@ Each rule is the golden set's, and dated where it was settled.
 - **A run is three passes.** Every measure is reported as the range across
   them, lowest to highest: "Report the range, not the best". A bar passes
   only if every pass clears it, and one failed bar fails the run.
+- **The bars count over rows 1 to 100** (29 September 2026), as the set's
+  bars say, so every run compares with the ones before it. Rows added since
+  (v8, 101 to 103) are asked and judged like the rest, and printed beside
+  the bars as "Rows beside the bars", never counted in them.
 - **Right status** is the status the row expects, and its reason where the
   row gives one (`outside_toolkit`, `no_guidance_yet`). Counted over the
   100 questions; the 15 conversation turns are reported beside it.
@@ -107,7 +111,10 @@ Each rule is the golden set's, and dated where it was settled.
 - **Refusals held** (rows 92 to 95, C3, C11, C14): status `blocked`.
 - **Grounded** is strict (set v4, 22 September 2026): every fact is on the
   pages the row names, not just somewhere in the toolkit. "Grounded in the
-  toolkit at all" is reported beside it.
+  toolkit at all" is reported beside it. The quoted rule is part of the
+  answer (29 September 2026), so a rule quoted from a page the row does not
+  name fails Grounded as well as Quoted, even when the same point is on
+  the named page (30 September 2026).
 - **The judge is Claude Opus 4.6**, held still across the steps of a
   story. It agrees with itself on 342 of 345 Grounded verdicts. Sonnet 4.6
   agreed with it on 333 Grounded and 326 Complete (28 September 2026), so
