@@ -12,8 +12,12 @@ from logging import getLogger
 from pathlib import Path
 
 from pydantic_ai import Agent
+from pydantic_ai.messages import ModelMessage, ModelResponse
+from pydantic_ai.models import ModelRequestParameters
 from pydantic_ai.models.bedrock import BedrockConverseModel, BedrockModelSettings
+from pydantic_ai.models.wrapper import WrapperModel
 from pydantic_ai.providers.bedrock import BedrockProvider
+from pydantic_ai.settings import ModelSettings
 
 from app.ask.corpus import as_context, load_corpus, verify
 from app.ask.schemas import Answer, Turn
@@ -57,15 +61,54 @@ def instructions() -> str:
     return f"{prompt}\n\n# The toolkit pages\n\n{as_context(corpus)}"
 
 
+class BlockedError(Exception):
+    """A guardrail or the model's own filter refused the question."""
+
+    def __init__(self, finish_reason: str, stop_reason: str | None):
+        super().__init__(f"blocked {finish_reason} stop_reason={stop_reason}")
+        self.finish_reason = finish_reason
+        self.stop_reason = stop_reason
+
+
+class StopsAtABlock(WrapperModel):
+    """Ends the run when a reply was blocked, in place of asking again.
+
+    A guardrail's block comes back as its own fixed text. Pydantic AI reads
+    that as an answer in the wrong shape and asks again, so one blocked
+    question was three calls and then the error outcome.
+
+    Only `request` is checked, which is all `agent.run()` uses. A streamed
+    run would need the same check on `request_stream`.
+    """
+
+    async def request(
+        self,
+        messages: list[ModelMessage],
+        model_settings: ModelSettings | None,
+        model_request_parameters: ModelRequestParameters,
+    ) -> ModelResponse:
+        response = await super().request(
+            messages, model_settings, model_request_parameters
+        )
+        if response.finish_reason == "content_filter":
+            # Bedrock's own word for it: guardrail_intervened or
+            # content_filtered.
+            details = response.provider_details or {}
+            raise BlockedError(response.finish_reason, details.get("finish_reason"))
+        return response
+
+
 @lru_cache(maxsize=2)
 def agent_for(instructions_text: str) -> Agent[None, Answer]:
     # The instructions go in as a string, not a function. Pydantic AI only
     # places the Bedrock cache point after static instructions, so a function
     # here means no cache point and every question paying full price. One
     # agent per distinct text: editing the prompt builds a new one.
-    model = BedrockConverseModel(
-        config.bedrock_model_id,
-        provider=BedrockProvider(region_name=config.bedrock_region),
+    model = StopsAtABlock(
+        BedrockConverseModel(
+            config.bedrock_model_id,
+            provider=BedrockProvider(region_name=config.bedrock_region),
+        )
     )
     return Agent(
         model,
@@ -116,9 +159,26 @@ ERROR_ANSWER = Answer(
 )
 
 
+# The reader does not see this message: the front end has its own words for
+# a blocked question. Nothing from the guardrail's reply goes in it.
+BLOCKED_ANSWER = Answer(
+    status="blocked",
+    message="This question cannot be answered here.",
+)
+
+
 async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
     try:
         result = await agent().run(user_prompt(question, history))
+    except BlockedError as blocked:
+        # The reasons only: never the question, never the reply.
+        logger.warning(
+            "bedrock blocked the question model=%s finish_reason=%s stop_reason=%s",
+            config.bedrock_model_id,
+            blocked.finish_reason,
+            blocked.stop_reason,
+        )
+        return BLOCKED_ANSWER
     except Exception:
         # Whatever went wrong between here and the model: timeout, throttling,
         # an output that never validated. The reader gets the error outcome
