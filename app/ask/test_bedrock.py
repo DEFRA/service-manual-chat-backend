@@ -162,6 +162,10 @@ def test_model_settings_without_a_guardrail_has_no_guardrail_config(monkeypatch)
     assert model_settings()["bedrock_cache_instructions"] is True
 
 
+def test_model_settings_caps_output_at_1000_tokens():
+    assert model_settings()["max_tokens"] == 1000
+
+
 def test_caching_is_off_for_a_model_that_refuses_it(monkeypatch):
     assert caches_instructions("anthropic.claude-sonnet-4-6")
     assert not caches_instructions("anthropic.claude-3-haiku-20240307-v1:0")
