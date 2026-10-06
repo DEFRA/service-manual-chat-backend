@@ -120,6 +120,23 @@ def test_verify_drops_sources_outside_the_corpus(content_dir):
     ]
 
 
+LONG = " ".join(["The answer comes first and it runs to ten words here."] * 10)
+
+
+def test_verify_lays_out_a_long_message_and_leaves_the_quote_alone(content_dir):
+    quoted = " ".join(PAGE.split("\n\n")[-1].split())
+    answer = Answer(status="answered", message=LONG, rule_verbatim=rule(quoted))
+    verified = verify(answer, load_corpus(content_dir))
+    assert "\n\n" in verified.message
+    assert verified.message.split() == LONG.split()
+    assert verified.rule_verbatim == rule(quoted)
+
+
+def test_verify_leaves_a_blocked_message_alone(content_dir):
+    answer = Answer(status="blocked", message=LONG)
+    assert verify(answer, load_corpus(content_dir)).message == LONG
+
+
 def test_content_ref_is_none_for_a_mount(content_dir):
     assert content_ref(content_dir) is None
 
