@@ -286,6 +286,48 @@ def bars(ranges: dict[str, list[int]], n: dict[str, int]) -> list[dict]:
     return out
 
 
+def first_turns(answers: list[dict], questions: dict[str, dict]) -> dict:
+    """Whether turn 1 of each conversation came back as the set expects.
+
+    Turn 1 is not a row, so this reads it from the history a later turn was
+    sent. A turn 1 that is not there was blocked: blocked turns are left out
+    of the history, and a turn with no answer stops the conversation before
+    any later turn is asked. Reported beside the bars, as what turn 1 came
+    back as and on how many passes.
+    """
+    from app.ask.schemas import MAX_HISTORY_TURNS
+
+    checked: set[str] = set()
+    done: set[tuple[str, str, int]] = set()
+    failed: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for record in sorted(answers, key=lambda r: r["question_id"]):
+        question = questions[record["question_id"]]
+        expected = question.get("first_turn_status")
+        name = record["question_id"].split("-t")[0]
+        once = (name, record["key"], record["run"])
+        # Past the history's length turn 1 may have dropped off the front.
+        if (
+            not expected
+            or not record["ok"]
+            or once in done
+            or len(question["earlier"]) > MAX_HISTORY_TURNS
+        ):
+            continue
+        done.add(once)
+        checked.add(name)
+        first = question["earlier"][0]
+        status = next(
+            (t["status"] for t in record.get("history", []) if t["question"] == first),
+            "blocked",
+        )
+        if status not in expected:
+            failed[name][status] += 1
+    return {
+        "checked": len(checked),
+        "failures": {name: dict(got) for name, got in sorted(failed.items())},
+    }
+
+
 def tally(
     answers: list[dict], judged: dict, questions: dict[str, dict], corpus: dict
 ) -> tuple[int, dict[str, list[int]], dict[str, dict[str, int]]]:
@@ -330,6 +372,8 @@ def score(
         },
         "failures": failures,
     }
+    if any(q.get("first_turn_status") for q in questions.values()):
+        report["first_turns"] = first_turns(answers, questions)
     beside = [r for r in answers if not in_bars(r["question_id"])]
     if beside:
         report["beside"] = {

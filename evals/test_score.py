@@ -300,3 +300,68 @@ def test_the_judge_s_complete_is_reported_for_conversation_turns():
     assert report["measures"]["complete, conversation turns"]["range"] == "1"
     assert report["beside"]["failures"]["complete_conversation"] == {"C16-t3": 1}
     assert "complete_conversation" not in report["failures"]
+
+
+def turn_two(conversation, history, run=1):
+    return {
+        **record(),
+        "key": "m",
+        "run": run,
+        "question_id": f"{conversation}-t2",
+        **({"history": history} if history else {}),
+    }
+
+
+def conversation_row(row_id, first):
+    return question(
+        id=row_id, earlier=["Can I use Copilot?"], first_turn_status=[first]
+    )
+
+
+def test_turn_1_is_checked_against_its_own_status_from_the_history_sent():
+    asked = {"question": "Can I use Copilot?", "status": "answered", "message": "m"}
+    report = score(
+        [turn_two("C1", [asked], run=1), turn_two("C1", [asked], run=2)],
+        [],
+        {"C1-t2": conversation_row("C1-t2", "need_more_detail")},
+        CORPUS,
+    )
+
+    assert report["first_turns"] == {
+        "checked": 1,
+        "failures": {"C1": {"answered": 2}},
+    }
+
+
+def test_a_turn_1_that_came_back_right_is_not_a_failure():
+    asked = {"question": "Can I use Copilot?", "status": "answered", "message": "m"}
+    report = score(
+        [turn_two("C17", [asked])],
+        [],
+        {"C17-t2": conversation_row("C17-t2", "answered")},
+        CORPUS,
+    )
+
+    assert report["first_turns"] == {"checked": 1, "failures": {}}
+
+
+def test_a_turn_1_missing_from_the_history_was_blocked():
+    rows = {
+        "C11-t2": conversation_row("C11-t2", "blocked"),
+        "C2-t2": conversation_row("C2-t2", "answered"),
+    }
+    report = score([turn_two("C11", []), turn_two("C2", [])], [], rows, CORPUS)
+
+    assert report["first_turns"] == {
+        "checked": 2,
+        "failures": {"C2": {"blocked": 1}},
+    }
+
+
+def test_a_turn_that_was_never_asked_says_nothing_about_turn_1():
+    lost = {"key": "m", "run": 1, "question_id": "C1-t2", "ok": False, "error": "x"}
+    report = score(
+        [lost], [], {"C1-t2": conversation_row("C1-t2", "need_more_detail")}, CORPUS
+    )
+
+    assert report["first_turns"] == {"checked": 0, "failures": {}}

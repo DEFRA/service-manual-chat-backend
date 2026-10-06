@@ -138,6 +138,13 @@ def show(run: Path, report: dict) -> None:
         rows = beside["rows"]
         lines += ["", f"Rows beside the bars, {', '.join(rows)} (row x passes):"]
         lines += failing(beside["failures"]) or ["  none failed"]
+    first = report.get("first_turns")
+    if first:
+        lines += ["", f"Turn 1 of {first['checked']} conversations, status only:"]
+        lines += [
+            f"  {name}: " + ", ".join(f"{status}x{n}" for status, n in got.items())
+            for name, got in first["failures"].items()
+        ] or ["  all as expected"]
     print("\n".join(lines))
 
 

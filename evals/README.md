@@ -94,12 +94,15 @@ Each rule is the golden set's, and dated where it was settled.
 - **A conversation is asked turn by turn** (CAIT-290, 5 October 2026).
   Each turn is sent the answers the service really gave to the turns before
   it: the last four, without blocked ones, each cut to 2,000 characters, as
-  the front end sends them. Turn 1 is asked to get there and is not scored;
-  `unscored_turns` in `meta.json` counts those calls, and their tokens are in
+  the front end sends them. Turn 1 is asked to get there and is not scored.
+  Only its status is checked, by code, and printed beside the bars as
+  "Turn 1 of N conversations": if turn 1 goes wrong, the later turns are
+  marked on a different conversation.
+  `unscored_turns` in `meta.json` counts the calls not scored, and their tokens are in
   the run's cost. Each later turn's record keeps the `history` it was sent,
   and the judge is shown it. If a turn gives no answer, the turns after it
-  are recorded as failures and not asked. C12 and C15 are asked now. C15's
-  "four unrelated questions" are rows 1, 19, 31 and 41 of the set.
+  are recorded as failures and not asked. C12 and C15 are asked now. C15
+  asks the four rows its cell names, as the set writes them.
 - **Complete, conversation turns** is the judge's Complete verdict on each
   later turn. Status alone cannot say whether the service held its answer or
   added what was missing. It is not a bar.
