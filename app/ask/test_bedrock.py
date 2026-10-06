@@ -13,6 +13,7 @@ from pymongo import ReturnDocument
 
 from app.ask import bedrock
 from app.ask.bedrock import (
+    StopsAtABlock,
     agent,
     bedrock_engine,
     caches_instructions,
@@ -59,6 +60,8 @@ class FakeDailyUsage:
 def fake_mongo(mocker, monkeypatch):
     # No real MongoDB anywhere in this file: every test gets a fresh fake
     # collection, following how app/common/test_mongo.py resets the client.
+    # Every call through bedrock_engine() now goes through CountingModel, so
+    # this must be autouse even for the guardrail-blocking tests below.
     monkeypatch.setattr(mongo, "client", None)
     monkeypatch.setattr(mongo, "db", None)
 
@@ -209,11 +212,17 @@ def test_model_settings_without_a_guardrail_has_no_guardrail_config(monkeypatch)
     assert model_settings()["bedrock_cache_instructions"] is True
 
 
+def test_model_settings_caps_output_at_1000_tokens():
+    assert model_settings()["max_tokens"] == 1000
+
+
 def test_the_boto3_client_is_configured_for_a_single_attempt():
-    # The agent's own retries=1 is the one retry layer: boto3 must not retry
-    # throttled calls on its own, invisibly to the daily usage counter. No
-    # network call here, just the client object's own config.
-    client = agent().model.client
+    # The agent's own retries setting governs output-shape retries, not
+    # boto3's own HTTP retries: boto3 must not retry throttled calls on its
+    # own, invisibly to the daily usage counter. No network call here, just
+    # the client object's own config. agent().model is StopsAtABlock, so the
+    # real BedrockConverseModel (and its client) is one level further in.
+    client = agent().model.wrapped.client
 
     assert client.meta.config.retries["total_max_attempts"] == 1
 
@@ -416,20 +425,21 @@ async def test_engine_retries_when_the_model_replies_in_prose(fake_mongo):
     assert fake_mongo.counts[bedrock._today()] == 2
 
 
-async def test_one_question_never_makes_more_than_two_bedrock_calls(fake_mongo):
+async def test_one_question_never_makes_more_than_three_bedrock_calls(fake_mongo):
     calls = []
 
     def respond(_messages, _info: AgentInfo) -> ModelResponse:
         calls.append(1)
         # Never valid: every reply is prose, so the agent would keep asking
-        # forever if retries were not capped at 1 (2 calls in total).
+        # forever if retries were not capped at 2 (3 calls in total: the
+        # first attempt plus 2 retries).
         return ModelResponse(parts=[TextPart(content="still prose")])
 
     with agent().override(model=FunctionModel(respond)):
         answer = await bedrock_engine("q", [])
 
-    assert len(calls) == 2
-    assert fake_mongo.counts[bedrock._today()] == 2
+    assert len(calls) == 3
+    assert fake_mongo.counts[bedrock._today()] == 3
     assert answer.status == "error"
 
 
@@ -592,6 +602,90 @@ async def test_a_refusal_is_logged_with_the_count_and_not_the_question(
     messages = [record.getMessage() for record in caplog.records]
     assert any("count=4" in message for message in messages)
     assert not any(private_question in message for message in messages)
+
+
+GUARDRAIL_TEXT = "Sorry, the model cannot answer this question."
+
+
+def blocked_reply(calls: list):
+    # What Bedrock sends back when a guardrail steps in: its own fixed text,
+    # not a tool call, with the stop reason Pydantic AI maps to content_filter.
+    def respond(_messages, _info: AgentInfo) -> ModelResponse:
+        calls.append(1)
+        return ModelResponse(
+            parts=[TextPart(content=GUARDRAIL_TEXT)],
+            finish_reason="content_filter",
+            provider_details={"finish_reason": "guardrail_intervened"},
+        )
+
+    return StopsAtABlock(FunctionModel(respond))
+
+
+async def test_a_question_the_guardrail_blocks_gets_the_blocked_status():
+    with agent().override(model=blocked_reply([])):
+        answer = await bedrock_engine("q", [])
+
+    assert answer.status == "blocked"
+    assert answer == bedrock.BLOCKED_ANSWER
+    assert GUARDRAIL_TEXT not in answer.message
+
+
+async def test_a_blocked_question_is_asked_once():
+    calls = []
+
+    with agent().override(model=blocked_reply(calls)):
+        await bedrock_engine("q", [])
+
+    assert len(calls) == 1
+
+
+async def test_a_block_is_logged_with_its_reasons_and_nothing_anyone_wrote(caplog):
+    private_question = "what counts as personal data on my project"
+
+    with caplog.at_level("WARNING"), agent().override(model=blocked_reply([])):
+        await bedrock_engine(private_question, [])
+
+    logged = "\n".join(record.getMessage() for record in caplog.records)
+    assert "finish_reason=content_filter" in logged
+    assert "stop_reason=guardrail_intervened" in logged
+    assert private_question not in logged
+    assert GUARDRAIL_TEXT not in logged
+    assert not any(record.exc_info for record in caplog.records)
+
+
+async def test_a_block_that_gives_no_stop_reason_is_still_blocked(caplog):
+    def respond(_messages, _info: AgentInfo) -> ModelResponse:
+        return ModelResponse(parts=[], finish_reason="content_filter")
+
+    model = StopsAtABlock(FunctionModel(respond))
+    with caplog.at_level("WARNING"), agent().override(model=model):
+        answer = await bedrock_engine("q", [])
+
+    assert answer == bedrock.BLOCKED_ANSWER
+    assert "stop_reason=None" in caplog.text
+
+
+async def test_a_reply_in_the_wrong_shape_that_is_not_a_block_is_still_an_error():
+    calls = []
+
+    def respond(_messages, _info: AgentInfo) -> ModelResponse:
+        calls.append(1)
+        return ModelResponse(
+            parts=[TextPart(content="still prose")], finish_reason="stop"
+        )
+
+    with agent().override(model=StopsAtABlock(FunctionModel(respond))):
+        answer = await bedrock_engine("q", [])
+
+    assert answer.status == "error"
+    assert len(calls) == 3
+
+
+def test_the_agent_the_service_runs_stops_at_a_block():
+    model = agent().model
+
+    assert isinstance(model, StopsAtABlock)
+    assert isinstance(model.wrapped, BedrockConverseModel)
 
 
 async def test_engine_turns_a_failure_into_the_error_outcome():

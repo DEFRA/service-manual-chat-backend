@@ -14,6 +14,22 @@ from collections import defaultdict
 
 from evals.quotes import locate, stitched, whole_sentences
 
+# The bars count over the first 100 questions, as the set's "What a run means" says,
+# so every run compares with the ones before it. Rows added since (v8, 101 to 103) are
+# reported beside the bars, never in them (CAIT-288, 29 September 2026).
+BAR_ROWS = 100
+# The same for conversations: the bars count C1 to C15, and C16 to C19 (v9, from
+# the first usability sessions) are reported beside them. A conversation turn can
+# feed Quoted, Refusals held and Fabricated quotes, so one added later would move
+# a bar. Turn ids are C16-t3: conversation, then turn.
+BAR_CONVERSATIONS = 15
+
+
+def in_bars(question_id: str) -> bool:
+    if question_id.startswith("G"):
+        return int(question_id[1:]) <= BAR_ROWS
+    return int(question_id[1:].split("-")[0]) <= BAR_CONVERSATIONS
+
 
 def quote_marks(answer: dict, corpus: dict) -> dict:
     """How a raw `rule_verbatim` stands up. `corpus` maps URL to page body."""
@@ -183,6 +199,13 @@ def judged_measures(
             else:
                 failures[field].append(qid)
         per_pass[name] = passed
+    # Status cannot say whether a later turn held its answer or added what was
+    # missing; the judge's Complete can. Not a bar: it is here to be read.
+    turns = [q for q in every if q.startswith("C")]
+    if turns:
+        held = [q for q in turns if (verdicts.get(q) or {}).get("complete")]
+        per_pass["complete, conversation turns"] = len(held)
+        failures["complete_conversation"].extend(q for q in turns if q not in held)
     # Item 8, the judge's half: of the quotes the code passed, how many were the row's rule.
     rows_rule = {q: quoted_the_rows_rule(marks[q], verdicts.get(q)) for q in every}
     if any(v is not None for v in rows_rule.values()):
@@ -263,16 +286,55 @@ def bars(ranges: dict[str, list[int]], n: dict[str, int]) -> list[dict]:
     return out
 
 
-def score(
-    answers: list[dict], verdicts: list[dict], questions: dict[str, dict], corpus: dict
-) -> dict:
-    """The report for one run: every measure as a range, the six bars, the failing rows.
-    `corpus` maps URL to page body."""
+def first_turns(answers: list[dict], questions: dict[str, dict]) -> dict:
+    """Whether turn 1 of each conversation came back as the set expects.
+
+    Turn 1 is not a row, so this reads it from the history a later turn was
+    sent. A turn 1 that is not there was blocked: blocked turns are left out
+    of the history, and a turn with no answer stops the conversation before
+    any later turn is asked. Reported beside the bars, as what turn 1 came
+    back as and on how many passes.
+    """
+    from app.ask.schemas import MAX_HISTORY_TURNS
+
+    checked: set[str] = set()
+    done: set[tuple[str, str, int]] = set()
+    failed: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for record in sorted(answers, key=lambda r: r["question_id"]):
+        question = questions[record["question_id"]]
+        expected = question.get("first_turn_status")
+        name = record["question_id"].split("-t")[0]
+        once = (name, record["key"], record["run"])
+        # Past the history's length turn 1 may have dropped off the front.
+        if (
+            not expected
+            or not record["ok"]
+            or once in done
+            or len(question["earlier"]) > MAX_HISTORY_TURNS
+        ):
+            continue
+        done.add(once)
+        checked.add(name)
+        first = question["earlier"][0]
+        status = next(
+            (t["status"] for t in record.get("history", []) if t["question"] == first),
+            "blocked",
+        )
+        if status not in expected:
+            failed[name][status] += 1
+    return {
+        "checked": len(checked),
+        "failures": {name: dict(got) for name, got in sorted(failed.items())},
+    }
+
+
+def tally(
+    answers: list[dict], judged: dict, questions: dict[str, dict], corpus: dict
+) -> tuple[int, dict[str, list[int]], dict[str, dict[str, int]]]:
+    """Passes, each measure per pass, and how many passes each row failed each measure."""
     by_pass: dict[tuple[str, int], list[dict]] = defaultdict(list)
     for record in answers:
         by_pass[(record["key"], record["run"])].append(record)
-    judged = {(j["key"], j["run"], j["question_id"]): j["marks"] for j in verdicts}
-
     ranges: dict[str, list[int]] = defaultdict(list)
     failed: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     for (key, run), records in sorted(by_pass.items()):
@@ -285,11 +347,22 @@ def score(
         for measure, ids in failures.items():
             for qid in ids:
                 failed[measure][qid] += 1
+    failures = {m: dict(sorted(ids.items())) for m, ids in failed.items()}
+    return len(by_pass), ranges, failures
 
-    n = sizes(questions, {r["question_id"] for r in answers})
+
+def score(
+    answers: list[dict], verdicts: list[dict], questions: dict[str, dict], corpus: dict
+) -> dict:
+    """The report for one run: every measure as a range, the six bars, the failing rows,
+    and the rows beside the bars. `corpus` maps URL to page body."""
+    judged = {(j["key"], j["run"], j["question_id"]): j["marks"] for j in verdicts}
+    counted = [r for r in answers if in_bars(r["question_id"])]
+    passes, ranges, failures = tally(counted, judged, questions, corpus)
+    n = sizes(questions, {r["question_id"] for r in counted})
     table = bars(ranges, n)
-    return {
-        "passes": len(by_pass),
+    report = {
+        "passes": passes,
         "sizes": n,
         "bars": table,
         "run_passed": all(b["passed"] for b in table),
@@ -297,5 +370,14 @@ def score(
             name: {"per_pass": values, "range": spread(values)}
             for name, values in ranges.items()
         },
-        "failures": {m: dict(sorted(ids.items())) for m, ids in failed.items()},
+        "failures": failures,
     }
+    if any(q.get("first_turn_status") for q in questions.values()):
+        report["first_turns"] = first_turns(answers, questions)
+    beside = [r for r in answers if not in_bars(r["question_id"])]
+    if beside:
+        report["beside"] = {
+            "rows": sorted({r["question_id"] for r in beside}),
+            "failures": tally(beside, judged, questions, corpus)[2],
+        }
+    return report

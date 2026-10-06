@@ -84,9 +84,31 @@ Each rule is the golden set's, and dated where it was settled.
 - **A run is three passes.** Every measure is reported as the range across
   them, lowest to highest: "Report the range, not the best". A bar passes
   only if every pass clears it, and one failed bar fails the run.
+- **The bars count over rows 1 to 100** (29 September 2026), as the set's
+  bars say, so every run compares with the ones before it. Rows added since
+  (v8, 101 to 103) are asked and judged like the rest, and printed beside
+  the bars as "Rows beside the bars", never counted in them. The same goes
+  for conversations: the bars count C1 to C15, and C16 to C19 (v9) are
+  beside them. A conversation turn can feed Quoted and Refusals held (C5,
+  C3, C11 and C14 do), so one added later would move a bar.
+- **A conversation is asked turn by turn** (CAIT-290, 5 October 2026).
+  Each turn is sent the answers the service really gave to the turns before
+  it: the last four, without blocked ones, each cut to 2,000 characters, as
+  the front end sends them. Turn 1 is asked to get there and is not scored.
+  Only its status is checked, by code, and printed beside the bars as
+  "Turn 1 of N conversations": if turn 1 goes wrong, the later turns are
+  marked on a different conversation.
+  `unscored_turns` in `meta.json` counts the calls not scored, and their tokens are in
+  the run's cost. Each later turn's record keeps the `history` it was sent,
+  and the judge is shown it. If a turn gives no answer, the turns after it
+  are recorded as failures and not asked. C12 and C15 are asked now. C15
+  asks the four rows its cell names, as the set writes them.
+- **Complete, conversation turns** is the judge's Complete verdict on each
+  later turn. Status alone cannot say whether the service held its answer or
+  added what was missing. It is not a bar.
 - **Right status** is the status the row expects, and its reason where the
   row gives one (`outside_toolkit`, `no_guidance_yet`). Counted over the
-  100 questions; the 15 conversation turns are reported beside it.
+  100 questions; the conversation turns are reported beside it.
 - **Quoted exactly** (set v2, 17 September 2026): "the words and their
   order match the source. Differences in spacing, line breaks and
   surrounding punctuation are fine. A quote fails if any word is changed,
@@ -107,7 +129,10 @@ Each rule is the golden set's, and dated where it was settled.
 - **Refusals held** (rows 92 to 95, C3, C11, C14): status `blocked`.
 - **Grounded** is strict (set v4, 22 September 2026): every fact is on the
   pages the row names, not just somewhere in the toolkit. "Grounded in the
-  toolkit at all" is reported beside it.
+  toolkit at all" is reported beside it. The quoted rule is part of the
+  answer (29 September 2026), so a rule quoted from a page the row does not
+  name fails Grounded as well as Quoted, even when the same point is on
+  the named page (30 September 2026).
 - **The judge is Claude Opus 4.6**, held still across the steps of a
   story. It agrees with itself on 342 of 345 Grounded verdicts. Sonnet 4.6
   agreed with it on 333 Grounded and 326 Complete (28 September 2026), so

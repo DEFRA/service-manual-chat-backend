@@ -5,6 +5,12 @@ the expected answer, the named source pages, the whole toolkit and the answer
 as a reader would be shown it. It never sees which model wrote the answer.
 Status and the words of a quote are not judged here: code checks those.
 Whether the quoted rule is the one the row asks for is (set v4, item 8).
+The quoted rule counts for Grounded (settled 29 September 2026): the judge had
+passed 13 and failed 8 of 21 wrong-page quotes when the prompt did not say.
+Even when the same point is on the named page (30 September 2026): the judge
+passed J06 because its quote added no new facts, then because row 4 expects
+no quote. The reason comes before the verdicts (30 September 2026): J06's
+reason once ended "This fails" after the verdict was written as a pass.
 
 The judge is held still across the steps of a story, so bars are comparable.
 Opus 4.6 agrees with itself on 342 of 345 Grounded verdicts; Sonnet 4.6
@@ -38,6 +44,10 @@ Give two verdicts:
 - grounded_in_toolkit: every fact is on some toolkit page, named or not.
 An answer that declines, asks for more detail or refuses, and states no
 facts, is grounded.
+The quoted rule is part of the answer. A rule quoted from a page not named
+for this question fails grounded_in_named_sources, even when the message
+around it is grounded, even when the same point is on the named page, and
+whether or not a quoted rule is expected for this question.
 
 Complete. "Does the answer contain the claim in the Expected answer column?
 Citing the right page is not enough. If the column says 'no, and remove it
@@ -68,16 +78,18 @@ answer states? Otherwise leave right_rule null. Three rules for this verdict:
   leaves something out, and a quote of the wrong rule fails even when the
   message states the right one.
 
-Do not reward length or tone. Give one sentence of reason naming the fact or
-claim that decided a fail, or "nothing" if all pass."""
+Do not reward length or tone. Write the reason before the verdicts: one
+sentence naming the fact or claim that decided a fail, or "nothing" if all
+pass. The verdicts must follow from it."""
 
 
 class Verdict(BaseModel):
+    # The reason comes first so the verdicts follow from it (30 September 2026).
+    reason: str
     grounded_in_named_sources: bool
     grounded_in_toolkit: bool
     complete: bool
     right_rule: bool | None = None
-    reason: str
 
 
 def merge_verdicts(
@@ -99,13 +111,31 @@ def merge_verdicts(
     return list(merged.values())
 
 
+def said(turn: dict) -> str:
+    options = f" Options: {'; '.join(turn['options'])}" if turn["options"] else ""
+    return (
+        f"Reader: {turn['question']}\n"
+        f"Service ({turn['status']}): {turn['message']}{options}"
+    )
+
+
 def shown_to_judge(record: dict, question: dict, titles: dict[str, str]) -> str:
     """The answer as the reader saw it, except the quote: the raw one the model gave,
     because the old backend check dropped true quotes as misquotes (CAIT-280), and
     which rule was quoted is what right_rule judges."""
-    asked = question["question"]
-    if question.get("previous_question"):
-        asked = f"(follow-up to: {question['previous_question']}) {asked}"
+    asked = f"Question: {question['question']}"
+    history = record.get("history")
+    earlier = question.get("earlier")
+    if history:
+        # What the service was sent: its own real answers to the turns before.
+        asked = (
+            "The conversation so far, as the service was sent it:\n"
+            + "\n".join(said(turn) for turn in history)
+            + f"\n\nQuestion (turn {len(earlier or history) + 1}): {question['question']}"
+        )
+    elif earlier:
+        # A run from before conversations were asked turn by turn.
+        asked = f"Question: (follow-up to: {earlier[-1]}) {question['question']}"
     pages = question.get("expected_pages")
     if pages is None:
         named = "not named for this question; use the whole toolkit"
@@ -113,8 +143,8 @@ def shown_to_judge(record: dict, question: dict, titles: dict[str, str]) -> str:
         named = ", ".join(f"{titles[url]} ({url})" for url in pages) or "none"
     shown = {**record["verified"], "rule_verbatim": record["answer"]["rule_verbatim"]}
     return (
-        f"Question: {asked}\n"
-        f"Expected status: {question['expected_status'][0]}\n"
+        f"{asked}\n"
+        f"Expected status: {' or '.join(question['expected_status'])}\n"
         f"Expected answer: {question['expected_answer']}\n"
         f"Quoted rule expected: {'yes' if question.get('expects_rule') else 'no'}\n"
         f"Named source pages: {named}\n\n"

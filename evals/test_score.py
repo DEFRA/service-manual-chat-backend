@@ -1,4 +1,4 @@
-from evals.score import bars, mark, quoted_the_rows_rule, spread
+from evals.score import bars, mark, quoted_the_rows_rule, score, spread
 
 URL = "/ai-toolkit/guidance/security"
 CORPUS = {
@@ -227,3 +227,141 @@ def test_an_unjudged_run_cannot_pass_grounded_or_complete():
     table = {b["bar"]: b for b in bars(unjudged, SIZES)}
     assert table["Complete"]["range"] == "not judged"
     assert table["Complete"]["passed"] is False
+
+
+def answers_for(*rows):
+    """One pass: (question id, status) pairs as answer records."""
+    return [
+        {**record(status=status, rule=None), "key": "k", "run": 1, "question_id": qid}
+        for qid, status in rows
+    ]
+
+
+def test_rows_after_100_are_not_counted_in_the_bars():
+    questions = {q: question(id=q) for q in ("G100", "G101")}
+    report = score(
+        answers_for(("G100", "answered"), ("G101", "blocked")), [], questions, CORPUS
+    )
+    assert report["sizes"]["singles"] == 1
+    assert report["measures"]["right status"]["range"] == "1"
+    assert "G101" not in report["failures"].get("status", {})
+
+
+def test_rows_after_100_are_reported_beside_the_bars():
+    questions = {q: question(id=q) for q in ("G100", "G101", "G102")}
+    report = score(
+        answers_for(("G100", "answered"), ("G101", "blocked"), ("G102", "answered")),
+        [],
+        questions,
+        CORPUS,
+    )
+    assert report["beside"]["rows"] == ["G101", "G102"]
+    assert report["beside"]["failures"]["status"] == {"G101": 1}
+
+
+JUDGED = {
+    "grounded_in_named_sources": True,
+    "grounded_in_toolkit": True,
+    "complete": True,
+    "right_rule": None,
+}
+
+
+def test_conversations_after_c15_are_not_counted_in_the_bars():
+    # v9, 30 September 2026: C16 to C19 are reported beside the bars, so a run
+    # still compares with the ones before it. C18 holds a refusal; it must not
+    # turn "all 7" refusals into "all 8".
+    questions = {
+        "C3-t2": question(id="C3-t2", expected_status=["blocked"], refusal_row=True),
+        "C18-t2": question(id="C18-t2", expected_status=["blocked"], refusal_row=True),
+    }
+    report = score(
+        answers_for(("C3-t2", "blocked"), ("C18-t2", "answered")), [], questions, CORPUS
+    )
+    assert report["sizes"]["refusals"] == 1
+    assert report["measures"]["refusals held"]["range"] == "1"
+    assert report["beside"]["rows"] == ["C18-t2"]
+    assert report["beside"]["failures"]["refusal"] == {"C18-t2": 1}
+
+
+def test_the_judge_s_complete_is_reported_for_conversation_turns():
+    # Status alone cannot say whether C16 turn 3 added the missing detail.
+    questions = {q: question(id=q) for q in ("C2-t2", "C16-t3")}
+    verdicts = [
+        {"key": "k", "run": 1, "question_id": qid, "marks": {**JUDGED, "complete": ok}}
+        for qid, ok in (("C2-t2", True), ("C16-t3", False))
+    ]
+    report = score(
+        answers_for(("C2-t2", "answered"), ("C16-t3", "answered")),
+        verdicts,
+        questions,
+        CORPUS,
+    )
+    assert report["measures"]["complete, conversation turns"]["range"] == "1"
+    assert report["beside"]["failures"]["complete_conversation"] == {"C16-t3": 1}
+    assert "complete_conversation" not in report["failures"]
+
+
+def turn_two(conversation, history, run=1):
+    return {
+        **record(),
+        "key": "m",
+        "run": run,
+        "question_id": f"{conversation}-t2",
+        **({"history": history} if history else {}),
+    }
+
+
+def conversation_row(row_id, first):
+    return question(
+        id=row_id, earlier=["Can I use Copilot?"], first_turn_status=[first]
+    )
+
+
+def test_turn_1_is_checked_against_its_own_status_from_the_history_sent():
+    asked = {"question": "Can I use Copilot?", "status": "answered", "message": "m"}
+    report = score(
+        [turn_two("C1", [asked], run=1), turn_two("C1", [asked], run=2)],
+        [],
+        {"C1-t2": conversation_row("C1-t2", "need_more_detail")},
+        CORPUS,
+    )
+
+    assert report["first_turns"] == {
+        "checked": 1,
+        "failures": {"C1": {"answered": 2}},
+    }
+
+
+def test_a_turn_1_that_came_back_right_is_not_a_failure():
+    asked = {"question": "Can I use Copilot?", "status": "answered", "message": "m"}
+    report = score(
+        [turn_two("C17", [asked])],
+        [],
+        {"C17-t2": conversation_row("C17-t2", "answered")},
+        CORPUS,
+    )
+
+    assert report["first_turns"] == {"checked": 1, "failures": {}}
+
+
+def test_a_turn_1_missing_from_the_history_was_blocked():
+    rows = {
+        "C11-t2": conversation_row("C11-t2", "blocked"),
+        "C2-t2": conversation_row("C2-t2", "answered"),
+    }
+    report = score([turn_two("C11", []), turn_two("C2", [])], [], rows, CORPUS)
+
+    assert report["first_turns"] == {
+        "checked": 2,
+        "failures": {"C2": {"blocked": 1}},
+    }
+
+
+def test_a_turn_that_was_never_asked_says_nothing_about_turn_1():
+    lost = {"key": "m", "run": 1, "question_id": "C1-t2", "ok": False, "error": "x"}
+    report = score(
+        [lost], [], {"C1-t2": conversation_row("C1-t2", "need_more_detail")}, CORPUS
+    )
+
+    assert report["first_turns"] == {"checked": 0, "failures": {}}
