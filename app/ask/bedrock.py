@@ -195,7 +195,7 @@ def agent_for(instructions_text: str) -> Agent[None, Answer]:
         output_type=Answer,
         instructions=instructions_text,
         model_settings=model_settings(),
-        retries=2,
+        retries=1,
     )
 
 
