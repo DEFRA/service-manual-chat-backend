@@ -1,12 +1,15 @@
+import asyncio
 import json
 from pathlib import Path
 
 import pytest
+from pydantic_ai import Agent
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models import ModelRequestParameters
 from pydantic_ai.models.bedrock import BedrockConverseModel
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.providers.bedrock import BedrockProvider
+from pymongo import ReturnDocument
 
 from app.ask import bedrock
 from app.ask.bedrock import (
@@ -19,6 +22,7 @@ from app.ask.bedrock import (
     user_prompt,
 )
 from app.ask.schemas import Turn
+from app.common import mongo
 
 CONTENT = Path(__file__).parent / "__fixtures__" / "content"
 
@@ -27,6 +31,51 @@ CONTENT = Path(__file__).parent / "__fixtures__" / "content"
 def _local_content(monkeypatch):
     monkeypatch.setattr(bedrock.config, "content_dir", str(CONTENT))
     monkeypatch.setattr(bedrock.config, "system_prompt_path", "prompts/system.md")
+
+
+class FakeDailyUsage:
+    """An in-memory stand-in for the `ask_daily_usage` collection.
+
+    No test needs a real MongoDB: this fakes the one operation `bedrock.py`
+    performs, `find_one_and_update` with `$inc` and `upsert=True`, atomically
+    enough for the concurrency test because nothing here awaits mid-update.
+    """
+
+    def __init__(self):
+        self.counts: dict[str, int] = {}
+        self.calls = 0
+        self.error: Exception | None = None
+
+    async def find_one_and_update(self, filter_, update, *, upsert, return_document):
+        del upsert, return_document
+        self.calls += 1
+        if self.error is not None:
+            raise self.error
+        day = filter_["_id"]
+        self.counts[day] = self.counts.get(day, 0) + update["$inc"]["attempts"]
+        return {"_id": day, "attempts": self.counts[day]}
+
+
+@pytest.fixture(autouse=True)
+def fake_mongo(mocker, monkeypatch):
+    # No real MongoDB anywhere in this file: every test gets a fresh fake
+    # collection, following how app/common/test_mongo.py resets the client.
+    # Every call through bedrock_engine() now goes through CountingModel, so
+    # this must be autouse even for the guardrail-blocking tests below.
+    monkeypatch.setattr(mongo, "client", None)
+    monkeypatch.setattr(mongo, "db", None)
+
+    fake_usage = FakeDailyUsage()
+    collections = {bedrock.ASK_DAILY_USAGE_COLLECTION: fake_usage}
+
+    mock_client_cls = mocker.patch("app.common.mongo.AsyncMongoClient")
+    mock_instance = mock_client_cls.return_value
+    mock_db = mocker.MagicMock()
+    mock_db.__getitem__.side_effect = collections.__getitem__
+    mock_db.command = mocker.AsyncMock(return_value={"ok": 1})
+    mock_instance.get_database.return_value = mock_db
+
+    return fake_usage
 
 
 def answer_with(args: dict):
@@ -165,6 +214,24 @@ def test_model_settings_without_a_guardrail_has_no_guardrail_config(monkeypatch)
 
 def test_model_settings_caps_output_at_1000_tokens():
     assert model_settings()["max_tokens"] == 1000
+
+
+def test_the_boto3_client_is_configured_for_a_single_attempt():
+    # The agent's own retries setting governs output-shape retries, not
+    # boto3's own HTTP retries: boto3 must not retry throttled calls on its
+    # own, invisibly to the daily usage counter. No network call here, just
+    # the client object's own config. agent().model is StopsAtABlock, so the
+    # real BedrockConverseModel (and its client) is one level further in.
+    client = agent().model.wrapped.client
+
+    assert client.meta.config.retries["total_max_attempts"] == 1
+
+
+def test_the_private_model_resolution_method_still_exists():
+    # Guards against pydantic-ai renaming or removing this private method
+    # (e.g. in the pydantic-ai-slim 2.51 upgrade tracked in PR #31), which
+    # bedrock_engine() depends on to wrap the live model with CountingModel.
+    assert hasattr(Agent, "_get_model_outside_run")
 
 
 def test_caching_is_off_for_a_model_that_refuses_it(monkeypatch):
@@ -333,7 +400,7 @@ async def test_engine_drops_a_paraphrased_rule():
     assert answer.rule_verbatim is None
 
 
-async def test_engine_retries_when_the_model_replies_in_prose():
+async def test_engine_retries_when_the_model_replies_in_prose(fake_mongo):
     calls = []
 
     def respond(_messages, info: AgentInfo) -> ModelResponse:
@@ -354,6 +421,204 @@ async def test_engine_retries_when_the_model_replies_in_prose():
 
     assert answer.message == "m"
     assert len(calls) == 2
+    # The counter rises once per Bedrock request, not once per question.
+    assert fake_mongo.counts[bedrock._today()] == 2
+
+
+async def test_one_question_never_makes_more_than_three_bedrock_calls(fake_mongo):
+    calls = []
+
+    def respond(_messages, _info: AgentInfo) -> ModelResponse:
+        calls.append(1)
+        # Never valid: every reply is prose, so the agent would keep asking
+        # forever if retries were not capped at 2 (3 calls in total: the
+        # first attempt plus 2 retries).
+        return ModelResponse(parts=[TextPart(content="still prose")])
+
+    with agent().override(model=FunctionModel(respond)):
+        answer = await bedrock_engine("q", [])
+
+    assert len(calls) == 3
+    assert fake_mongo.counts[bedrock._today()] == 3
+    assert answer.status == "error"
+
+
+async def test_a_single_valid_answer_increments_the_counter_once(fake_mongo):
+    with agent().override(
+        model=answer_with({"status": "answered", "message": "m", "sources": []})
+    ):
+        await bedrock_engine("q", [])
+
+    assert fake_mongo.counts[bedrock._today()] == 1
+
+
+async def test_a_failed_bedrock_call_still_counts_as_an_attempt(fake_mongo):
+    def respond(_messages, _info: AgentInfo) -> ModelResponse:
+        msg = "throttled"
+        raise RuntimeError(msg)
+
+    with agent().override(model=FunctionModel(respond)):
+        await bedrock_engine("q", [])
+
+    assert fake_mongo.counts[bedrock._today()] == 1
+
+
+async def test_increment_daily_usage_is_a_single_atomic_upsert(mocker, fake_mongo):
+    spy = mocker.spy(fake_mongo, "find_one_and_update")
+
+    count = await bedrock._increment_daily_usage()
+
+    assert count == 1
+    spy.assert_awaited_once()
+    args, kwargs = spy.await_args
+    assert args == ({"_id": bedrock._today()}, {"$inc": {"attempts": 1}})
+    assert kwargs == {"upsert": True, "return_document": ReturnDocument.AFTER}
+
+
+async def test_the_request_that_reaches_the_ceiling_exactly_is_allowed(
+    monkeypatch, fake_mongo
+):
+    monkeypatch.setattr(bedrock.config, "ask_daily_ceiling", 3)
+    fake_mongo.counts[bedrock._today()] = 2  # this request becomes the 3rd
+
+    with agent().override(
+        model=answer_with({"status": "answered", "message": "m", "sources": []})
+    ):
+        answer = await bedrock_engine("q", [])
+
+    assert answer.status == "answered"
+    assert fake_mongo.counts[bedrock._today()] == 3
+
+
+def test_the_ceiling_message_does_not_tell_the_reader_to_try_again_in_a_minute():
+    assert "try again in a minute" not in bedrock.CEILING_ANSWER.message.lower()
+    assert bedrock.CEILING_ANSWER.message != bedrock.ERROR_ANSWER.message
+
+
+async def test_the_attempt_past_the_ceiling_is_refused_without_a_bedrock_call(
+    monkeypatch, fake_mongo
+):
+    monkeypatch.setattr(bedrock.config, "ask_daily_ceiling", 3)
+    fake_mongo.counts[bedrock._today()] = 3  # already at the ceiling
+
+    def respond(_messages, _info: AgentInfo) -> ModelResponse:
+        msg = "must not be called past the ceiling"
+        raise AssertionError(msg)
+
+    with agent().override(model=FunctionModel(respond)):
+        answer = await bedrock_engine("q", [])
+
+    assert answer == bedrock.CEILING_ANSWER
+    assert fake_mongo.counts[bedrock._today()] == 4
+
+
+async def test_the_count_starts_again_at_0_on_a_new_utc_day(monkeypatch, fake_mongo):
+    monkeypatch.setattr(bedrock, "_today", lambda: "2026-10-01")
+
+    with agent().override(model=answer_with({"status": "answered", "message": "m"})):
+        await bedrock_engine("q", [])
+
+    assert fake_mongo.counts["2026-10-01"] == 1
+
+    monkeypatch.setattr(bedrock, "_today", lambda: "2026-10-02")
+
+    with agent().override(model=answer_with({"status": "answered", "message": "m"})):
+        await bedrock_engine("q", [])
+
+    assert fake_mongo.counts["2026-10-01"] == 1
+    assert fake_mongo.counts["2026-10-02"] == 1
+
+
+async def test_two_concurrent_requests_at_the_ceiling_let_exactly_one_through(
+    monkeypatch, fake_mongo
+):
+    monkeypatch.setattr(bedrock.config, "ask_daily_ceiling", 3)
+    fake_mongo.counts[bedrock._today()] = 2  # one below the ceiling
+    calls = []
+
+    def respond(_messages, info: AgentInfo) -> ModelResponse:
+        calls.append(1)
+        return ModelResponse(
+            parts=[
+                ToolCallPart(
+                    tool_name=info.output_tools[0].name,
+                    args={"status": "answered", "message": "m", "sources": []},
+                )
+            ]
+        )
+
+    with agent().override(model=FunctionModel(respond)):
+        first, second = await asyncio.gather(
+            bedrock_engine("q", []), bedrock_engine("q", [])
+        )
+
+    answers = [first, second]
+    assert len(calls) == 1  # AC5: exactly one Bedrock call, not inferred
+    assert answers.count(bedrock.CEILING_ANSWER) == 1
+    assert sum(1 for a in answers if a.status == "answered") == 1
+    assert fake_mongo.counts[bedrock._today()] == 4
+
+
+async def test_with_mongodb_unavailable_bedrock_is_not_called(fake_mongo, caplog):
+    fake_mongo.error = ConnectionError("no route to host")
+
+    def respond(_messages, _info: AgentInfo) -> ModelResponse:
+        msg = "must not be called when MongoDB is unreachable"
+        raise AssertionError(msg)
+
+    with caplog.at_level("ERROR"), agent().override(model=FunctionModel(respond)):
+        answer = await bedrock_engine("q", [])
+
+    assert answer == bedrock.ERROR_ANSWER
+    assert any(record.levelname == "ERROR" for record in caplog.records)
+
+
+async def test_a_client_that_never_connects_still_times_out(monkeypatch):
+    # The timeout must cover get_mongo_client() too, not just the update: on
+    # first use it pings MongoDB with the driver's own ~30s wait. A client
+    # that never comes back must still fail in _DAILY_USAGE_TIMEOUT_SECONDS.
+    monkeypatch.setattr(bedrock, "_DAILY_USAGE_TIMEOUT_SECONDS", 0.05)
+
+    async def never_connects():
+        await asyncio.sleep(10)
+        msg = "should have timed out first"
+        raise AssertionError(msg)  # pragma: no cover
+
+    monkeypatch.setattr(bedrock, "get_mongo_client", never_connects)
+
+    with pytest.raises(bedrock.DailyUsageUnavailableError):
+        await bedrock._increment_daily_usage()
+
+
+async def test_the_golden_set_agent_is_never_counted_and_needs_no_mongo(fake_mongo):
+    # evals/answer.py calls agent() and runs it directly: it never goes
+    # through bedrock_engine, so it must never touch the counter.
+    with agent().override(
+        model=answer_with({"status": "answered", "message": "m", "sources": []})
+    ):
+        result = await agent().run(user_prompt("q", []))
+
+    assert result.output.message == "m"
+    assert fake_mongo.calls == 0
+
+
+async def test_a_refusal_is_logged_with_the_count_and_not_the_question(
+    monkeypatch, fake_mongo, caplog
+):
+    monkeypatch.setattr(bedrock.config, "ask_daily_ceiling", 3)
+    fake_mongo.counts[bedrock._today()] = 3
+    private_question = "what counts as personal data on my project"
+
+    def respond(_messages, _info: AgentInfo) -> ModelResponse:
+        msg = "must not be called past the ceiling"
+        raise AssertionError(msg)
+
+    with caplog.at_level("WARNING"), agent().override(model=FunctionModel(respond)):
+        await bedrock_engine(private_question, [])
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("count=4" in message for message in messages)
+    assert not any(private_question in message for message in messages)
 
 
 GUARDRAIL_TEXT = "Sorry, the model cannot answer this question."
