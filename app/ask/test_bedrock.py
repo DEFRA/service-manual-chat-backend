@@ -425,21 +425,21 @@ async def test_engine_retries_when_the_model_replies_in_prose(fake_mongo):
     assert fake_mongo.counts[bedrock._today()] == 2
 
 
-async def test_one_question_never_makes_more_than_three_bedrock_calls(fake_mongo):
+async def test_one_question_never_makes_more_than_two_bedrock_calls(fake_mongo):
     calls = []
 
     def respond(_messages, _info: AgentInfo) -> ModelResponse:
         calls.append(1)
         # Never valid: every reply is prose, so the agent would keep asking
-        # forever if retries were not capped at 2 (3 calls in total: the
-        # first attempt plus 2 retries).
+        # forever if retries were not capped at 1 (2 calls in total: the
+        # first attempt plus 1 retry).
         return ModelResponse(parts=[TextPart(content="still prose")])
 
     with agent().override(model=FunctionModel(respond)):
         answer = await bedrock_engine("q", [])
 
-    assert len(calls) == 3
-    assert fake_mongo.counts[bedrock._today()] == 3
+    assert len(calls) == 2
+    assert fake_mongo.counts[bedrock._today()] == 2
     assert answer.status == "error"
 
 
@@ -695,7 +695,7 @@ async def test_a_reply_in_the_wrong_shape_that_is_not_a_block_is_still_an_error(
         answer = await bedrock_engine("q", [])
 
     assert answer.status == "error"
-    assert len(calls) == 3
+    assert len(calls) == 2
 
 
 def test_the_agent_the_service_runs_stops_at_a_block():
