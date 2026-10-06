@@ -573,6 +573,23 @@ async def test_with_mongodb_unavailable_bedrock_is_not_called(fake_mongo, caplog
     assert any(record.levelname == "ERROR" for record in caplog.records)
 
 
+async def test_a_client_that_never_connects_still_times_out(monkeypatch):
+    # The timeout must cover get_mongo_client() too, not just the update: on
+    # first use it pings MongoDB with the driver's own ~30s wait. A client
+    # that never comes back must still fail in _DAILY_USAGE_TIMEOUT_SECONDS.
+    monkeypatch.setattr(bedrock, "_DAILY_USAGE_TIMEOUT_SECONDS", 0.05)
+
+    async def never_connects():
+        await asyncio.sleep(10)
+        msg = "should have timed out first"
+        raise AssertionError(msg)  # pragma: no cover
+
+    monkeypatch.setattr(bedrock, "get_mongo_client", never_connects)
+
+    with pytest.raises(bedrock.DailyUsageUnavailableError):
+        await bedrock._increment_daily_usage()
+
+
 async def test_the_golden_set_agent_is_never_counted_and_needs_no_mongo(fake_mongo):
     # evals/answer.py calls agent() and runs it directly: it never goes
     # through bedrock_engine, so it must never touch the counter.

@@ -86,29 +86,34 @@ def _today() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%d")
 
 
+_DAILY_USAGE_TIMEOUT_SECONDS = 3
+
+
 async def _increment_daily_usage() -> int:
     # One atomic increment-and-read per Bedrock request. $inc with upsert=True
     # is a single atomic operation in MongoDB, so two concurrent requests at
     # the ceiling get distinct counts and only one can be at or under it.
-    # A short timeout so a down MongoDB fails in seconds, not pymongo's own
-    # ~30s default: the reader is waiting on this before the service answers
-    # at all.
-    try:
+    # A short timeout around the whole thing, not just the update: on first
+    # use get_mongo_client() pings MongoDB too, and the driver's own wait for
+    # that is about 30 seconds. A down MongoDB must fail in seconds, not
+    # that nor pymongo's own ~30s default on the update: the reader is
+    # waiting on this before the service answers at all.
+    async def _update() -> int:
         client = await get_mongo_client()
         db = get_db(client)
-        doc = await asyncio.wait_for(
-            db[ASK_DAILY_USAGE_COLLECTION].find_one_and_update(
-                {"_id": _today()},
-                {"$inc": {"attempts": 1}},
-                upsert=True,
-                return_document=ReturnDocument.AFTER,
-            ),
-            timeout=3,
+        doc = await db[ASK_DAILY_USAGE_COLLECTION].find_one_and_update(
+            {"_id": _today()},
+            {"$inc": {"attempts": 1}},
+            upsert=True,
+            return_document=ReturnDocument.AFTER,
         )
+        return doc["attempts"]
+
+    try:
+        return await asyncio.wait_for(_update(), timeout=_DAILY_USAGE_TIMEOUT_SECONDS)
     except Exception as error:
         msg = "could not reach MongoDB for the daily usage counter"
         raise DailyUsageUnavailableError(msg) from error
-    return doc["attempts"]
 
 
 class CountingModel(WrapperModel):
@@ -236,9 +241,7 @@ ERROR_ANSWER = Answer(
 
 CEILING_ANSWER = Answer(
     status="error",
-    message=(
-        "The toolkit could not answer just now. It's reached today's limit, try again tomorrow."
-    ),
+    message="The toolkit has reached today's limit. Try again tomorrow.",
 )
 
 
@@ -254,15 +257,15 @@ async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
     the_agent = agent()
     try:
         # PRIVATE API: _get_model_outside_run() is not part of pydantic-ai's
-        # public interface and could be renamed or removed without notice,
-        # including in the pydantic-ai-slim 2.51 upgrade tracked in PR #31.
-        # It resolves whatever model is live right now: a test's
-        # agent().override(model=...) if one is active, otherwise the real
-        # StopsAtABlock-wrapped BedrockConverseModel. Wrapping that, rather
-        # than the agent's own .model, keeps existing FunctionModel-based
-        # tests working unchanged. If this breaks, the bedrock_engine()
-        # tests below will fail with an AttributeError, surfacing the break
-        # immediately.
+        # public interface and could be renamed or removed without notice in
+        # a future pydantic-ai-slim upgrade. It resolves whatever model is
+        # live right now: a test's agent().override(model=...) if one is
+        # active, otherwise the real StopsAtABlock-wrapped
+        # BedrockConverseModel. Wrapping that, rather than the agent's own
+        # .model, keeps existing FunctionModel-based tests working
+        # unchanged. If this breaks, the bedrock_engine() tests in
+        # test_bedrock.py will fail with an AttributeError, surfacing the
+        # break immediately.
         live_model = the_agent._get_model_outside_run()
         with the_agent.override(model=CountingModel(live_model)):
             result = await the_agent.run(user_prompt(question, history))
