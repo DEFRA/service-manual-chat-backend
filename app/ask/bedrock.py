@@ -6,13 +6,15 @@ an inference profile and given a guardrail. Nothing about the prompt or the
 output shape changes between the two.
 """
 
+import asyncio
 import json
-import os
 from datetime import UTC, datetime
 from functools import lru_cache
 from logging import getLogger
 from pathlib import Path
 
+import boto3
+from botocore.config import Config
 from pydantic_ai import Agent
 from pydantic_ai.messages import ModelMessage, ModelResponse
 from pydantic_ai.models import ModelRequestParameters
@@ -28,12 +30,6 @@ from app.common.mongo import get_db, get_mongo_client
 from app.config import config
 
 logger = getLogger(__name__)
-
-# The boto3 client retries throttled calls on its own, invisibly to this
-# module's counter. One attempt only: the agent's own retries=1 is the one
-# retry layer. Must be set before BedrockProvider builds its client.
-os.environ["AWS_MAX_ATTEMPTS"] = "1"
-os.environ["AWS_RETRY_MODE"] = "standard"
 
 
 def models_without_prompt_caching() -> list[str]:
@@ -93,14 +89,20 @@ async def _increment_daily_usage() -> int:
     # One atomic increment-and-read per Bedrock request. $inc with upsert=True
     # is a single atomic operation in MongoDB, so two concurrent requests at
     # the ceiling get distinct counts and only one can be at or under it.
+    # A short timeout so a down MongoDB fails in seconds, not pymongo's own
+    # ~30s default: the reader is waiting on this before the service answers
+    # at all.
     try:
         client = await get_mongo_client()
         db = get_db(client)
-        doc = await db[ASK_DAILY_USAGE_COLLECTION].find_one_and_update(
-            {"_id": _today()},
-            {"$inc": {"attempts": 1}},
-            upsert=True,
-            return_document=ReturnDocument.AFTER,
+        doc = await asyncio.wait_for(
+            db[ASK_DAILY_USAGE_COLLECTION].find_one_and_update(
+                {"_id": _today()},
+                {"$inc": {"attempts": 1}},
+                upsert=True,
+                return_document=ReturnDocument.AFTER,
+            ),
+            timeout=3,
         )
     except Exception as error:
         msg = "could not reach MongoDB for the daily usage counter"
@@ -130,13 +132,14 @@ class CountingModel(WrapperModel):
 
 @lru_cache(maxsize=2)
 def agent_for(instructions_text: str) -> Agent[None, Answer]:
-    # The instructions go in as a string, not a function. Pydantic AI only
-    # places the Bedrock cache point after static instructions, so a function
-    # here means no cache point and every question paying full price. One
-    # agent per distinct text: editing the prompt builds a new one.
+    client = boto3.client(
+        "bedrock-runtime",
+        region_name=config.bedrock_region,
+        config=Config(retries={"total_max_attempts": 1}),
+    )
     model = BedrockConverseModel(
         config.bedrock_model_id,
-        provider=BedrockProvider(region_name=config.bedrock_region),
+        provider=BedrockProvider(bedrock_client=client),
     )
     return Agent(
         model,
@@ -190,8 +193,7 @@ ERROR_ANSWER = Answer(
 CEILING_ANSWER = Answer(
     status="error",
     message=(
-        "[PLACEHOLDER: pending Chris] The toolkit could not answer just now. "
-        "It's reached today's limit, try again tomorrow."
+        "The toolkit could not answer just now. It's reached today's limit, try again tomorrow."
     ),
 )
 
@@ -199,10 +201,16 @@ CEILING_ANSWER = Answer(
 async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
     the_agent = agent()
     try:
-        # _get_model_outside_run() resolves whatever model is live right now:
-        # a test's agent().override(model=...) if one is active, otherwise the
-        # real BedrockConverseModel. Wrapping that, rather than the agent's own
+        # PRIVATE API: _get_model_outside_run() is not part of pydantic-ai's
+        # public interface and could be renamed or removed without notice,
+        # including in the pydantic-ai-slim 2.51 upgrade tracked in PR #31.
+        # It resolves whatever model is live right now: a test's
+        # agent().override(model=...) if one is active, otherwise the real
+        # BedrockConverseModel. Wrapping that, rather than the agent's own
         # .model, keeps existing FunctionModel-based tests working unchanged.
+        # If this breaks, test_engine_retries_when_the_model_replies_in_prose
+        # and the other bedrock_engine() tests below will fail with an
+        # AttributeError, surfacing the break immediately.
         live_model = the_agent._get_model_outside_run()
         with the_agent.override(model=CountingModel(live_model)):
             result = await the_agent.run(user_prompt(question, history))
@@ -215,9 +223,10 @@ async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
         return CEILING_ANSWER
     except DailyUsageUnavailableError:
         # The cause (a Mongo error) goes to the logs; never the question.
-        logger.warning(
-            "ask daily usage counter unavailable, refusing the call", exc_info=True
-        )
+        # error, not warning: the service is refusing every question while
+        # the counter is unavailable. logger.exception, not logger.error,
+        # to also log the traceback at error level.
+        logger.exception("ask daily usage counter unavailable, refusing the call")
         return ERROR_ANSWER
     except Exception:
         # Whatever went wrong between here and the model: timeout, throttling,

@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 import pytest
+from pydantic_ai import Agent
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models import ModelRequestParameters
 from pydantic_ai.models.bedrock import BedrockConverseModel
@@ -208,17 +209,20 @@ def test_model_settings_without_a_guardrail_has_no_guardrail_config(monkeypatch)
     assert model_settings()["bedrock_cache_instructions"] is True
 
 
-def test_the_boto3_client_is_configured_for_a_single_attempt(monkeypatch):
+def test_the_boto3_client_is_configured_for_a_single_attempt():
     # The agent's own retries=1 is the one retry layer: boto3 must not retry
     # throttled calls on its own, invisibly to the daily usage counter. No
     # network call here, just the client object's own config.
-    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "dummy")
-    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "dummy")
-    monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
+    client = agent().model.client
 
-    provider = BedrockProvider(region_name="eu-west-2")
+    assert client.meta.config.retries["total_max_attempts"] == 1
 
-    assert provider.client.meta.config.retries["total_max_attempts"] == 1
+
+def test_the_private_model_resolution_method_still_exists():
+    # Guards against pydantic-ai renaming or removing this private method
+    # (e.g. in the pydantic-ai-slim 2.51 upgrade tracked in PR #31), which
+    # bedrock_engine() depends on to wrap the live model with CountingModel.
+    assert hasattr(Agent, "_get_model_outside_run")
 
 
 def test_caching_is_off_for_a_model_that_refuses_it(monkeypatch):
@@ -481,7 +485,7 @@ def test_the_ceiling_message_does_not_tell_the_reader_to_try_again_in_a_minute()
     assert bedrock.CEILING_ANSWER.message != bedrock.ERROR_ANSWER.message
 
 
-async def test_the_601st_attempt_of_a_day_is_refused_without_a_bedrock_call(
+async def test_the_attempt_past_the_ceiling_is_refused_without_a_bedrock_call(
     monkeypatch, fake_mongo
 ):
     monkeypatch.setattr(bedrock.config, "ask_daily_ceiling", 3)
@@ -545,17 +549,18 @@ async def test_two_concurrent_requests_at_the_ceiling_let_exactly_one_through(
     assert fake_mongo.counts[bedrock._today()] == 4
 
 
-async def test_with_mongodb_unavailable_bedrock_is_not_called(fake_mongo):
+async def test_with_mongodb_unavailable_bedrock_is_not_called(fake_mongo, caplog):
     fake_mongo.error = ConnectionError("no route to host")
 
     def respond(_messages, _info: AgentInfo) -> ModelResponse:
         msg = "must not be called when MongoDB is unreachable"
         raise AssertionError(msg)
 
-    with agent().override(model=FunctionModel(respond)):
+    with caplog.at_level("ERROR"), agent().override(model=FunctionModel(respond)):
         answer = await bedrock_engine("q", [])
 
     assert answer == bedrock.ERROR_ANSWER
+    assert any(record.levelname == "ERROR" for record in caplog.records)
 
 
 async def test_the_golden_set_agent_is_never_counted_and_needs_no_mongo(fake_mongo):
@@ -585,7 +590,7 @@ async def test_a_refusal_is_logged_with_the_count_and_not_the_question(
         await bedrock_engine(private_question, [])
 
     messages = [record.getMessage() for record in caplog.records]
-    assert any("4" in message for message in messages)
+    assert any("count=4" in message for message in messages)
     assert not any(private_question in message for message in messages)
 
 
