@@ -111,13 +111,31 @@ def merge_verdicts(
     return list(merged.values())
 
 
+def said(turn: dict) -> str:
+    options = f" Options: {'; '.join(turn['options'])}" if turn["options"] else ""
+    return (
+        f"Reader: {turn['question']}\n"
+        f"Service ({turn['status']}): {turn['message']}{options}"
+    )
+
+
 def shown_to_judge(record: dict, question: dict, titles: dict[str, str]) -> str:
     """The answer as the reader saw it, except the quote: the raw one the model gave,
     because the old backend check dropped true quotes as misquotes (CAIT-280), and
     which rule was quoted is what right_rule judges."""
-    asked = question["question"]
-    if question.get("previous_question"):
-        asked = f"(follow-up to: {question['previous_question']}) {asked}"
+    asked = f"Question: {question['question']}"
+    history = record.get("history")
+    earlier = question.get("earlier")
+    if history:
+        # What the service was sent: its own real answers to the turns before.
+        asked = (
+            "The conversation so far, as the service was sent it:\n"
+            + "\n".join(said(turn) for turn in history)
+            + f"\n\nQuestion (turn {len(earlier or history) + 1}): {question['question']}"
+        )
+    elif earlier:
+        # A run from before conversations were asked turn by turn.
+        asked = f"Question: (follow-up to: {earlier[-1]}) {question['question']}"
     pages = question.get("expected_pages")
     if pages is None:
         named = "not named for this question; use the whole toolkit"
@@ -125,8 +143,8 @@ def shown_to_judge(record: dict, question: dict, titles: dict[str, str]) -> str:
         named = ", ".join(f"{titles[url]} ({url})" for url in pages) or "none"
     shown = {**record["verified"], "rule_verbatim": record["answer"]["rule_verbatim"]}
     return (
-        f"Question: {asked}\n"
-        f"Expected status: {question['expected_status'][0]}\n"
+        f"{asked}\n"
+        f"Expected status: {' or '.join(question['expected_status'])}\n"
         f"Expected answer: {question['expected_answer']}\n"
         f"Quoted rule expected: {'yes' if question.get('expects_rule') else 'no'}\n"
         f"Named source pages: {named}\n\n"

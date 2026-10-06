@@ -115,3 +115,50 @@ def test_the_judge_gives_its_reason_before_its_verdicts():
     # after the verdict had already been written as a pass.
     assert list(Verdict.model_json_schema()["properties"])[0] == "reason"
     assert "before the verdicts" in " ".join(PROMPT.split())
+
+
+def turn_record(**extra):
+    answer = {"status": "answered", "message": "It stands.", "rule_verbatim": None}
+    return {"answer": answer, "verified": answer, **extra}
+
+
+def turn_question(**extra):
+    return {
+        "question": "That's wrong.",
+        "earlier": ["Tell me about agent swarms.", "Tell me more."],
+        "expected_status": ["answered"],
+        "expected_answer": "Turn 3 knows what that is.",
+        "expects_rule": False,
+        **extra,
+    }
+
+
+def test_the_judge_reads_a_later_turn_against_the_answers_the_service_gave():
+    history = [
+        {"question": "Tell me about agent swarms.", "status": "answered",
+         "message": "A swarm is several agents.", "options": []},
+        {"question": "Tell me more.", "status": "need_more_detail",
+         "message": "Which part?", "options": ["Roles", "Costs"]},
+    ]  # fmt: skip
+    shown = shown_to_judge(turn_record(history=history), turn_question(), TITLES)
+
+    assert "The conversation so far" in shown
+    assert "Reader: Tell me about agent swarms." in shown
+    assert "Service (answered): A swarm is several agents." in shown
+    assert "Service (need_more_detail): Which part? Options: Roles; Costs" in shown
+    assert "Question (turn 3): That's wrong." in shown
+    assert "follow-up to" not in shown
+
+
+def test_a_run_from_before_turn_by_turn_shows_the_judge_the_question_before():
+    shown = shown_to_judge(turn_record(), turn_question(), TITLES)
+
+    assert "Question: (follow-up to: Tell me more.) That's wrong." in shown
+
+
+def test_the_judge_is_told_both_statuses_when_the_set_accepts_two():
+    question = turn_question(expected_status=["answered", "cannot_answer"])
+
+    shown = shown_to_judge(turn_record(), question, TITLES)
+
+    assert "Expected status: answered or cannot_answer" in shown

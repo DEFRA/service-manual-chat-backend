@@ -136,8 +136,15 @@ def show(run: Path, report: dict) -> None:
     beside = report.get("beside")
     if beside:
         rows = beside["rows"]
-        lines += ["", f"Rows beside the bars, {rows[0]} to {rows[-1]} (row x passes):"]
+        lines += ["", f"Rows beside the bars, {', '.join(rows)} (row x passes):"]
         lines += failing(beside["failures"]) or ["  none failed"]
+    first = report.get("first_turns")
+    if first:
+        lines += ["", f"Turn 1 of {first['checked']} conversations, status only:"]
+        lines += [
+            f"  {name}: " + ", ".join(f"{status}x{n}" for status, n in got.items())
+            for name, got in first["failures"].items()
+        ] or ["  all as expected"]
     print("\n".join(lines))
 
 
@@ -149,6 +156,7 @@ def failing(failures: dict[str, dict[str, int]]) -> list[str]:
         "wrong_rule",
         "grounded_in_named_sources",
         "complete",
+        "complete_conversation",
         "refusal",
         "fabricated",
     ):
