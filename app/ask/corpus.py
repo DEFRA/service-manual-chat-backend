@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from logging import getLogger
 from pathlib import Path
 
+from app.ask.layout import lay_out
 from app.ask.quote_check import check_quote, strip_inline_tags
 from app.ask.schemas import Answer, Source
 
@@ -89,6 +90,10 @@ def verify(answer: Answer, corpus: dict[str, Page]) -> Answer:
     the opposite of the rule. The front end does the same check, but the API
     should be trustworthy on its own: a wrong answer about a rule is the
     failure that matters most.
+
+    Last, a long message is put on separate lines, with no word changed. The
+    quoted rule is left exactly as it is, and so is a `blocked` message, whose
+    wording is fixed.
     """
     sources = [s for s in answer.sources if s.url in corpus]
     dropped = len(answer.sources) - len(sources)
@@ -111,7 +116,10 @@ def verify(answer: Answer, corpus: dict[str, Page]) -> Answer:
             )
             rule = None
 
-    return answer.model_copy(update={"sources": sources, "rule_verbatim": rule})
+    message = answer.message if answer.status == "blocked" else lay_out(answer.message)
+    return answer.model_copy(
+        update={"sources": sources, "rule_verbatim": rule, "message": message}
+    )
 
 
 def as_context(corpus: dict[str, Page]) -> str:
