@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.ask.schemas import Answer, RuleVerbatim, Source
+from app.ask.schemas import Answer, ModelAnswer, RuleVerbatim, Source
 
 SOURCE = Source(title="t", url="/ai-toolkit")
 
@@ -75,3 +75,26 @@ def test_only_an_answer_quotes_a_rule():
 def test_status_outside_the_six_is_rejected():
     with pytest.raises(ValidationError):
         Answer(status="thinking", message="m")
+
+
+def test_model_answer_never_offers_daily_limit_as_a_reason():
+    with pytest.raises(ValidationError):
+        ModelAnswer(status="cannot_answer", message="m", reason="daily_limit")
+
+
+def test_model_answer_rejects_a_reason_on_error():
+    with pytest.raises(ValidationError, match="reason belongs to cannot_answer only"):
+        ModelAnswer(status="error", message="m", reason="outside_toolkit")
+
+
+def test_model_answer_cannot_answer_still_needs_a_reason():
+    with pytest.raises(ValidationError, match="needs a reason"):
+        ModelAnswer(status="cannot_answer", message="m")
+
+
+def test_every_model_answer_is_also_a_valid_answer():
+    model_answer = ModelAnswer(
+        status="cannot_answer", message="m", reason="outside_toolkit"
+    )
+    answer = Answer.model_validate(model_answer.model_dump())
+    assert answer.reason == "outside_toolkit"

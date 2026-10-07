@@ -25,7 +25,7 @@ from pydantic_ai.settings import ModelSettings
 from pymongo import ReturnDocument
 
 from app.ask.corpus import as_context, load_corpus, verify
-from app.ask.schemas import Answer, Turn
+from app.ask.schemas import Answer, ModelAnswer, Turn
 from app.common.mongo import get_db, get_mongo_client
 from app.config import config
 
@@ -174,7 +174,7 @@ class StopsAtABlock(WrapperModel):
 
 
 @lru_cache(maxsize=2)
-def agent_for(instructions_text: str) -> Agent[None, Answer]:
+def agent_for(instructions_text: str) -> Agent[None, ModelAnswer]:
     client = boto3.client(
         "bedrock-runtime",
         region_name=config.bedrock_region,
@@ -192,14 +192,16 @@ def agent_for(instructions_text: str) -> Agent[None, Answer]:
     )
     return Agent(
         model,
-        output_type=Answer,
+        # ModelAnswer, not Answer: the model is never offered daily_limit,
+        # the one reason only the engine sets. See the note in schemas.py.
+        output_type=ModelAnswer,
         instructions=instructions_text,
         model_settings=model_settings(),
         retries=1,
     )
 
 
-def agent() -> Agent[None, Answer]:
+def agent() -> Agent[None, ModelAnswer]:
     return agent_for(instructions())
 
 
@@ -309,4 +311,7 @@ async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
         usage.cache_read_tokens,
         usage.cache_write_tokens,
     )
-    return verify(result.output, load_corpus(Path(config.content_dir)))
+    # ModelAnswer to Answer: same fields, the model's reason is a subset of
+    # the wire contract's, so this always validates.
+    answer = Answer.model_validate(result.output.model_dump())
+    return verify(answer, load_corpus(Path(config.content_dir)))

@@ -12,7 +12,7 @@ from pathlib import Path
 
 from app.ask.layout import lay_out
 from app.ask.quote_check import check_quote, strip_inline_tags
-from app.ask.schemas import Answer, Source
+from app.ask.schemas import Answer, ModelAnswer, Source
 
 logger = getLogger(__name__)
 
@@ -80,8 +80,15 @@ def load_corpus(content_dir: Path, prefix: str = "ai-toolkit") -> dict[str, Page
     return pages
 
 
-def verify(answer: Answer, corpus: dict[str, Page]) -> Answer:
+def verify[AnswerT: (Answer, ModelAnswer)](
+    answer: AnswerT, corpus: dict[str, Page]
+) -> AnswerT:
     """Keep only what the corpus backs up.
+
+    Takes either shape: the wire `Answer` (`bedrock_engine`, after the
+    model's output has been converted) or the narrower `ModelAnswer` (the
+    evals, which call this on the model's output directly). Either way,
+    returns the same type it was given.
 
     A source is kept only if it names a page we hold. A quoted rule is kept
     only if its words really appear on the page it cites, whole and in order:

@@ -402,7 +402,7 @@ fields depend on the status.
 | `cannot_answer` | No answer here. | `reason`: `outside_toolkit` or `no_guidance_yet` |
 | `talk_to_a_person` | About the reader's own project; the team is the right place. | `sources` may point at the nearest page |
 | `blocked` | Refused, in neutral words. | none |
-| `error` | The backend got no answer. Try again. | none |
+| `error` | The backend got no answer. Try again. | `reason`: `daily_limit`, when the day's ceiling was reached; absent otherwise |
 
 With `ASK_ENGINE=stub` each outcome has a trigger, so the screens can be
 built without a model: "help me" (need more detail), "parking" (outside the

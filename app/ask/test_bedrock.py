@@ -234,6 +234,35 @@ def test_the_private_model_resolution_method_still_exists():
     assert hasattr(Agent, "_get_model_outside_run")
 
 
+async def test_the_model_is_never_offered_daily_limit_as_a_reason():
+    # daily_limit is set by the engine, after the model has
+    # answered (or not been asked at all), never a choice the model makes.
+    # Widening the wire contract's reason must not widen the tool schema
+    # Bedrock is sent, or every question risks a second call or the error
+    # outcome when the model picks it anyway.
+    seen = {}
+
+    def respond(_messages, info: AgentInfo) -> ModelResponse:
+        seen["schema"] = info.output_tools[0].parameters_json_schema
+        return ModelResponse(
+            parts=[
+                ToolCallPart(
+                    tool_name=info.output_tools[0].name,
+                    args={"status": "answered", "message": "m", "sources": []},
+                )
+            ]
+        )
+
+    with agent().override(model=FunctionModel(respond)):
+        await bedrock_engine("q", [])
+
+    reason_schema = seen["schema"]["properties"]["reason"]
+    allowed = {
+        value for branch in reason_schema["anyOf"] for value in branch.get("enum", [])
+    }
+    assert allowed == {"outside_toolkit", "no_guidance_yet"}
+
+
 def test_caching_is_off_for_a_model_that_refuses_it(monkeypatch):
     assert caches_instructions("anthropic.claude-sonnet-4-6")
     assert not caches_instructions("anthropic.claude-3-haiku-20240307-v1:0")

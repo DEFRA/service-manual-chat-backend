@@ -9,6 +9,11 @@ without changing both sides.
 copied exactly from the toolkit page it cites. The model explains around a
 rule, it never rewrites one. The front end checks the quote against the page
 and drops it if the words differ, so a paraphrase is not shown, it is lost.
+
+`Answer` is the wire shape. `ModelAnswer` is the narrower shape the model
+itself fills in; `bedrock.py` converts one into the other after the model
+has answered, so a reason that only the engine sets (`daily_limit`) is never
+a choice offered to the model.
 """
 
 from typing import Annotated, Literal
@@ -61,7 +66,23 @@ MIN_OPTIONS = 2
 MAX_OPTIONS = 4
 
 
-class Answer(BaseModel):
+def _check_options(status: Status, options: list[str]) -> None:
+    if status == "need_more_detail":
+        if not MIN_OPTIONS <= len(options) <= MAX_OPTIONS:
+            msg = f"need_more_detail carries {MIN_OPTIONS} to {MAX_OPTIONS} options"
+            raise ValueError(msg)
+    elif options:
+        msg = "options belong to need_more_detail only"
+        raise ValueError(msg)
+
+
+def _check_rule_verbatim(status: Status, rule_verbatim: RuleVerbatim | None) -> None:
+    if status != "answered" and rule_verbatim is not None:
+        msg = "only an answer quotes a rule"
+        raise ValueError(msg)
+
+
+class _AnswerFields(BaseModel):
     status: Status
     # Always present: what the page shows the reader, whatever the status.
     message: str
@@ -69,6 +90,38 @@ class Answer(BaseModel):
     sources: list[Source] = Field(default_factory=list)
     # need_more_detail only: two to four narrower questions to pick from.
     options: list[str] = Field(default_factory=list)
+
+
+class ModelAnswer(_AnswerFields):
+    """What the model fills in: `output_type` of the agent in `bedrock.py`.
+
+    Never daily_limit: that reason is set by the engine when the day's
+    ceiling is reached, before any call reaches the model. Kept as its own
+    type, distinct from `Answer`, so a reason the wire contract adds for the
+    engine's own use never changes the choices offered to the model - no new
+    evaluation run is needed for that.
+    """
+
+    # cannot_answer only.
+    reason: CannotAnswerReason | None = None
+
+    @model_validator(mode="after")
+    def fields_match_status(self) -> "ModelAnswer":
+        _check_options(self.status, self.options)
+
+        if self.status == "cannot_answer":
+            if self.reason is None:
+                msg = "cannot_answer needs a reason"
+                raise ValueError(msg)
+        elif self.reason is not None:
+            msg = "reason belongs to cannot_answer only"
+            raise ValueError(msg)
+
+        _check_rule_verbatim(self.status, self.rule_verbatim)
+        return self
+
+
+class Answer(_AnswerFields):
     # cannot_answer: outside_toolkit or no_guidance_yet. error: daily_limit,
     # when the day's Bedrock ceiling was reached; absent for any other
     # failure.
@@ -76,13 +129,7 @@ class Answer(BaseModel):
 
     @model_validator(mode="after")
     def fields_match_status(self) -> "Answer":
-        if self.status == "need_more_detail":
-            if not MIN_OPTIONS <= len(self.options) <= MAX_OPTIONS:
-                msg = f"need_more_detail carries {MIN_OPTIONS} to {MAX_OPTIONS} options"
-                raise ValueError(msg)
-        elif self.options:
-            msg = "options belong to need_more_detail only"
-            raise ValueError(msg)
+        _check_options(self.status, self.options)
 
         if self.status == "cannot_answer":
             if self.reason is None or self.reason == "daily_limit":
@@ -98,9 +145,7 @@ class Answer(BaseModel):
             msg = "reason belongs to cannot_answer or error only"
             raise ValueError(msg)
 
-        if self.status != "answered" and self.rule_verbatim is not None:
-            msg = "only an answer quotes a rule"
-            raise ValueError(msg)
+        _check_rule_verbatim(self.status, self.rule_verbatim)
         return self
 
 
