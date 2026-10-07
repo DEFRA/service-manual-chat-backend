@@ -249,12 +249,14 @@ def as_turn(turn: Turn) -> dict:
 # The areas a reader who asks for "the rules" is always offered. Left to the
 # model, a security option was there on about two passes in three, and a
 # reader who then typed "Security." was asked to narrow it again (golden set
-# C12). The wording is the set the model gave most often.
+# C12). The wording is the design lead's: the page titles a reader sees under
+# "Guidance used", with "code" kept on security because that page is only
+# about code.
 THE_RULES = (
-    "What data can I put into an AI tool",
-    "How to choose and set up an AI tool safely",
-    "Security rules for AI-generated code",
-    "Ethics and accountability when using AI",
+    "Using data with AI",
+    "Choosing a tool",
+    "Security for AI-generated code",
+    "Ethics",
 )
 
 ASKS_FOR_THE_RULES = frozenset({"what are the rules"})
