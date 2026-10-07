@@ -144,3 +144,28 @@ def test_content_ref_is_none_for_a_mount(content_dir):
 def test_content_ref_reads_the_baked_in_ref(content_dir):
     (content_dir / "REF").write_text("caefc03\n")
     assert content_ref(content_dir) == "caefc03"
+
+
+def test_verify_ends_numbered_steps_on_the_page_s_last_step():
+    page = parse_page(
+        "/ai-toolkit/guidance/report-an-ai-incident",
+        "<ol>\n<li>Stop using the AI tool immediately.</li>\n"
+        "<li>Do not delete or change anything.</li>\n"
+        "<li>Report it through your organisation's security incident process.</li>\n"
+        "</ol>\n",
+    )
+    answer = Answer(
+        status="answered",
+        message=(
+            "Follow these steps. 1. Stop using the AI tool immediately. 2. Do not "
+            "delete or change anything. 3. Report it through your organisation's "
+            "security incident process. A personal data breach has a deadline."
+        ),
+    )
+
+    message = verify(answer, {page.url: page}).message
+
+    assert message.endswith(
+        "security incident process.\n\nA personal data breach has a deadline."
+    )
+    assert message.split() == answer.message.split()
