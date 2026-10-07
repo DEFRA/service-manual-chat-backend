@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-07T12:16:53+00:00",
+  "label": "cait-302-g029-run-f-prompt",
+  "golden_set": "v10",
+  "golden_set_sha": "cc6538b5c743",
+  "questions": "G029",
+  "prompt": "01a6d709ac40 on 45f9d02 with uncommitted edits",
+  "content_ref": "9ec6d01a78a66a685471e60d18b72e60201277b6",
+  "model_id": "anthropic.claude-sonnet-4-6",
+  "passes": 10,
+  "token_ceiling": 30000000,
+  "answers": 10,
+  "failed_calls": 0,
+  "median_seconds": 2.22,
+  "unscored_turns": 0,
+  "answer_tokens": {
+    "input_tokens": 256610,
+    "cache_read_tokens": 227088,
+    "cache_write_tokens": 25232,
+    "output_tokens": 1630
+  },
+  "stopped_at_ceiling": false,
+  "tokens_spent": 258240
+}

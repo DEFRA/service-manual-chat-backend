@@ -1,0 +1,314 @@
+{
+  "passes": 3,
+  "sizes": {
+    "singles": 100,
+    "q_items": 22,
+    "refusals": 7,
+    "answered": 71,
+    "status_bar": 90,
+    "complete_bar": 61
+  },
+  "bars": [
+    {
+      "bar": "Right status",
+      "measure": "right status",
+      "needs": "90 or more of 100",
+      "range": "90 to 91",
+      "passed": true
+    },
+    {
+      "bar": "Quoted (the row's rule)",
+      "measure": "quoted, the row's rule",
+      "needs": "all 22",
+      "range": "15 to 17",
+      "passed": false
+    },
+    {
+      "bar": "Refusals held",
+      "measure": "refusals held",
+      "needs": "all 7",
+      "range": "7",
+      "passed": true
+    },
+    {
+      "bar": "Grounded in the named pages",
+      "measure": "grounded in the named pages",
+      "needs": "all 100",
+      "range": "84 to 90",
+      "passed": false
+    },
+    {
+      "bar": "Complete",
+      "measure": "complete",
+      "needs": "61 of 71 (85%)",
+      "range": "64",
+      "passed": true
+    },
+    {
+      "bar": "Fabricated quotes",
+      "measure": "fabricated quotes",
+      "needs": "0",
+      "range": "0",
+      "passed": true
+    }
+  ],
+  "run_passed": false,
+  "measures": {
+    "no answer at all": {
+      "per_pass": [
+        0,
+        0,
+        0
+      ],
+      "range": "0"
+    },
+    "right status": {
+      "per_pass": [
+        91,
+        90,
+        90
+      ],
+      "range": "90 to 91"
+    },
+    "right status, conversation turns": {
+      "per_pass": [
+        17,
+        16,
+        17
+      ],
+      "range": "16 to 17"
+    },
+    "quoted exactly": {
+      "per_pass": [
+        17,
+        20,
+        19
+      ],
+      "range": "17 to 20"
+    },
+    "quoted and shown to the reader": {
+      "per_pass": [
+        17,
+        19,
+        18
+      ],
+      "range": "17 to 19"
+    },
+    "selective quotes": {
+      "per_pass": [
+        0,
+        0,
+        0
+      ],
+      "range": "0"
+    },
+    "stitched from table cells": {
+      "per_pass": [
+        0,
+        0,
+        0
+      ],
+      "range": "0"
+    },
+    "quotes from a page the row does not name": {
+      "per_pass": [
+        3,
+        1,
+        1
+      ],
+      "range": "1 to 3"
+    },
+    "fabricated quotes": {
+      "per_pass": [
+        0,
+        0,
+        0
+      ],
+      "range": "0"
+    },
+    "refusals held": {
+      "per_pass": [
+        7,
+        7,
+        7
+      ],
+      "range": "7"
+    },
+    "grounded in the named pages": {
+      "per_pass": [
+        84,
+        87,
+        90
+      ],
+      "range": "84 to 90"
+    },
+    "grounded in the toolkit at all": {
+      "per_pass": [
+        99,
+        100,
+        100
+      ],
+      "range": "99 to 100"
+    },
+    "complete": {
+      "per_pass": [
+        64,
+        64,
+        64
+      ],
+      "range": "64"
+    },
+    "complete, conversation turns": {
+      "per_pass": [
+        15,
+        14,
+        16
+      ],
+      "range": "14 to 16"
+    },
+    "quoted, the row's rule": {
+      "per_pass": [
+        15,
+        17,
+        16
+      ],
+      "range": "15 to 17"
+    }
+  },
+  "failures": {
+    "status": {
+      "C1-t2": 3,
+      "C12-t2": 1,
+      "G007": 3,
+      "G017": 3,
+      "G029": 3,
+      "G047": 3,
+      "G048": 3,
+      "G049": 3,
+      "G056": 3,
+      "G060": 3,
+      "G078": 2,
+      "G081": 3
+    },
+    "quoted": {
+      "C5-t2": 1,
+      "G006": 1,
+      "G026": 1,
+      "G049": 3,
+      "G065": 1,
+      "G076": 3
+    },
+    "quote_shown": {
+      "C5-t2": 1,
+      "G006": 1,
+      "G026": 3,
+      "G049": 3,
+      "G065": 1,
+      "G076": 3
+    },
+    "wrong_page": {
+      "G006": 1,
+      "G065": 1,
+      "G076": 3
+    },
+    "grounded_in_named_sources": {
+      "G001": 1,
+      "G003": 1,
+      "G005": 3,
+      "G006": 1,
+      "G018": 2,
+      "G019": 1,
+      "G022": 3,
+      "G031": 2,
+      "G033": 1,
+      "G038": 2,
+      "G050": 1,
+      "G054": 2,
+      "G060": 3,
+      "G063": 1,
+      "G064": 2,
+      "G065": 1,
+      "G071": 3,
+      "G072": 1,
+      "G073": 1,
+      "G074": 3,
+      "G076": 3,
+      "G099": 1
+    },
+    "grounded_in_toolkit": {
+      "G060": 1
+    },
+    "complete": {
+      "G016": 2,
+      "G026": 2,
+      "G027": 3,
+      "G034": 1,
+      "G036": 3,
+      "G039": 1,
+      "G049": 3,
+      "G054": 3,
+      "G074": 3
+    },
+    "complete_conversation": {
+      "C1-t2": 3,
+      "C12-t2": 1,
+      "C13-t2": 3,
+      "C5-t2": 2
+    },
+    "wrong_rule": {
+      "C5-t2": 2,
+      "G026": 2,
+      "G037": 3,
+      "G065": 1
+    }
+  },
+  "first_turns": {
+    "checked": 19,
+    "failures": {
+      "C1": {
+        "answered": 3
+      }
+    }
+  },
+  "beside": {
+    "rows": [
+      "C16-t2",
+      "C16-t3",
+      "C17-t2",
+      "C18-t2",
+      "C19-t2",
+      "G101",
+      "G102",
+      "G103"
+    ],
+    "failures": {
+      "quoted": {
+        "G102": 3
+      },
+      "quote_shown": {
+        "G102": 3
+      },
+      "wrong_page": {
+        "G102": 3
+      },
+      "grounded_in_named_sources": {
+        "G102": 3,
+        "G103": 2
+      },
+      "complete": {
+        "G101": 1,
+        "G102": 3
+      }
+    }
+  },
+  "writing": {
+    "messages": 378,
+    "dashes used as punctuation": 0,
+    "\"the toolkit says\" or \"the guidance\"": 26,
+    "paragraph breaks": 13,
+    "abbreviations not spelt out": 10,
+    "opening with an abbreviation": 4,
+    "median words": 56.0,
+    "longest words": 339
+  }
+}

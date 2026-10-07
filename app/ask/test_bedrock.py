@@ -13,6 +13,7 @@ from pymongo import ReturnDocument
 
 from app.ask import bedrock
 from app.ask.bedrock import (
+    REPLY_TO_OPTIONS,
     StopsAtABlock,
     agent,
     bedrock_engine,
@@ -178,6 +179,29 @@ def test_a_turn_with_no_answer_carries_only_its_question():
     assert conversation_in(prompt)["conversation_so_far"] == [
         {"reader_asked": "Can I use Copilot?", "status": "answered"}
     ]
+
+
+OFFERED = Turn(
+    question="What are the rules?",
+    status="need_more_detail",
+    message="Which of these?",
+    options=["Data", "Security"],
+)
+
+
+def test_a_reply_to_offered_options_is_told_to_answer_the_one_picked():
+    preamble, _ = user_prompt("Security.", [OFFERED]).split("\n\n", 1)
+
+    assert preamble.endswith(REPLY_TO_OPTIONS)
+
+
+def test_a_follow_up_to_an_answer_is_not_told_about_options():
+    history = [
+        OFFERED,
+        Turn(question="Security.", status="answered", message="Use approved tools."),
+    ]
+
+    assert REPLY_TO_OPTIONS not in user_prompt("go on", history)
 
 
 async def test_the_history_reaches_the_model_and_the_instructions_do_not_change():

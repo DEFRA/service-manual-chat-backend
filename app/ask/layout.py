@@ -12,6 +12,8 @@ The front end shows a line break as a line break (`white-space: pre-wrap`).
 import re
 
 # Chris's rule for usability round 2: only an answer over this is laid out.
+# Three or more numbered steps are the exception (CAIT-302): people follow
+# them in order, so each has its own line however short the answer is.
 LONG_ANSWER_WORDS = 90
 
 # A paragraph never starts on one of these: the sentence points back at the one
@@ -63,10 +65,10 @@ def sentences(message: str) -> list[str]:
     return found
 
 
-def _numbered(message: str) -> list[str] | None:
+def _numbered(message: str, fewest: int) -> list[str] | None:
     """The message cut before each of "1.", "2.", "3." if it counts up from 1."""
     marks = list(_NUMBER.finditer(message))
-    if len(marks) < 2 or [int(m.group(1)) for m in marks] != list(
+    if len(marks) < fewest or [int(m.group(1)) for m in marks] != list(
         range(1, len(marks) + 1)
     ):
         return None
@@ -115,12 +117,15 @@ def _paragraphs(parts: list[str]) -> list[str]:
 def lay_out(message: str) -> str:
     """The same words, with steps and list items on their own lines and
     anything else in short paragraphs."""
-    if "\n" in message or len(message.split()) <= LONG_ANSWER_WORDS:
+    if "\n" in message:
         return message
 
-    numbered = _numbered(message)
+    is_long = len(message.split()) > LONG_ANSWER_WORDS
+    numbered = _numbered(message, fewest=2 if is_long else _LIST_ITEMS)
     if numbered:
         return "\n".join(numbered)
+    if not is_long:
+        return message
 
     parts = sentences(message)
     if any(_is_list(part) for part in parts):
