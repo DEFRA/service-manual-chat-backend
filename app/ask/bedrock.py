@@ -136,13 +136,61 @@ class CountingModel(WrapperModel):
         return await super().request(messages, model_settings, model_request_parameters)
 
 
+# Where each guardrail policy lists what it checked, and the field that names
+# the check. The names are the guardrail's own, set by whoever configured it.
+# A trace also carries `match`, the words that set a filter off, which can be
+# the reader's: nothing here reads it. A custom word has no name of its own,
+# only its match, so it is reported by kind alone.
+_GUARDRAIL_CHECKS = (
+    ("topic", "topicPolicy", "topics", "name"),
+    ("content", "contentPolicy", "filters", "type"),
+    ("word", "wordPolicy", "managedWordLists", "type"),
+    ("word", "wordPolicy", "customWords", None),
+    ("pii", "sensitiveInformationPolicy", "piiEntities", "type"),
+    ("regex", "sensitiveInformationPolicy", "regexes", "name"),
+    ("grounding", "contextualGroundingPolicy", "filters", "type"),
+)
+
+
+def _acted(side: str, assessment: dict) -> list[str]:
+    names = []
+    for kind, policy, checks, name in _GUARDRAIL_CHECKS:
+        for check in (assessment.get(policy) or {}).get(checks) or []:
+            if check.get("action", "NONE") == "NONE":
+                continue
+            names.append(f"{side}:{kind}:{check.get(name, '?') if name else 'custom'}")
+    return names
+
+
+def guardrail_filters(trace: dict | None) -> tuple[str, ...]:
+    """The filters that acted, by name: `input:topic:Legal advice`.
+
+    `input` is what was sent, the question and the toolkit pages with it;
+    `output` is the model's reply. Never the words that set a filter off.
+    """
+    guardrail = (trace or {}).get("guardrail") or {}
+    names: list[str] = []
+    for assessment in (guardrail.get("inputAssessment") or {}).values():
+        names += _acted("input", assessment)
+    for assessments in (guardrail.get("outputAssessments") or {}).values():
+        for assessment in assessments:
+            names += _acted("output", assessment)
+    return tuple(dict.fromkeys(names))
+
+
 class BlockedError(Exception):
     """A guardrail or the model's own filter refused the question."""
 
-    def __init__(self, finish_reason: str, stop_reason: str | None):
+    def __init__(
+        self,
+        finish_reason: str,
+        stop_reason: str | None,
+        filters: tuple[str, ...] = (),
+    ):
         super().__init__(f"blocked {finish_reason} stop_reason={stop_reason}")
         self.finish_reason = finish_reason
         self.stop_reason = stop_reason
+        self.filters = filters
 
 
 class StopsAtABlock(WrapperModel):
@@ -169,7 +217,11 @@ class StopsAtABlock(WrapperModel):
             # Bedrock's own word for it: guardrail_intervened or
             # content_filtered.
             details = response.provider_details or {}
-            raise BlockedError(response.finish_reason, details.get("finish_reason"))
+            raise BlockedError(
+                response.finish_reason,
+                details.get("finish_reason"),
+                guardrail_filters(details.get("trace")),
+            )
         return response
 
 
@@ -297,12 +349,15 @@ async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
         logger.exception("ask daily usage counter unavailable, refusing the call")
         return ERROR_ANSWER
     except BlockedError as blocked:
-        # The reasons only: never the question, never the reply.
+        # The reasons and the names of the filters only: never the question,
+        # never the reply.
         logger.warning(
-            "bedrock blocked the question model=%s finish_reason=%s stop_reason=%s",
+            "bedrock blocked the question model=%s finish_reason=%s "
+            "stop_reason=%s filters=%s",
             config.bedrock_model_id,
             blocked.finish_reason,
             blocked.stop_reason,
+            ",".join(blocked.filters) or "none",
         )
         return BLOCKED_ANSWER
     except Exception:
@@ -313,10 +368,14 @@ async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
         logger.exception("bedrock gave no answer model=%s", config.bedrock_model_id)
         return ERROR_ANSWER
     usage = result.usage
+    # The status is the model's own choice, `blocked` included: that is the
+    # model refusing from the prompt, which the guardrail's log line above
+    # does not cover.
     logger.info(
-        "bedrock answered model=%s input_tokens=%s output_tokens=%s "
+        "bedrock answered model=%s status=%s input_tokens=%s output_tokens=%s "
         "cache_read_tokens=%s cache_write_tokens=%s",
         config.bedrock_model_id,
+        result.output.status,
         usage.input_tokens,
         usage.output_tokens,
         usage.cache_read_tokens,
