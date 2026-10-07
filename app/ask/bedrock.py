@@ -242,6 +242,7 @@ ERROR_ANSWER = Answer(
 CEILING_ANSWER = Answer(
     status="error",
     message="The toolkit has reached today's limit. Try again tomorrow.",
+    reason="daily_limit",
 )
 
 

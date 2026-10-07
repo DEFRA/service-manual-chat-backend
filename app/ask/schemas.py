@@ -48,11 +48,14 @@ Status = Literal[
     "talk_to_a_person",
     # Refused, in neutral words. Never "your question was flagged".
     "blocked",
-    # The backend could not get an answer this time; try again.
+    # The backend could not get an answer this time; try again. `reason` is
+    # daily_limit when this was the day's ceiling, otherwise absent.
     "error",
 ]
 
 CannotAnswerReason = Literal["outside_toolkit", "no_guidance_yet"]
+# error: the day's Bedrock ceiling was reached. Absent for any other failure.
+ErrorReason = Literal["daily_limit"]
 
 MIN_OPTIONS = 2
 MAX_OPTIONS = 4
@@ -66,8 +69,10 @@ class Answer(BaseModel):
     sources: list[Source] = Field(default_factory=list)
     # need_more_detail only: two to four narrower questions to pick from.
     options: list[str] = Field(default_factory=list)
-    # cannot_answer only.
-    reason: CannotAnswerReason | None = None
+    # cannot_answer: outside_toolkit or no_guidance_yet. error: daily_limit,
+    # when the day's Bedrock ceiling was reached; absent for any other
+    # failure.
+    reason: CannotAnswerReason | ErrorReason | None = None
 
     @model_validator(mode="after")
     def fields_match_status(self) -> "Answer":
@@ -80,11 +85,17 @@ class Answer(BaseModel):
             raise ValueError(msg)
 
         if self.status == "cannot_answer":
-            if self.reason is None:
-                msg = "cannot_answer needs a reason"
+            if self.reason is None or self.reason == "daily_limit":
+                msg = (
+                    "cannot_answer needs a reason of outside_toolkit or no_guidance_yet"
+                )
+                raise ValueError(msg)
+        elif self.status == "error":
+            if self.reason is not None and self.reason != "daily_limit":
+                msg = "error takes daily_limit or no reason"
                 raise ValueError(msg)
         elif self.reason is not None:
-            msg = "reason belongs to cannot_answer only"
+            msg = "reason belongs to cannot_answer or error only"
             raise ValueError(msg)
 
         if self.status != "answered" and self.rule_verbatim is not None:

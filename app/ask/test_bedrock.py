@@ -493,6 +493,8 @@ async def test_the_request_that_reaches_the_ceiling_exactly_is_allowed(
 def test_the_ceiling_message_does_not_tell_the_reader_to_try_again_in_a_minute():
     assert "try again in a minute" not in bedrock.CEILING_ANSWER.message.lower()
     assert bedrock.CEILING_ANSWER.message != bedrock.ERROR_ANSWER.message
+    assert bedrock.CEILING_ANSWER.reason == "daily_limit"
+    assert bedrock.ERROR_ANSWER.reason is None
 
 
 async def test_the_attempt_past_the_ceiling_is_refused_without_a_bedrock_call(
