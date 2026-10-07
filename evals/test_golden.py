@@ -1,6 +1,6 @@
 import pytest
 
-from evals.golden import conversation, parse
+from evals.golden import conversation, parse, single
 
 SINGLES = {
     1: "Can I put OFFICIAL data into ChatGPT?",
@@ -207,3 +207,34 @@ def test_a_cell_whose_statuses_do_not_match_its_turns_is_refused():
                 "`answered`, `blocked`. Which turn is which?",
             ]
         )
+
+
+def test_a_row_can_pass_on_either_of_two_reasons():
+    row = [
+        "29",
+        "Which is better, GitHub Copilot or Claude?",
+        "`cannot_answer` + `no_guidance_yet` or `outside_toolkit`",
+        "No page compares tools against each other.",
+        "none",
+    ]
+
+    titles = {"Tools": "/ai-toolkit/tools"}
+    assert single(row, "Section 2", titles)["expected_reason"] == [
+        "no_guidance_yet",
+        "outside_toolkit",
+    ]
+
+
+def test_row_29_must_link_the_tools_page():
+    row = [
+        "29",
+        "Which is better, GitHub Copilot or Claude?",
+        "`cannot_answer` + `no_guidance_yet` or `outside_toolkit`",
+        "No page compares tools against each other. Links the Tools page.",
+        "Tools",
+    ]
+
+    question = single(row, "Section 2", {"Tools": "/ai-toolkit/tools"})
+
+    assert question["must_link"] == ["/ai-toolkit/tools"]
+    assert "must_link" not in single(["30", *row[1:]], "Section 2", {"Tools": "/t"})
