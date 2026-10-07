@@ -19,6 +19,7 @@ from app.ask.bedrock import (
     agent,
     bedrock_engine,
     caches_instructions,
+    guardrail_filters,
     model_settings,
     models_without_prompt_caching,
     same_options_for_the_rules,
@@ -743,15 +744,90 @@ async def test_a_refusal_is_logged_with_the_count_and_not_the_question(
 GUARDRAIL_TEXT = "Sorry, the model cannot answer this question."
 
 
-def blocked_reply(calls: list):
+# A trace in the shape Bedrock returns with `"trace": "enabled"`. `match` is
+# the words that set the filter off, here the reader's own.
+READERS_WORDS = "my colleague Sam Example"
+TRACE = {
+    "guardrail": {
+        "inputAssessment": {
+            "p7yualjpauyl": {
+                "topicPolicy": {
+                    "topics": [
+                        {"name": "Legal advice", "type": "DENY", "action": "BLOCKED"}
+                    ]
+                },
+                "contentPolicy": {
+                    "filters": [
+                        {
+                            "type": "PROMPT_ATTACK",
+                            "confidence": "MEDIUM",
+                            "filterStrength": "HIGH",
+                            "action": "BLOCKED",
+                        },
+                        {"type": "HATE", "action": "NONE"},
+                    ]
+                },
+                "wordPolicy": {
+                    "customWords": [{"match": READERS_WORDS, "action": "BLOCKED"}]
+                },
+                "sensitiveInformationPolicy": {
+                    "piiEntities": [
+                        {"type": "NAME", "match": READERS_WORDS, "action": "BLOCKED"}
+                    ]
+                },
+            }
+        },
+        "outputAssessments": {
+            "p7yualjpauyl": [
+                {
+                    "sensitiveInformationPolicy": {
+                        "regexes": [
+                            {
+                                "name": "Staff number",
+                                "match": READERS_WORDS,
+                                "action": "ANONYMIZED",
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+    }
+}
+
+
+def test_the_filters_that_acted_are_named_and_one_that_did_not_is_left_out():
+    assert guardrail_filters(TRACE) == (
+        "input:topic:Legal advice",
+        "input:content:PROMPT_ATTACK[confidence=MEDIUM strength=HIGH]",
+        "input:word:custom",
+        "input:pii:NAME",
+        "output:regex:Staff number",
+    )
+
+
+def test_the_words_that_set_a_filter_off_are_never_among_the_names():
+    assert READERS_WORDS not in " ".join(guardrail_filters(TRACE))
+
+
+@pytest.mark.parametrize("trace", [None, {}, {"guardrail": {}}])
+def test_a_reply_with_no_trace_names_no_filters(trace):
+    assert guardrail_filters(trace) == ()
+
+
+def blocked_reply(calls: list, trace: dict | None = None):
     # What Bedrock sends back when a guardrail steps in: its own fixed text,
     # not a tool call, with the stop reason Pydantic AI maps to content_filter.
+    details = {"finish_reason": "guardrail_intervened"}
+    if trace is not None:
+        details["trace"] = trace
+
     def respond(_messages, _info: AgentInfo) -> ModelResponse:
         calls.append(1)
         return ModelResponse(
             parts=[TextPart(content=GUARDRAIL_TEXT)],
             finish_reason="content_filter",
-            provider_details={"finish_reason": "guardrail_intervened"},
+            provider_details=details,
         )
 
     return StopsAtABlock(FunctionModel(respond))
@@ -787,6 +863,45 @@ async def test_a_block_is_logged_with_its_reasons_and_nothing_anyone_wrote(caplo
     assert private_question not in logged
     assert GUARDRAIL_TEXT not in logged
     assert not any(record.exc_info for record in caplog.records)
+
+
+async def test_a_block_is_logged_with_the_names_of_the_filters_that_acted(caplog):
+    with caplog.at_level("WARNING"), agent().override(model=blocked_reply([], TRACE)):
+        await bedrock_engine("q", [])
+
+    logged = "\n".join(record.getMessage() for record in caplog.records)
+    assert "filters=input:topic:Legal advice,input:content:PROMPT_ATTACK[" in logged
+    assert READERS_WORDS not in logged
+
+
+async def test_a_block_with_no_trace_says_no_filter_was_named(caplog):
+    with caplog.at_level("WARNING"), agent().override(model=blocked_reply([])):
+        await bedrock_engine("q", [])
+
+    assert "filters=none" in caplog.text
+
+
+async def test_an_answer_is_logged_with_the_status_the_model_chose(caplog):
+    def respond(_messages, info: AgentInfo) -> ModelResponse:
+        return ModelResponse(
+            parts=[
+                ToolCallPart(
+                    tool_name=info.output_tools[0].name,
+                    args={
+                        "status": "blocked",
+                        "message": "Not something I can help with.",
+                    },
+                )
+            ]
+        )
+
+    with caplog.at_level("INFO"), agent().override(model=FunctionModel(respond)):
+        answer = await bedrock_engine("q", [])
+
+    assert answer.status == "blocked"
+    assert "bedrock answered" in caplog.text
+    assert "status=blocked" in caplog.text
+    assert "Not something I can help with." not in caplog.text
 
 
 async def test_a_block_that_gives_no_stop_reason_is_still_blocked(caplog):
