@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-07T10:09:55+00:00",
+  "label": "cait-302-no-option-sentences-conversations",
+  "golden_set": "v10",
+  "golden_set_sha": "cc6538b5c743",
+  "questions": "C12-t2,C13-t2,C16-t2",
+  "prompt": "5556b9e8a000 on 45f9d02 with uncommitted edits",
+  "content_ref": "9ec6d01a78a66a685471e60d18b72e60201277b6",
+  "model_id": "anthropic.claude-sonnet-4-6",
+  "passes": 10,
+  "token_ceiling": 30000000,
+  "answers": 30,
+  "failed_calls": 0,
+  "median_seconds": 2.67,
+  "unscored_turns": 30,
+  "answer_tokens": {
+    "input_tokens": 1545654,
+    "cache_read_tokens": 1486092,
+    "cache_write_tokens": 25188,
+    "output_tokens": 14946
+  },
+  "stopped_at_ceiling": false,
+  "tokens_spent": 1560600
+}

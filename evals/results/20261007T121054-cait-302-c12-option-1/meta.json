@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-07T11:10:54+00:00",
+  "label": "cait-302-c12-option-1",
+  "golden_set": "v10",
+  "golden_set_sha": "cc6538b5c743",
+  "questions": "C12-t2",
+  "prompt": "939ff15ab25d on 45f9d02 with uncommitted edits",
+  "content_ref": "9ec6d01a78a66a685471e60d18b72e60201277b6",
+  "model_id": "anthropic.claude-sonnet-4-6",
+  "passes": 20,
+  "token_ceiling": 30000000,
+  "answers": 20,
+  "failed_calls": 0,
+  "median_seconds": 4.69,
+  "unscored_turns": 20,
+  "answer_tokens": {
+    "input_tokens": 1029491,
+    "cache_read_tokens": 983931,
+    "cache_write_tokens": 25229,
+    "output_tokens": 7095
+  },
+  "stopped_at_ceiling": false,
+  "tokens_spent": 1036586
+}

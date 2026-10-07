@@ -30,6 +30,7 @@ def test_a_message_that_already_has_a_line_break_is_left_alone():
         long("Stop using the tool. First, tell your manager. Second, report it."),
         long("1. AI assistant. A hosted stack. 2. Agent swarms. Many agents."),
         long("Report it if you: pasted data; shared output; or left history on."),
+        "Act now. 1. Stop the tool. 2. Tell your manager. 3. Report it.",
     ],
 )
 def test_no_word_is_changed(message):
@@ -61,6 +62,27 @@ def test_a_numbered_answer_has_each_number_on_its_own_line():
     assert lines[0] == "There are two."
     assert lines[1] == "1. AI assistant. A Defra-hosted stack."
     assert lines[2].startswith("2. Agent swarms. Several agents work together.")
+
+
+SHORT_STEPS = (
+    "Act now. 1. Stop using the tool. 2. Tell your line manager. "
+    "3. Report it to the data protection team."
+)
+
+
+def test_three_numbered_steps_are_laid_out_however_short_the_answer():
+    assert len(SHORT_STEPS.split()) <= LONG_ANSWER_WORDS
+    assert lay_out(SHORT_STEPS).split("\n") == [
+        "Act now.",
+        "1. Stop using the tool.",
+        "2. Tell your line manager.",
+        "3. Report it to the data protection team.",
+    ]
+
+
+def test_two_numbered_steps_in_a_short_answer_stay_on_one_line():
+    message = "Act now. 1. Stop using the tool. 2. Tell your line manager."
+    assert lay_out(message) == message
 
 
 def test_numbers_that_do_not_count_up_from_one_are_not_a_list():

@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-07T09:13:29+00:00",
+  "label": "cait-302-bisect-old-examples",
+  "golden_set": "v10",
+  "golden_set_sha": "cc6538b5c743",
+  "questions": "G029,G074,G101",
+  "prompt": "474f9e4a7d25 on 45f9d02 with uncommitted edits",
+  "content_ref": "9ec6d01a78a66a685471e60d18b72e60201277b6",
+  "model_id": "anthropic.claude-sonnet-4-6",
+  "passes": 10,
+  "token_ceiling": 30000000,
+  "answers": 30,
+  "failed_calls": 0,
+  "median_seconds": 2.91,
+  "unscored_turns": 0,
+  "answer_tokens": {
+    "input_tokens": 769300,
+    "cache_read_tokens": 731206,
+    "cache_write_tokens": 25214,
+    "output_tokens": 6168
+  },
+  "stopped_at_ceiling": false,
+  "tokens_spent": 775468
+}
