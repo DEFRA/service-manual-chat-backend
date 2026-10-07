@@ -159,6 +159,7 @@ def failing(failures: dict[str, dict[str, int]]) -> list[str]:
         "complete_conversation",
         "refusal",
         "fabricated",
+        "linked",
     ):
         rows = failures.get(measure)
         if rows:

@@ -1,6 +1,6 @@
 import pytest
 
-from app.ask.layout import LONG_ANSWER_WORDS, lay_out, sentences
+from app.ask.layout import LONG_ANSWER_WORDS, lay_out, page_steps, sentences
 
 PADDING = "Padding only makes the answer long enough to be laid out at all."
 
@@ -162,3 +162,76 @@ def test_an_abbreviation_or_a_number_does_not_end_a_sentence():
         "Use a tool, e.g. Copilot.",
         "See step 2. Then stop.",
     ]
+
+
+INCIDENT_PAGE = """Follow these steps as soon as you realise an incident has happened.
+
+<ol class="govuk-list govuk-list--number govuk-list--spaced">
+<li><strong>Stop using the AI tool immediately.</strong></li>
+<li><strong>Do not delete or change anything.</strong> The people handling the incident need to see clearly what happened.</li>
+<li><strong>Tell your line manager and your team's information asset owner.</strong> Give a short description of what happened and what data was involved.</li>
+<li><strong>Report it through your organisation's security incident process.</strong> If you are not sure what that is, your line manager or information asset owner can tell you.</li>
+</ol>
+"""
+LICENCE_PAGE = """Follow the existing process.
+
+1. Request a [service code](https://example.test/code) first.
+2. Raise a service request in MyPortal.
+"""
+STEPS = page_steps([INCIDENT_PAGE, LICENCE_PAGE])
+INCIDENT_ANSWER = (
+    "Names are personal data, so this is an AI incident. Follow these steps as "
+    "soon as possible. 1. Stop using the AI tool immediately. 2. Do not delete "
+    "or change anything. 3. Tell your line manager and your team's information "
+    "asset owner, with a short description of what happened. 4. Report it "
+    "through your organisation's security incident process. If you do not know "
+    "what that is, your line manager or information asset owner can tell you. "
+    "A personal data breach may need to be reported to the Information "
+    "Commissioner's Office within 72 hours, so do not delay."
+)
+
+
+def test_page_steps_are_the_items_of_numbered_lists_as_the_reader_sees_them():
+    assert STEPS[0] == "Stop using the AI tool immediately."
+    assert STEPS[3].startswith("Report it through your organisation's security")
+    assert STEPS[3].endswith("information asset owner can tell you.")
+    assert STEPS[4:] == (
+        "Request a service code first.",
+        "Raise a service request in MyPortal.",
+    )
+
+
+def test_text_after_the_last_step_gets_a_paragraph_of_its_own():
+    laid_out = lay_out(INCIDENT_ANSWER, STEPS)
+
+    steps, closing = laid_out.split("\n\n")
+    assert steps.split("\n")[-1] == (
+        "4. Report it through your organisation's security incident process. If "
+        "you do not know what that is, your line manager or information asset "
+        "owner can tell you."
+    )
+    assert closing == (
+        "A personal data breach may need to be reported to the Information "
+        "Commissioner's Office within 72 hours, so do not delay."
+    )
+    assert laid_out.split() == INCIDENT_ANSWER.split()
+
+
+def test_a_last_step_with_nothing_after_it_is_left_alone():
+    message = INCIDENT_ANSWER.partition(" A personal data breach")[0]
+    assert "\n\n" not in lay_out(message, STEPS)
+    assert lay_out(message, STEPS) == lay_out(message)
+
+
+def test_a_last_step_that_is_not_one_of_a_page_s_steps_is_left_alone():
+    message = long(
+        "Follow these steps when choosing a tool. 1. Check whether a script "
+        "would do the job. 2. Check the tools radar. 3. Turn on privacy "
+        "settings before any Defra work. A tool that is not on the radar has "
+        "not been looked at yet."
+    )
+    assert lay_out(message, STEPS) == lay_out(message)
+
+
+def test_with_no_page_steps_numbered_lines_are_as_they_were():
+    assert "\n\n" not in lay_out(INCIDENT_ANSWER)

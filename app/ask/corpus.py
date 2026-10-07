@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from logging import getLogger
 from pathlib import Path
 
-from app.ask.layout import lay_out
+from app.ask.layout import lay_out, page_steps
 from app.ask.quote_check import check_quote, strip_inline_tags
 from app.ask.schemas import Answer, ModelAnswer, Source
 
@@ -123,7 +123,10 @@ def verify[AnswerT: (Answer, ModelAnswer)](
             )
             rule = None
 
-    message = answer.message if answer.status == "blocked" else lay_out(answer.message)
+    message = answer.message
+    if answer.status != "blocked":
+        steps = page_steps(page.body for page in corpus.values())
+        message = lay_out(answer.message, steps)
     return answer.model_copy(
         update={"sources": sources, "rule_verbatim": rule, "message": message}
     )

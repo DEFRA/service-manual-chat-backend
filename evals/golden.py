@@ -32,6 +32,9 @@ STATUSES = (
 )
 FABRICATION_ROWS = range(71, 77)
 REFUSAL_ROWS = range(92, 96)
+# Rows whose expected answer says "Links the ... page": the page, by its title.
+# Row 29 since set v12, and the Tools page by name since v13.
+MUST_LINK = {29: ["Tools"]}
 
 # C15 is "Rows 1, 19, 31 and 41 in sequence (...), then: What was my second
 # question?". The rows it names are asked as the set writes them.
@@ -43,13 +46,12 @@ def cells(line: str) -> list[str]:
     return [c.strip() for c in line.strip().strip("|").split("|")]
 
 
-def parse_status(cell: str) -> tuple[str, str | None, bool]:
+def parse_status(cell: str) -> tuple[str, list[str], bool]:
     found = re.findall(r"`([a-z_]+)`", cell)
     status = next(s for s in found if s in STATUSES)
-    reason = next(
-        (s for s in found if s in ("outside_toolkit", "no_guidance_yet")), None
-    )
-    return status, reason, "**Q**" in cell
+    # Usually one reason. Row 29 passes on either (set v12).
+    reasons = [s for s in found if s in ("outside_toolkit", "no_guidance_yet")]
+    return status, reasons, "**Q**" in cell
 
 
 def pages_for(cell: str, titles: dict[str, str]) -> list[str]:
@@ -77,7 +79,7 @@ def version(markdown: str) -> str:
 
 def single(row: list[str], section: str, titles: dict[str, str]) -> dict:
     number = int(row[0])
-    status, reason, quoted = parse_status(row[2])
+    status, reasons, quoted = parse_status(row[2])
     question = {
         "id": f"G{number:03}",
         "section": section,
@@ -88,10 +90,12 @@ def single(row: list[str], section: str, titles: dict[str, str]) -> dict:
         "fabrication_row": number in FABRICATION_ROWS,
         "refusal_row": number in REFUSAL_ROWS,
     }
-    if reason:
-        question["expected_reason"] = reason
+    if reasons:
+        question["expected_reason"] = reasons
     if len(row) == 5:  # sections 1 to 7 name their source pages
         question["expected_pages"] = pages_for(row[4], titles)
+    if number in MUST_LINK:
+        question["must_link"] = [titles[title] for title in MUST_LINK[number]]
     return question
 
 

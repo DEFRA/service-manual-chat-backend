@@ -14,15 +14,17 @@ from pymongo import ReturnDocument
 from app.ask import bedrock
 from app.ask.bedrock import (
     REPLY_TO_OPTIONS,
+    THE_RULES,
     StopsAtABlock,
     agent,
     bedrock_engine,
     caches_instructions,
     model_settings,
     models_without_prompt_caching,
+    same_options_for_the_rules,
     user_prompt,
 )
-from app.ask.schemas import Turn
+from app.ask.schemas import Answer, Turn
 from app.common import mongo
 
 CONTENT = Path(__file__).parent / "__fixtures__" / "content"
@@ -202,6 +204,68 @@ def test_a_follow_up_to_an_answer_is_not_told_about_options():
     ]
 
     assert REPLY_TO_OPTIONS not in user_prompt("go on", history)
+
+
+def narrow_it(*options: str) -> Answer:
+    return Answer(status="need_more_detail", message="Which?", options=list(options))
+
+
+@pytest.mark.parametrize(
+    "question", ["What are the rules?", "what are the rules", "  What are the Rules ?"]
+)
+def test_asking_for_the_rules_always_offers_the_same_four(question):
+    answer = narrow_it("Data", "Keeping data safe", "Reporting an incident")
+
+    shown = same_options_for_the_rules(question, [], answer)
+
+    assert shown.options == list(THE_RULES)
+    assert shown.message == "Which?"
+
+
+def test_any_other_broad_question_keeps_the_options_the_model_gave():
+    answer = narrow_it("GitHub Copilot", "Microsoft 365 Copilot")
+
+    assert same_options_for_the_rules("Can I use Copilot?", [], answer) is answer
+
+
+def test_the_rules_asked_later_in_a_conversation_keeps_the_models_options():
+    history = [Turn(question="Can I use Copilot?", status="answered", message="Yes.")]
+    answer = narrow_it("GitHub Copilot", "Microsoft 365 Copilot")
+
+    shown = same_options_for_the_rules("What are the rules?", history, answer)
+
+    assert shown is answer
+
+
+def test_an_answer_to_the_rules_is_not_given_options():
+    answer = Answer(status="answered", message="Use approved tools.")
+
+    assert same_options_for_the_rules("What are the rules?", [], answer) is answer
+
+
+def test_the_four_areas_fit_what_an_answer_may_carry():
+    assert narrow_it(*THE_RULES).options == list(THE_RULES)
+
+
+async def test_the_engine_offers_the_same_four_for_the_rules():
+    def respond(_messages, info: AgentInfo) -> ModelResponse:
+        return ModelResponse(
+            parts=[
+                ToolCallPart(
+                    tool_name=info.output_tools[0].name,
+                    args={
+                        "status": "need_more_detail",
+                        "message": "Which of these is closest?",
+                        "options": ["Data", "Keeping data safe"],
+                    },
+                )
+            ]
+        )
+
+    with agent().override(model=FunctionModel(respond)):
+        answer = await bedrock_engine("What are the rules?", [])
+
+    assert answer.options == list(THE_RULES)
 
 
 async def test_the_history_reaches_the_model_and_the_instructions_do_not_change():
