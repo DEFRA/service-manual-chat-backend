@@ -21,7 +21,7 @@ CONCURRENCY = 4
 
 
 async def ask(agent, question: str, history: list, corpus) -> dict:
-    from app.ask.bedrock import user_prompt
+    from app.ask.bedrock import same_options_for_the_rules, user_prompt
     from app.ask.corpus import verify
 
     started = time.perf_counter()
@@ -34,6 +34,7 @@ async def ask(agent, question: str, history: list, corpus) -> dict:
             "error": f"{type(error).__name__}: {str(error)[:500]}",
         }
     usage = result.usage
+    shown = same_options_for_the_rules(question, history, result.output)
     return {
         "ok": True,
         "seconds": round(time.perf_counter() - started, 2),
@@ -43,7 +44,7 @@ async def ask(agent, question: str, history: list, corpus) -> dict:
         "cache_read_tokens": usage.cache_read_tokens,
         "output_tokens": usage.output_tokens,
         "answer": result.output.model_dump(),
-        "verified": verify(result.output, corpus).model_dump(),
+        "verified": verify(shown, corpus).model_dump(),
         "_usage": usage,
     }
 

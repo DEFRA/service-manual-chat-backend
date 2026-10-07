@@ -246,6 +246,41 @@ def as_turn(turn: Turn) -> dict:
     return fields
 
 
+# The areas a reader who asks for "the rules" is always offered. Left to the
+# model, a security option was there on about two passes in three, and a
+# reader who then typed "Security." was asked to narrow it again (golden set
+# C12). The wording is the set the model gave most often.
+THE_RULES = (
+    "What data can I put into an AI tool",
+    "How to choose and set up an AI tool safely",
+    "Security rules for AI-generated code",
+    "Ethics and accountability when using AI",
+)
+
+ASKS_FOR_THE_RULES = frozenset({"what are the rules"})
+
+
+def _plain(question: str) -> str:
+    words = "".join(c if c.isalnum() else " " for c in question.lower()).split()
+    return " ".join(words)
+
+
+def same_options_for_the_rules[AnswerT: (Answer, ModelAnswer)](
+    question: str, history: list[Turn], answer: AnswerT
+) -> AnswerT:
+    """Offer the same four areas whenever a first question asks for the rules.
+
+    The model still decides the status and writes the message. Only a first
+    question is matched: later in a conversation "What are the rules?" is read
+    against what came before, and the model's own options fit that better.
+    """
+    if history or answer.status != "need_more_detail":
+        return answer
+    if _plain(question) not in ASKS_FOR_THE_RULES:
+        return answer
+    return answer.model_copy(update={"options": list(THE_RULES)})
+
+
 ERROR_ANSWER = Answer(
     status="error",
     message="The toolkit could not answer just now. Try again in a minute.",
@@ -325,4 +360,5 @@ async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
     # ModelAnswer to Answer: same fields, the model's reason is a subset of
     # the wire contract's, so this always validates.
     answer = Answer.model_validate(result.output.model_dump())
+    answer = same_options_for_the_rules(question, history, answer)
     return verify(answer, load_corpus(Path(config.content_dir)))
