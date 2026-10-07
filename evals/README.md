@@ -109,6 +109,11 @@ Each rule is the golden set's, and dated where it was settled.
 - **Right status** is the status the row expects, and its reason where the
   row gives one (`outside_toolkit`, `no_guidance_yet`). Counted over the
   100 questions; the conversation turns are reported beside it.
+- **Links the page the row asks for** (set v12, 7 October 2026): row 29's
+  expected answer says "Links the Tools page", so code checks that page is
+  among the links the reader would see. It is reported beside Right status
+  and is not part of it or of any bar, because the set's bars do not name
+  it.
 - **Quoted exactly** (set v2, 17 September 2026): "the words and their
   order match the source. Differences in spacing, line breaks and
   surrounding punctuation are fine. A quote fails if any word is changed,

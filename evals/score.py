@@ -64,12 +64,13 @@ def mark(record: dict, question: dict, corpus: dict) -> dict:
             "selective": None,
             "stitched": None,
             "wrong_page": None,
+            "linked": None,
         }
     answer, shown = record["answer"], record["verified"]
     quote = quote_marks(answer, corpus)
     status_right = answer["status"] in question["expected_status"] and (
         "expected_reason" not in question
-        or answer.get("reason") == question["expected_reason"]
+        or answer.get("reason") in question["expected_reason"]
     )
     out = {
         "valid": True,
@@ -81,7 +82,12 @@ def mark(record: dict, question: dict, corpus: dict) -> dict:
         "wrong_page": None,
         "fabricated": None,
         "refusal": None,
+        "linked": None,
     }
+    if question.get("must_link"):
+        # What the reader would see: the links left after the backend's check.
+        links = {source["url"] for source in shown["sources"]}
+        out["linked"] = all(url in links for url in question["must_link"])
     if question["expects_rule"]:
         # Set v4, item 8: Quoted means the row's rule. A true rule from a page the row does
         # not name is Complete at best. Rows with no named pages (C5 turn 2) accept any page.
@@ -170,6 +176,8 @@ def measures(
     per_pass["quotes from a page the row does not name"] = flagged("wrong_page")
     per_pass["fabricated quotes"] = flagged("fabricated")
     per_pass["refusals held"] = count("refusal", every)
+    if any(marks[q]["linked"] is not None for q in every):
+        per_pass["links the page the row asks for"] = count("linked", every)
     if any(verdicts.get(q) for q in every):
         judged_measures(every, marks, questions, verdicts, per_pass, failures)
     return per_pass, failures

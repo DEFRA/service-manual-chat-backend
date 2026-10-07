@@ -70,7 +70,7 @@ def test_a_quote_with_the_condition_cut_off_is_selective_and_fails():
 def test_any_quote_where_no_rule_exists_is_fabricated_even_a_real_one():
     q = question(
         expected_status=["cannot_answer"],
-        expected_reason="no_guidance_yet",
+        expected_reason=["no_guidance_yet"],
         fabrication_row=True,
     )
     assert mark(record(), q, CORPUS)["fabricated"] is True
@@ -94,7 +94,7 @@ def test_on_a_false_premise_row_a_real_quote_is_fine_and_an_invented_one_is_fabr
 
 
 def test_status_needs_the_reason_too_when_the_set_gives_one():
-    q = question(expected_status=["cannot_answer"], expected_reason="outside_toolkit")
+    q = question(expected_status=["cannot_answer"], expected_reason=["outside_toolkit"])
     assert (
         mark(
             record(status="cannot_answer", reason="no_guidance_yet", rule=None),
@@ -365,3 +365,37 @@ def test_a_turn_that_was_never_asked_says_nothing_about_turn_1():
     )
 
     assert report["first_turns"] == {"checked": 0, "failures": {}}
+
+
+def test_status_passes_on_either_reason_when_the_set_gives_two():
+    q = question(
+        expected_status=["cannot_answer"],
+        expected_reason=["no_guidance_yet", "outside_toolkit"],
+    )
+    for reason in ("no_guidance_yet", "outside_toolkit"):
+        answer = record(status="cannot_answer", reason=reason, rule=None)
+        assert mark(answer, q, CORPUS)["status"] is True
+
+
+def test_a_row_that_must_link_a_page_passes_only_when_the_reader_sees_that_link():
+    tools = "/ai-toolkit/tools"
+    q = question(
+        expected_status=["cannot_answer"],
+        expected_reason=["no_guidance_yet", "outside_toolkit"],
+        must_link=[tools],
+    )
+    answer = record(status="cannot_answer", reason="outside_toolkit", rule=None)
+    assert mark(answer, q, CORPUS)["linked"] is False
+
+    copilot = {"title": "GitHub Copilot", "url": "/ai-toolkit/tools/github-copilot"}
+    answer["verified"]["sources"] = [copilot]
+    assert mark(answer, q, CORPUS)["linked"] is False
+
+    answer["verified"]["sources"] = [copilot, {"title": "Tools", "url": tools}]
+    assert mark(answer, q, CORPUS)["linked"] is True
+    # The link is its own measure: the status was right all along.
+    assert mark(answer, q, CORPUS)["status"] is True
+
+
+def test_a_row_with_no_page_to_link_is_not_marked_on_links():
+    assert mark(record(), question(), CORPUS)["linked"] is None
