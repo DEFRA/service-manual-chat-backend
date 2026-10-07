@@ -9,7 +9,7 @@ dependencies = [
     "aws-embedded-metrics==3.3.0",
     "dnspython==2.8.0",
     "ecs-logging==2.3.0",
-    "fastapi==0.141.1",
+    "fastapi==0.142.2",
     "httpx==0.28.1",
     "pydantic-ai-slim[bedrock]>=2.43.0",
     "pydantic-settings==2.15.0",
