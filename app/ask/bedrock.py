@@ -158,12 +158,22 @@ def _acted(side: str, assessment: dict) -> list[str]:
         for check in (assessment.get(policy) or {}).get(checks) or []:
             if check.get("action", "NONE") == "NONE":
                 continue
-            names.append(f"{side}:{kind}:{check.get(name, '?') if name else 'custom'}")
+            acted = f"{side}:{kind}:{check.get(name, '?') if name else 'custom'}"
+            # A content filter also says how sure it was and how strict it is
+            # set: both are levels, NONE to HIGH. A block at a low confidence
+            # is the case to take to the platform team.
+            if "confidence" in check:
+                acted += (
+                    f"[confidence={check['confidence']} "
+                    f"strength={check.get('filterStrength', '?')}]"
+                )
+            names.append(acted)
     return names
 
 
 def guardrail_filters(trace: dict | None) -> tuple[str, ...]:
-    """The filters that acted, by name: `input:topic:Legal advice`.
+    """The filters that acted, by name: `input:topic:Legal advice`, or
+    `input:content:PROMPT_ATTACK[confidence=MEDIUM strength=HIGH]`.
 
     `input` is what was sent, the question and the toolkit pages with it;
     `output` is the model's reply. Never the words that set a filter off.

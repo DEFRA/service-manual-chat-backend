@@ -694,7 +694,12 @@ TRACE = {
                 },
                 "contentPolicy": {
                     "filters": [
-                        {"type": "PROMPT_ATTACK", "action": "BLOCKED"},
+                        {
+                            "type": "PROMPT_ATTACK",
+                            "confidence": "MEDIUM",
+                            "filterStrength": "HIGH",
+                            "action": "BLOCKED",
+                        },
                         {"type": "HATE", "action": "NONE"},
                     ]
                 },
@@ -730,7 +735,7 @@ TRACE = {
 def test_the_filters_that_acted_are_named_and_one_that_did_not_is_left_out():
     assert guardrail_filters(TRACE) == (
         "input:topic:Legal advice",
-        "input:content:PROMPT_ATTACK",
+        "input:content:PROMPT_ATTACK[confidence=MEDIUM strength=HIGH]",
         "input:word:custom",
         "input:pii:NAME",
         "output:regex:Staff number",
@@ -801,7 +806,7 @@ async def test_a_block_is_logged_with_the_names_of_the_filters_that_acted(caplog
         await bedrock_engine("q", [])
 
     logged = "\n".join(record.getMessage() for record in caplog.records)
-    assert "filters=input:topic:Legal advice,input:content:PROMPT_ATTACK" in logged
+    assert "filters=input:topic:Legal advice,input:content:PROMPT_ATTACK[" in logged
     assert READERS_WORDS not in logged
 
 
