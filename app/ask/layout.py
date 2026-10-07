@@ -52,7 +52,7 @@ _LIST_ITEMS = 3
 
 _ORDERED_LIST = re.compile(r"<ol\b.*?</ol>", re.DOTALL | re.IGNORECASE)
 _HTML_ITEM = re.compile(r"<li\b[^>]*>(.*?)</li>", re.DOTALL | re.IGNORECASE)
-_MARKDOWN_ITEM = re.compile(r"^\d{1,2}[.)]\s+(.+)$", re.MULTILINE)
+_MARKDOWN_ITEM = re.compile(r"^\d{1,2}[.)][ \t]+(\S.*)$", re.MULTILINE)
 _WORD = re.compile(r"[a-z']{4,}")
 # A sentence is part of a page's step when at least half of its longer words
 # are in that step. The model rewords a step; it does not swap its nouns.
