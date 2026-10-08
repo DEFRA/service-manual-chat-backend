@@ -106,7 +106,7 @@ class ModelAnswer(_AnswerFields):
     reason: CannotAnswerReason | None = None
 
     @model_validator(mode="after")
-    def fields_match_status(self) -> "ModelAnswer":
+    def fields_match_status(self) -> ModelAnswer:
         _check_options(self.status, self.options)
 
         if self.status == "cannot_answer":
@@ -128,7 +128,7 @@ class Answer(_AnswerFields):
     reason: CannotAnswerReason | ErrorReason | None = None
 
     @model_validator(mode="after")
-    def fields_match_status(self) -> "Answer":
+    def fields_match_status(self) -> Answer:
         _check_options(self.status, self.options)
 
         if self.status == "cannot_answer":

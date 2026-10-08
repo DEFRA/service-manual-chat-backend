@@ -117,7 +117,7 @@ async def ask_unit(rows: list[dict], call) -> tuple[list[dict], list[dict]]:
             unscored.append(record)
         try:
             seen.append(as_turn(question, record["verified"]))
-        except (KeyError, ValueError):
+        except KeyError, ValueError:
             # No answer, or one `/ask` would refuse as history: the
             # conversation cannot go on, in the evaluation or for a reader.
             lost_at = number
