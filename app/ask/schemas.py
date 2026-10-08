@@ -11,15 +11,15 @@ rule, it never rewrites one. The front end checks the quote against the page
 and drops it if the words differ, so a paraphrase is not shown, it is lost.
 """
 
-from typing import Annotated, Literal
+import typing
 
-from pydantic import BaseModel, Field, StringConstraints, model_validator
+import pydantic
 
 # Matches MAX_QUESTION_LENGTH in service-manual-ui `src/server/ai-ask/constants.js`.
 MAX_QUESTION_LENGTH = 500
 
 
-class Source(BaseModel):
+class Source(pydantic.BaseModel):
     title: str
     # An internal path such as /ai-toolkit/guidance/using-data-with-ai. The
     # front end only renders sources for pages it serves.
@@ -27,14 +27,14 @@ class Source(BaseModel):
     section: str | None = None
 
 
-class RuleVerbatim(BaseModel):
+class RuleVerbatim(pydantic.BaseModel):
     text: str
     source: Source
 
 
 # The six outcomes the design history agreed. The front end has only ever seen
 # `answered`; the other five are the screens it has not built yet.
-Status = Literal[
+Status = typing.Literal[
     # A real answer, possibly with a rule quoted word for word.
     "answered",
     # Too broad to answer well. `options` offers two to four ways to narrow it,
@@ -52,25 +52,25 @@ Status = Literal[
     "error",
 ]
 
-CannotAnswerReason = Literal["outside_toolkit", "no_guidance_yet"]
+CannotAnswerReason = typing.Literal["outside_toolkit", "no_guidance_yet"]
 
 MIN_OPTIONS = 2
 MAX_OPTIONS = 4
 
 
-class Answer(BaseModel):
+class Answer(pydantic.BaseModel):
     status: Status
     # Always present: what the page shows the reader, whatever the status.
     message: str
     rule_verbatim: RuleVerbatim | None = None
-    sources: list[Source] = Field(default_factory=list)
+    sources: list[Source] = pydantic.Field(default_factory=list)
     # need_more_detail only: two to four narrower questions to pick from.
-    options: list[str] = Field(default_factory=list)
+    options: list[str] = pydantic.Field(default_factory=list)
     # cannot_answer only.
     reason: CannotAnswerReason | None = None
 
-    @model_validator(mode="after")
-    def fields_match_status(self) -> "Answer":
+    @pydantic.model_validator(mode="after")
+    def fields_match_status(self) -> typing.Self:
         if self.status == "need_more_detail":
             if not MIN_OPTIONS <= len(self.options) <= MAX_OPTIONS:
                 msg = f"need_more_detail carries {MIN_OPTIONS} to {MAX_OPTIONS} options"
@@ -102,7 +102,7 @@ MAX_HISTORY_TURNS = 4
 MAX_MESSAGE_LENGTH = 2000
 
 
-class Turn(BaseModel):
+class Turn(pydantic.BaseModel):
     """One earlier exchange, as the reader saw it.
 
     Only the words: no sources and no quoted rule. `options` matters for
@@ -110,27 +110,39 @@ class Turn(BaseModel):
     does not say what "Security." was chosen from.
     """
 
-    question: str = Field(min_length=1, max_length=MAX_QUESTION_LENGTH)
+    question: str = pydantic.Field(min_length=1, max_length=MAX_QUESTION_LENGTH)
     status: Status
-    message: str = Field(max_length=MAX_MESSAGE_LENGTH)
-    options: list[Annotated[str, StringConstraints(max_length=MAX_QUESTION_LENGTH)]] = (
-        Field(default_factory=list, max_length=MAX_OPTIONS)
-    )
+    message: str = pydantic.Field(max_length=MAX_MESSAGE_LENGTH)
+    options: list[
+        typing.Annotated[
+            str, pydantic.StringConstraints(max_length=MAX_QUESTION_LENGTH)
+        ]
+    ] = pydantic.Field(default_factory=list, max_length=MAX_OPTIONS)
 
 
-class AskRequest(BaseModel):
-    question: str = Field(min_length=1, max_length=MAX_QUESTION_LENGTH)
+class AskRequest(pydantic.BaseModel):
+    question: str = pydantic.Field(min_length=1, max_length=MAX_QUESTION_LENGTH)
     # The conversation so far, oldest first, so "that's wrong" can be read
     # against what came before. Sent by the front end from its session, which
     # is the only place the conversation is kept.
-    history: list[Turn] = Field(default_factory=list, max_length=MAX_HISTORY_TURNS)
+    history: list[Turn] = pydantic.Field(
+        default_factory=list, max_length=MAX_HISTORY_TURNS
+    )
     # The one earlier question the front end sent before `history`. Kept so
     # the backend can deploy first; remove once the front end sends history.
-    previous_question: str | None = Field(default=None, max_length=MAX_QUESTION_LENGTH)
+    previous_question: str | None = pydantic.Field(
+        default=None, max_length=MAX_QUESTION_LENGTH
+    )
     conversation_id: str | None = None
 
     def conversation(self) -> list[Turn]:
         if self.history or not self.previous_question:
             return self.history
         # The old front end sends no answer, so there is none to pass on.
-        return [Turn(question=self.previous_question, status="answered", message="")]
+        return [
+            Turn(
+                question=self.previous_question,
+                status="answered",
+                message="",
+            )
+        ]

@@ -6,12 +6,12 @@ across the three passes. Run it on every prompt or content change.
 
 ## Run it
 
-You need a Bedrock sandbox key in `compose/secrets.env` (see the main README),
+You need a Bedrock sandbox key in `.env` (see the main README),
 or `AWS_BEARER_TOKEN_BEDROCK` in your environment.
 
 ```bash
 uv sync
-uv run python -m evals run --label what-this-run-tests
+uv run run-evals run --label what-this-run-tests
 ```
 
 Up to 40 minutes and about £9: £3.50 of answers and £5.50 of judge. It stops
@@ -47,10 +47,10 @@ Useful options:
 ## Re-score, compare, re-judge
 
 ```bash
-uv run python -m evals score evals/results/<run>             # no model calls
-uv run python -m evals score evals/results/<a> evals/results/<b>
-uv run python -m evals judge evals/results/<run> --questions Q --only right_rule
-uv run python -m evals agree evals/results/<a> evals/results/<b>   # two judges' verdicts
+uv run run-evals score evals/results/<run>             # no model calls
+uv run run-evals score evals/results/<a> evals/results/<b>
+uv run run-evals judge evals/results/<run> --questions Q --only right_rule
+uv run run-evals agree evals/results/<a> evals/results/<b>   # two judges' verdicts
 ```
 
 `score` fetches the pages at the run's own content ref, so an old run is scored
@@ -63,7 +63,7 @@ warns if the run used a different version; pass `--set` with that version's
 | File | What it is |
 |---|---|
 | `golden-set.md` | The golden set, synced from the team's Confluence page. Never edited here |
-| `golden-set.json` | Generated from it by `python -m evals golden`. Never edited by hand |
+| `golden-set.json` | Generated from it by `run-evals golden`. Never edited by hand |
 | `answer.py` | Asks the questions through the backend's own agent, `app.ask.bedrock` |
 | `judge.py` | The judge's instructions and the definitions it applies, quoted from the set |
 | `score.py` | The code-checked measures and the six bars |
@@ -71,11 +71,11 @@ warns if the run used a different version; pass `--set` with that version's
 | `writing.py` | The writing counts |
 | `prices.json` | Dated London prices, for the cost line |
 | `results/` | One directory per run: `meta.json`, `answers.jsonl.gz`, `verdicts.json.gz`, `report.json`. Committed, so any number can be re-checked |
-| `results/*-imported/` | The 21 and 25 September 2026 runs, made with the throw-away harness this replaces and brought in with `python -m evals import`. They are the baselines the new code was checked against |
+| `results/*-imported/` | The 21 and 25 September 2026 runs, made with the throw-away harness this replaces and brought in with `run-evals import`. They are the baselines the new code was checked against |
 
 When the golden set changes on Confluence, paste the page into `golden-set.md`,
 replace people's names with their roles (this repo is public), run
-`uv run python -m evals golden`, and commit both.
+`uv run run-evals golden`, and commit both.
 
 ## How the code decides
 

@@ -9,10 +9,11 @@ Re-scoring needs no model calls: the answers, the verdicts and the pages at
 the run's content ref are all on disk.
 """
 
+import collections
 import math
-from collections import defaultdict
+import typing
 
-from evals.quotes import locate, stitched, whole_sentences
+from evals import quotes
 
 # The bars count over the first 100 questions, as the set's "What a run means" says,
 # so every run compares with the ones before it. Rows added since (v8, 101 to 103) are
@@ -31,7 +32,9 @@ def in_bars(question_id: str) -> bool:
     return int(question_id[1:].split("-")[0]) <= BAR_CONVERSATIONS
 
 
-def quote_marks(answer: dict, corpus: dict) -> dict:
+def quote_marks(
+    answer: dict[str, typing.Any], corpus: dict[str, typing.Any]
+) -> dict[str, typing.Any]:
     """How a raw `rule_verbatim` stands up. `corpus` maps URL to page body."""
     rule = answer["rule_verbatim"]
     if rule is None:
@@ -42,16 +45,27 @@ def quote_marks(answer: dict, corpus: dict) -> dict:
             "stitched": False,
         }
     body = corpus.get(rule["source"]["url"])
-    span = locate(rule["text"], body) if body else None
+    span = quotes.locate(rule["text"], body) if body else None
+    if body is None or span is None:
+        return {
+            "offered": True,
+            "words_right": False,
+            "selective": False,
+            "stitched": False,
+        }
     return {
         "offered": True,
-        "words_right": span is not None,
-        "selective": span is not None and not whole_sentences(body, span),
-        "stitched": span is not None and stitched(body, span),
+        "words_right": True,
+        "selective": not quotes.whole_sentences(body, span),
+        "stitched": quotes.stitched(body, span),
     }
 
 
-def mark(record: dict, question: dict, corpus: dict) -> dict:
+def mark(
+    record: dict[str, typing.Any],
+    question: dict[str, typing.Any],
+    corpus: dict[str, typing.Any],
+) -> dict[str, typing.Any]:
     """Pass or fail on each code-checked measure that applies. None: does not apply."""
     if not record["ok"]:
         return {
@@ -110,7 +124,9 @@ def mark(record: dict, question: dict, corpus: dict) -> dict:
     return out
 
 
-def quoted_the_rows_rule(mark: dict, verdict: dict | None) -> bool | None:
+def quoted_the_rows_rule(
+    mark: dict[str, typing.Any], verdict: dict[str, typing.Any] | None
+) -> bool | None:
     """Set v4, item 8: Quoted means the rule the row asks for. The code checks the words,
     the page and the sentence bounds; only the judge can say it is the right rule. None
     when the row expects no rule or the judge has not ruled on it."""
@@ -130,11 +146,14 @@ def spread(values: list[int]) -> str:
 
 
 def measures(
-    records: list[dict], questions: dict[str, dict], corpus: dict, verdicts: dict
-) -> tuple[dict, dict]:
+    records: list[dict[str, typing.Any]],
+    questions: dict[str, dict[str, typing.Any]],
+    corpus: dict[str, typing.Any],
+    verdicts: dict[str, typing.Any],
+) -> tuple[dict[str, typing.Any], dict[str, typing.Any]]:
     """Every measure for one pass, and the rows that failed each."""
     per_pass: dict[str, int] = {}
-    failures: dict[str, list[str]] = defaultdict(list)
+    failures: dict[str, list[str]] = collections.defaultdict(list)
     marks = {
         r["question_id"]: mark(r, questions[r["question_id"]], corpus) for r in records
     }
@@ -177,9 +196,9 @@ def measures(
 
 def judged_measures(
     every: list[str],
-    marks: dict[str, dict],
-    questions: dict[str, dict],
-    verdicts: dict,
+    marks: dict[str, dict[str, typing.Any]],
+    questions: dict[str, dict[str, typing.Any]],
+    verdicts: dict[str, typing.Any],
     per_pass: dict[str, int],
     failures: dict[str, list[str]],
 ) -> None:
@@ -215,7 +234,9 @@ def judged_measures(
         )
 
 
-def sizes(questions: dict[str, dict], asked: set[str]) -> dict[str, int]:
+def sizes(
+    questions: dict[str, dict[str, typing.Any]], asked: set[str]
+) -> dict[str, int]:
     """How many rows each bar counts over, among the questions this run asked."""
     rows = [questions[q] for q in asked]
     singles = [q for q in rows if q["id"].startswith("G")]
@@ -231,7 +252,9 @@ def sizes(questions: dict[str, dict], asked: set[str]) -> dict[str, int]:
     }
 
 
-def bars(ranges: dict[str, list[int]], n: dict[str, int]) -> list[dict]:
+def bars(
+    ranges: dict[str, list[int]], n: dict[str, int]
+) -> list[dict[str, typing.Any]]:
     """The set's six bars. Pass only if every pass clears the bar."""
     quoted = (
         "quoted, the row's rule"
@@ -280,13 +303,15 @@ def bars(ranges: dict[str, list[int]], n: dict[str, int]) -> list[dict]:
                 "measure": measure,
                 "needs": bar,
                 "range": spread(values) if values else "not judged",
-                "passed": bool(values) and all(clears(v) for v in values),
+                "passed": values is not None and all(clears(v) for v in values),
             },
         )
     return out
 
 
-def first_turns(answers: list[dict], questions: dict[str, dict]) -> dict:
+def first_turns(
+    answers: list[dict[str, typing.Any]], questions: dict[str, dict[str, typing.Any]]
+) -> dict[str, typing.Any]:
     """Whether turn 1 of each conversation came back as the set expects.
 
     Turn 1 is not a row, so this reads it from the history a later turn was
@@ -295,11 +320,13 @@ def first_turns(answers: list[dict], questions: dict[str, dict]) -> dict:
     any later turn is asked. Reported beside the bars, as what turn 1 came
     back as and on how many passes.
     """
-    from app.ask.schemas import MAX_HISTORY_TURNS
+    from app.ask import schemas
 
     checked: set[str] = set()
     done: set[tuple[str, str, int]] = set()
-    failed: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    failed: dict[str, dict[str, int]] = collections.defaultdict(
+        lambda: collections.defaultdict(int)
+    )
     for record in sorted(answers, key=lambda r: r["question_id"]):
         question = questions[record["question_id"]]
         expected = question.get("first_turn_status")
@@ -310,7 +337,7 @@ def first_turns(answers: list[dict], questions: dict[str, dict]) -> dict:
             not expected
             or not record["ok"]
             or once in done
-            or len(question["earlier"]) > MAX_HISTORY_TURNS
+            or len(question["earlier"]) > schemas.MAX_HISTORY_TURNS
         ):
             continue
         done.add(once)
@@ -329,14 +356,21 @@ def first_turns(answers: list[dict], questions: dict[str, dict]) -> dict:
 
 
 def tally(
-    answers: list[dict], judged: dict, questions: dict[str, dict], corpus: dict
+    answers: list[dict[str, typing.Any]],
+    judged: dict[tuple[str, int, str], typing.Any],
+    questions: dict[str, dict[str, typing.Any]],
+    corpus: dict[str, typing.Any],
 ) -> tuple[int, dict[str, list[int]], dict[str, dict[str, int]]]:
     """Passes, each measure per pass, and how many passes each row failed each measure."""
-    by_pass: dict[tuple[str, int], list[dict]] = defaultdict(list)
+    by_pass: dict[tuple[str, int], list[dict[str, typing.Any]]] = (
+        collections.defaultdict(list)
+    )
     for record in answers:
         by_pass[(record["key"], record["run"])].append(record)
-    ranges: dict[str, list[int]] = defaultdict(list)
-    failed: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    ranges: dict[str, list[int]] = collections.defaultdict(list)
+    failed: dict[str, dict[str, int]] = collections.defaultdict(
+        lambda: collections.defaultdict(int)
+    )
     for (key, run), records in sorted(by_pass.items()):
         pass_verdicts = {
             r["question_id"]: judged.get((key, run, r["question_id"])) for r in records
@@ -352,8 +386,11 @@ def tally(
 
 
 def score(
-    answers: list[dict], verdicts: list[dict], questions: dict[str, dict], corpus: dict
-) -> dict:
+    answers: list[dict[str, typing.Any]],
+    verdicts: list[dict[str, typing.Any]],
+    questions: dict[str, dict[str, typing.Any]],
+    corpus: dict[str, typing.Any],
+) -> dict[str, typing.Any]:
     """The report for one run: every measure as a range, the six bars, the failing rows,
     and the rows beside the bars. `corpus` maps URL to page body."""
     judged = {(j["key"], j["run"], j["question_id"]): j["marks"] for j in verdicts}

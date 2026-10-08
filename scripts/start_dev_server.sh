@@ -22,7 +22,7 @@ sleep 5
 # Set environment variables for local development
 export PORT=8085
 export AWS_ENDPOINT_URL=http://localhost:4566
-# Bedrock is the one AWS service that must reach AWS itself, not localstack.
+# Bedrock is the one AWS service that must reach AWS itself, not floci.
 export AWS_ENDPOINT_URL_BEDROCK_RUNTIME=https://bedrock-runtime.${BEDROCK_REGION:-eu-west-2}.amazonaws.com
 # The toolkit pages and the prompt, as compose mounts them.
 export CONTENT_DIR=${CONTENT_DIR:-../service-manual-ui/src/content}
@@ -34,18 +34,10 @@ export LOG_CONFIG=logging-dev.json
 
 # Load application environment variables
 echo "Loading environment variables..."
-if [[ -f compose/aws.env ]]; then
-    export $(grep -v '^#' compose/aws.env | xargs)
+if [[ -f .env ]]; then
+    export $(grep -v '^#' .env | xargs)
 else
-    echo "Error: compose/aws.env file not found. This file is required." >&2
-    exit 1
-fi
-
-echo "Loading secrets..."
-if [[ -f compose/secrets.env ]]; then
-    export $(grep -v '^#' compose/secrets.env | xargs)
-else
-    echo "Error: compose/secrets.env file not found. This file is required." >&2
+    echo "Error: .env file not found. This file is required." >&2
     exit 1
 fi
 
@@ -58,7 +50,7 @@ fi
 # Start the application
 echo "Starting FastAPI application..."
 # --no-build is not an option: pymongo has no wheel for this Python yet.
-uv run uvicorn app.main:app --host $HOST --port $PORT --reload --log-config=$LOG_CONFIG # NOSONAR
+uv run service-manual-chat-http
 
 # Cleanup function
 cleanup() {

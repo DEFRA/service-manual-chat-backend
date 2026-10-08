@@ -17,28 +17,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Test code and Create Test Coverage Reports
-        uses: actions/setup-python@v7
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
-          python-version: 3.12
-          cache: 'pip'
-      - run: |
-          pipx install uv
+          python-version-file: .python-version
+
+      - name: Run tests
+        run: |
+          pipx install uv==0.12.21
           uv sync --frozen
-          uv run ruff check
-          uv run pytest
+          uv run task test
 
       - name: Test Docker Image Build
         run: |
           set +e
-          docker build --no-cache --tag cdp-python-backend-template .
+          docker build --no-cache --tag service-manual-chat-backend .
           exit $?
 
       - name: SonarCloud Scan
-        if: github.actor != 'dependabot[bot]'
-        uses: SonarSource/sonarqube-scan-action@v8.2.2
+        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # 8.1.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

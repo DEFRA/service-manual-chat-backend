@@ -10,8 +10,8 @@ dependencies = [
     "dnspython==2.8.0",
     "ecs-logging==2.3.0",
     "fastapi==0.141.1",
-    "httpx==0.28.1",
-    "pydantic-ai-slim[bedrock]>=2.43.0",
+    "httpx2==2.13.1",
+    "pydantic-ai-slim[bedrock]==2.48.0",
     "pydantic-settings==2.15.0",
     "pymongo[aws,encryption,snappy,zstd]==4.18.1",
     "uvicorn==0.34.3",
@@ -19,6 +19,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "mypy==2.3.1",
     "pre-commit==4.6.2",
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
@@ -26,7 +27,151 @@ dev = [
     "pytest-mock==3.15.1",
     "ruff==0.16.8",
     "taskipy==1.14.1",
+    "testcontainers[mongodb]==4.15.0",
 ]
+
+[project.scripts]
+service-manual-chat-http = "app.entrypoints.http:main"
+run-evals = "evals.__main__:main"
 
 [tool.taskipy.tasks]
 format = "uv run ruff format . && uv run ruff check . --fix"
+lint = "uv run ruff format ./app ./evals ./tests --check && uv run ruff check ./app ./evals ./tests"
+typecheck = "uv run mypy ./app ./evals ./tests"
+test = "uv run task lint && uv run task typecheck && uv run coverage run -m pytest -vv && uv run coverage html && uv run coverage xml"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app", "evals"]
+
+[tool.uv]
+exclude-newer = "1 week"
+
+[tool.mypy]
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = "pymongo.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "boto3.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "botocore.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "aws_embedded_metrics.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
+
+[tool.ruff]
+line-length = 88
+target-version = "py314"
+
+exclude = [
+    ".git",
+    ".github",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    "test_data",
+    "coverage",
+    "coverage_html",
+    "reports",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "W",   # pycodestyle warnings
+    "C90", # mccabe complexity
+    "N",   # pep8-naming
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "S",   # flake8-bandit (security)
+    "A",   # flake8-builtins
+    "COM", # flake8-commas
+    "C4",  # flake8-comprehensions
+    "DTZ", # flake8-datetimez
+    "T10", # flake8-debugger
+    "EM",  # flake8-errmsg
+    "ISC", # flake8-implicit-str-concat
+    "ICN", # flake8-import-conventions
+    "G",   # flake8-logging-format
+    "PIE", # flake8-pie
+    "PT",  # flake8-pytest-style
+    "Q",   # flake8-quotes
+    "RET", # flake8-return
+    "SIM", # flake8-simplify
+    "TID", # flake8-tidy-imports
+    "ARG", # flake8-unused-arguments
+]
+ignore = [
+    "E501",  # line too long, handled by formatter
+    "B008",  # do not perform function calls in argument defaults
+    "COM812", # missing trailing comma, conflicts with formatter
+]
+fixable = ["ALL"]
+unfixable = []
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101",  # Allow assert in tests
+    "S105",  # Test fixtures use fake tokens
+    "S106",  # Test fixtures use fake tokens
+    "S107",  # Test fixtures use fake tokens as defaults
+]
+"scripts/test_*.py" = ["S101"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.isort]
+known-third-party = ["fastapi", "pydantic", "motor", "pytest"]
+known-first-party = ["app", "fetch_content"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.coverage.run]
+source = ["app"]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.coverage.html]
+directory = "coverage_html"
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers --import-mode=importlib"
+consider_namespace_packages = true
+pythonpath = ["."]
+asyncio_mode = "auto"

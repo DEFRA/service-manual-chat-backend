@@ -7,6 +7,7 @@ messages across all passes, as CAIT-287 reported them.
 
 import re
 import statistics
+import typing
 
 # A dash used as punctuation: an en or em dash anywhere, or a hyphen with a
 # space on either side. A hyphen inside a word ("follow-up") is not counted.
@@ -26,10 +27,10 @@ def unspelt(message: str) -> bool:
 
 def opens_with_abbreviation(message: str) -> bool:
     first = re.match(r"\W*(\w+)", message)
-    return bool(first) and first.group(1).rstrip("s") in ABBREVIATIONS
+    return first is not None and first.group(1).rstrip("s") in ABBREVIATIONS
 
 
-def counts(answers: list[dict]) -> dict:
+def counts(answers: list[dict[str, typing.Any]]) -> dict[str, typing.Any]:
     messages = [r["answer"]["message"] for r in answers if r["ok"]]
     words = [len(m.split()) for m in messages]
     return {

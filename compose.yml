@@ -1,65 +1,52 @@
 services:
-  localstack:
-    image: localstack/localstack:4.9.2
+  floci:
+    image: floci/floci@sha256:b604da97e8c481c407f8e8d3300a8317d68058ac757dfa2af15fd6c4e9d25c59 # 1.5.19-compat
     ports:
-      - "4566:4566" # LocalStack Gateway
-      - "4510-4559:4510-4559" # external services port range
+      - '4566:4566'
     env_file:
-      - "compose/aws.env"
+      - '.env'
     environment:
-      DEBUG: ${DEBUG:-1}
-      LS_LOG: WARN # Localstack DEBUG Level
-      SERVICES: s3,sqs,sns,firehose
-      LOCALSTACK_HOST: 127.0.0.1
+      FLOCI_DEFAULT_REGION: eu-west-2
     volumes:
-      - "${TMPDIR:-/tmp}/localstack:/var/lib/localstack"
-      - ./compose/start-localstack.sh:/etc/localstack/init/ready.d/start-localstack.sh
-    healthcheck:
-      test: ["CMD", "curl", "localhost:4566"]
-      interval: 5s
-      start_period: 5s
-      retries: 3
+      - ./compose/floci/start.d:/etc/floci/init/start.d:ro
     networks:
       - cdp-tenant
 
   mongodb:
-    image: mongo:6.0.13
+    image: mongo@sha256:4510cf3d7050003e958745adb25d2deb3fb907430716162d9cc1a92eda2a6047 # 7.0.28
     networks:
       - cdp-tenant
     ports:
       - "27017:27017"
     volumes:
+      - ./compose/mongo:/docker-entrypoint-initdb.d:ro
       - mongodb-data:/data
-    restart: always
 
-  service:
+  service-manual-chat-backend:
     build:
       context: .
       target: development
     ports:
       - 8085:8085
     links:
-      - "localstack:localstack"
+      - "floci:floci"
       - "mongodb:mongodb"
     depends_on:
-      localstack:
+      floci:
         condition: service_healthy
       mongodb:
         condition: service_started
-    profiles:
-      - service
     env_file:
-      - "compose/aws.env"
-      - "compose/secrets.env"
+      - ".env"
     environment:
       PORT: ${PORT:-8085}
-      AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL:-http://localstack:4566}
+      AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL:-http://floci:4566}
       MONGO_URI: ${MONGO_URI:-mongodb://mongodb:27017/}
       HOST: ${HOST:-0.0.0.0}
       # stub answers with no key; bedrock needs AWS_BEARER_TOKEN_BEDROCK in
-      # compose/secrets.env (gitignored) and reaches the London sandbox.
+      # .env (gitignored) and reaches the London sandbox.
       ASK_ENGINE: ${ASK_ENGINE:-stub}
-      # AWS_ENDPOINT_URL above sends every AWS call to localstack. Bedrock is
+      # AWS_ENDPOINT_URL above sends every AWS call to floci. Bedrock is
       # the one service that must reach AWS itself, and this service-specific
       # variable takes precedence in boto3.
       AWS_ENDPOINT_URL_BEDROCK_RUNTIME: https://bedrock-runtime.${BEDROCK_REGION:-eu-west-2}.amazonaws.com
@@ -88,7 +75,6 @@ services:
             - .vscode/**/*
             - .github/**/*
             - requirements-dev.txt
-            - pytest.ini
             - .pre-commit-config.yaml
             - sonar-project.properties
             - LICENCE
@@ -101,24 +87,22 @@ services:
   # The toolkit site from the sibling checkout, with Ask the toolkit switched
   # on and pointed at this backend. Its templates are mounted, so an edit to
   # a .njk file shows on the next request. Styles need a rebuild:
-  # docker compose exec frontend npm run build:frontend
-  frontend:
+  # docker compose exec service-manual-ui npm run build:frontend
+  service-manual-ui:
     build:
       context: ${FRONTEND_DIR:-../service-manual-ui}
       target: development
     ports:
       - 3000:3000
     depends_on:
-      - service
-    profiles:
-      - service
+      - service-manual-chat-backend
     environment:
       PORT: 3000
       NODE_ENV: development
       ENABLE_AI_CONTENT: "true"
       AI_TOOLKIT_ASK_ENABLED: "true"
-      AI_TOOLKIT_ASK_API_URL: http://service:8085
-      LOCALSTACK_ENDPOINT: http://localstack:4566
+      AI_TOOLKIT_ASK_API_URL: http://service-manual-chat-backend:8085
+      LOCALSTACK_ENDPOINT: http://floci:4566
       # Dummy values so the site boots. Nothing here sends email.
       SESSION_COOKIE_PASSWORD: local-compose-session-cookie-password
       AI_TOOLKIT_NOTIFY_KEY: dummy-notify-key-unused

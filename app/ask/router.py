@@ -1,19 +1,22 @@
-from logging import getLogger
-from typing import Annotated
+import logging
+import typing
 
-from fastapi import APIRouter, Depends
+import fastapi
 
-from app.ask.engine import AnswerEngine, get_engine
-from app.ask.schemas import Answer, AskRequest
+from app.ask import engine as engine_mod
+from app.ask import schemas
 
-router = APIRouter()
-logger = getLogger(__name__)
+router = fastapi.APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/ask")
 async def ask(
-    body: AskRequest, engine: Annotated[AnswerEngine, Depends(get_engine)]
-) -> Answer:
+    body: schemas.AskRequest,
+    engine: typing.Annotated[
+        engine_mod.AnswerEngine, fastapi.Depends(engine_mod.get_engine)
+    ],
+) -> schemas.Answer:
     # The question is what a person typed and may say anything about them, so
     # it never reaches the logs. Length and how much history came with it do.
     history = body.conversation()
