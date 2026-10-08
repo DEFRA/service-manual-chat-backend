@@ -1,21 +1,17 @@
 import base64
 import pathlib
 import ssl
+from unittest import mock
 
 import pytest
-import pytest_mock
 
-from app.common.tls import (
-    extract_all_certs,
-    init_custom_certificates,
-    load_certs_into_context,
-)
+from app.common import tls
 
 
 class TestExtractAllCerts:
     def test_extract_valid_certs(
         self,
-        mocker: pytest_mock.MockerFixture,
+        mocker: mock.MagicMock,
         monkeypatch: pytest.MonkeyPatch,
         tmp_path: pathlib.Path,
     ) -> None:
@@ -32,29 +28,27 @@ class TestExtractAllCerts:
         mock_file_obj.name = str(cert_path)
         mock_named_temp_file.return_value.__enter__.return_value = mock_file_obj
 
-        certs = extract_all_certs()
+        certs = tls.extract_all_certs()
 
         assert len(certs) == 1
         assert certs["TRUSTSTORE_CERT1"] == str(cert_path)
-
-        # Check if decoded content was written
         mock_file_obj.write.assert_called_once_with(b"cert1")
 
     def test_extract_invalid_base64_cert(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("TRUSTSTORE_BAD", "invalid-base64!")
 
-        certs = extract_all_certs()
+        certs = tls.extract_all_certs()
         assert len(certs) == 0
 
     def test_extract_no_truststore_vars(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("NORMAL_VAR", "value")
 
-        certs = extract_all_certs()
+        certs = tls.extract_all_certs()
         assert len(certs) == 0
 
 
 class TestLoadCertsIntoContext:
-    def test_load_valid_certs(self, mocker: pytest_mock.MockerFixture) -> None:
+    def test_load_valid_certs(self, mocker: mock.MagicMock) -> None:
         mock_create_context = mocker.patch("app.common.tls.ssl.create_default_context")
         mock_ctx = mocker.MagicMock()
         mock_create_context.return_value = mock_ctx
@@ -64,34 +58,35 @@ class TestLoadCertsIntoContext:
             "TRUSTSTORE_2": "/path/to/cert2.pem",
         }
 
-        ctx = load_certs_into_context(certs)
+        ctx = tls.load_certs_into_context(certs)
 
         assert ctx == mock_ctx
         assert mock_ctx.load_verify_locations.call_count == 2
         mock_ctx.load_verify_locations.assert_any_call("/path/to/cert1.pem")
         mock_ctx.load_verify_locations.assert_any_call("/path/to/cert2.pem")
 
-    def test_load_certs_error(self, mocker: pytest_mock.MockerFixture) -> None:
+    def test_load_certs_error(self, mocker: mock.MagicMock) -> None:
         mock_create_context = mocker.patch("app.common.tls.ssl.create_default_context")
         mock_ctx = mocker.MagicMock()
         mock_create_context.return_value = mock_ctx
-        # Make load_verify_locations raise for the first one
-        mock_ctx.load_verify_locations.side_effect = [ssl.SSLError("Bad cert"), None]
+        mock_ctx.load_verify_locations.side_effect = [
+            ssl.SSLError("Bad cert"),
+            None,
+        ]
 
         certs = {
             "TRUSTSTORE_BAD": "/path/to/bad.pem",
             "TRUSTSTORE_GOOD": "/path/to/good.pem",
         }
 
-        ctx = load_certs_into_context(certs)
+        ctx = tls.load_certs_into_context(certs)
 
-        # Should proceed to load the second one despite error in first
         assert ctx == mock_ctx
         assert mock_ctx.load_verify_locations.call_count == 2
 
 
 class TestInitCustomCertificates:
-    def test_init_globals(self, mocker: pytest_mock.MockerFixture) -> None:
+    def test_init_globals(self, mocker: mock.MagicMock) -> None:
         mock_extract = mocker.patch("app.common.tls.extract_all_certs")
         mock_load = mocker.patch("app.common.tls.load_certs_into_context")
 
@@ -101,14 +96,11 @@ class TestInitCustomCertificates:
         mock_extract.return_value = mock_certs
         mock_load.return_value = mock_ctx
 
-        result = init_custom_certificates()
+        result = tls.init_custom_certificates()
 
         assert result == mock_certs
         mock_extract.assert_called_once()
         mock_load.assert_called_once_with(mock_certs)
-
-        # Check globals are set
-        from app.common import tls
 
         assert tls.custom_ca_certs == mock_certs
         assert tls.ctx == mock_ctx

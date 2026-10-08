@@ -1,6 +1,6 @@
 import pytest
 
-from evals.golden import conversation, parse, single
+from evals import golden
 
 SINGLES = {
     1: "Can I put OFFICIAL data into ChatGPT?",
@@ -11,7 +11,7 @@ SINGLES = {
 
 
 def turns(row: list[str]) -> dict[str, dict]:
-    return {q["id"]: q for q in conversation(row, SINGLES)}
+    return {q["id"]: q for q in golden.conversation(row, SINGLES)}
 
 
 def test_a_two_turn_conversation_scores_turn_2_and_carries_turn_1() -> None:
@@ -145,7 +145,7 @@ def test_no_conversation_is_left_out_of_the_set() -> None:
         ]
     )
 
-    data = parse(markdown, {})
+    data = golden.parse(markdown, {})
 
     ids = [q["id"] for q in data["questions"]]
     assert ids[-3:] == ["C12-t2", "C12-t3", "C15-t5"]
@@ -223,7 +223,7 @@ def test_a_row_can_pass_on_either_of_two_reasons() -> None:
     ]
 
     titles = {"Tools": "/ai-toolkit/tools"}
-    assert single(row, "Section 2", titles)["expected_reason"] == [
+    assert golden.single(row, "Section 2", titles)["expected_reason"] == [
         "no_guidance_yet",
         "outside_toolkit",
     ]
@@ -238,7 +238,9 @@ def test_row_29_must_link_the_tools_page() -> None:
         "Tools",
     ]
 
-    question = single(row, "Section 2", {"Tools": "/ai-toolkit/tools"})
+    question = golden.single(row, "Section 2", {"Tools": "/ai-toolkit/tools"})
 
     assert question["must_link"] == ["/ai-toolkit/tools"]
-    assert "must_link" not in single(["30", *row[1:]], "Section 2", {"Tools": "/t"})
+    assert "must_link" not in golden.single(
+        ["30", *row[1:]], "Section 2", {"Tools": "/t"}
+    )
