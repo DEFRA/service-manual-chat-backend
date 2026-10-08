@@ -1,94 +1,87 @@
 import collections.abc
+from unittest import mock
 
 import pytest
-import pytest_mock
 
+from app import config as app_config
 from app.common import mongo
-from app.config import config
 
 
-# Reset the global client variable before each test
 @pytest.fixture(autouse=True)
-def reset_mongo_client() -> collections.abc.Iterator[None]:
+def reset_mongo_client() -> collections.abc.Generator[None]:
+    original_client = mongo.client
+    original_db = mongo.db
     mongo.client = None
     mongo.db = None
     yield
-    mongo.client = None
-    mongo.db = None
+    mongo.client = original_client
+    mongo.db = original_db
 
 
-@pytest.mark.asyncio
-async def test_get_mongo_client_initialization(
-    mocker: pytest_mock.MockerFixture,
-) -> None:
-    mock_client_cls = mocker.patch("pymongo.AsyncMongoClient")
-    mock_instance = mock_client_cls.return_value
+class TestMongoClient:
+    @pytest.mark.asyncio
+    async def test_get_mongo_client_initialization(
+        self, mocker: mock.MagicMock
+    ) -> None:
+        mock_client_cls = mocker.patch("pymongo.AsyncMongoClient")
+        mock_instance = mock_client_cls.return_value
 
-    # Setup the async ping command
-    # get_database() returns a DB object, which has an async command() method
-    mock_db = mocker.MagicMock()
-    mock_instance.get_database.return_value = mock_db
-    mock_db.command = mocker.AsyncMock(return_value={"ok": 1})
+        mock_db = mocker.MagicMock()
+        mock_instance.get_database.return_value = mock_db
+        mock_db.command = mocker.AsyncMock(return_value={"ok": 1})
+        client = await mongo.get_mongo_client()
 
-    client = await mongo.get_mongo_client()
+        assert client == mock_instance
+        mock_client_cls.assert_called_once_with(app_config.config.mongo_uri)
+        mock_db.command.assert_awaited_once_with("ping")
 
-    assert client == mock_instance
-    mock_client_cls.assert_called_once_with(config.mongo_uri)
-    mock_db.command.assert_awaited_once_with("ping")
+    @pytest.mark.asyncio
+    async def test_get_mongo_client_with_custom_tls(
+        self, mocker: mock.MagicMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(app_config.config, "mongo_truststore", "custom-cert-key")
+        mocker.patch.dict(
+            "app.common.tls.custom_ca_certs",
+            {"custom-cert-key": "/path/to/cert.pem"},
+        )
 
+        mock_client_cls = mocker.patch("pymongo.AsyncMongoClient")
+        mock_instance = mock_client_cls.return_value
+        mock_db = mocker.MagicMock()
+        mock_instance.get_database.return_value = mock_db
+        mock_db.command = mocker.AsyncMock(return_value={"ok": 1})
 
-@pytest.mark.asyncio
-async def test_get_mongo_client_with_custom_tls(
-    mocker: pytest_mock.MockerFixture, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    # Mock config and custom certs
-    monkeypatch.setattr(config, "mongo_truststore", "custom-cert-key")
-    mocker.patch.dict(
-        "app.common.tls.custom_ca_certs", {"custom-cert-key": "/path/to/cert.pem"}
-    )
+        await mongo.get_mongo_client()
 
-    mock_client_cls = mocker.patch("pymongo.AsyncMongoClient")
-    mock_instance = mock_client_cls.return_value
-    mock_db = mocker.MagicMock()
-    mock_instance.get_database.return_value = mock_db
-    mock_db.command = mocker.AsyncMock(return_value={"ok": 1})
+        mock_client_cls.assert_called_once_with(
+            app_config.config.mongo_uri, tlsCAFile="/path/to/cert.pem"
+        )
 
-    await mongo.get_mongo_client()
+    @pytest.mark.asyncio
+    async def test_get_mongo_client_returns_existing(
+        self, mocker: mock.MagicMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        existing_client = mocker.Mock()
+        monkeypatch.setattr(mongo, "client", existing_client)
 
-    # Verify TLS param was passed
-    mock_client_cls.assert_called_once_with(
-        config.mongo_uri, tlsCAFile="/path/to/cert.pem"
-    )
+        mock_client_cls = mocker.patch("pymongo.AsyncMongoClient")
 
+        result = await mongo.get_mongo_client()
 
-@pytest.mark.asyncio
-async def test_get_mongo_client_returns_existing(
-    mocker: pytest_mock.MockerFixture, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    # Set an existing client
-    existing_client = mocker.Mock()
-    monkeypatch.setattr(mongo, "client", existing_client)
+        assert result == existing_client
+        mock_client_cls.assert_not_called()
 
-    mock_client_cls = mocker.patch("pymongo.AsyncMongoClient")
+    def test_get_db(self, mocker: mock.MagicMock) -> None:
+        mock_client = mocker.MagicMock()
+        mock_db = mocker.Mock()
+        mock_client.get_database.return_value = mock_db
 
-    result = await mongo.get_mongo_client()
+        result = mongo.get_db(mock_client)
+        assert result == mock_db
+        mock_client.get_database.assert_called_once_with(
+            app_config.config.mongo_database
+        )
 
-    # Should return existing without creating new one or pinging
-    assert result == existing_client
-    mock_client_cls.assert_not_called()
-
-
-def test_get_db(mocker: pytest_mock.MockerFixture) -> None:
-    mock_client = mocker.MagicMock()
-    mock_db = mocker.Mock()
-    mock_client.get_database.return_value = mock_db
-
-    # First call initializes
-    result = mongo.get_db(mock_client)
-    assert result == mock_db
-    mock_client.get_database.assert_called_once_with(config.mongo_database)
-
-    # Second call returns cached
-    result2 = mongo.get_db(mock_client)
-    assert result2 == mock_db
-    assert mock_client.get_database.call_count == 1
+        result2 = mongo.get_db(mock_client)
+        assert result2 == mock_db
+        assert mock_client.get_database.call_count == 1

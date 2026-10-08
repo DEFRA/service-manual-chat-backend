@@ -325,6 +325,8 @@ Ensure the python virtual environment is configured and libraries are installed 
 
 Testing follows the [FastApi documented approach](https://fastapi.tiangolo.com/tutorial/testing/); using pytest & starlette.
 
+The Mongo tests start a MongoDB container with testcontainers, so Docker must be running.
+
 To test the application run:
 
 ```bash

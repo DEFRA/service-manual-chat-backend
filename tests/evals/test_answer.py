@@ -1,14 +1,14 @@
 import asyncio
 import typing
 
-from evals.answer import ask_unit, units
+from evals import answer
 
 
 def reply(
     status: str = "answered",
     message: str = "m",
-    options: list[typing.Any] | None = None,
-) -> dict[str, typing.Any]:
+    options: typing.Any = None,
+) -> typing.Any:
     answer = {
         "status": status,
         "message": message,
@@ -26,25 +26,23 @@ FAILED = {"ok": False, "seconds": 1.0, "error": "ThrottlingException: slow down"
 class Service:
     """Stands in for the model: gives the next reply and keeps what it was sent."""
 
-    def __init__(self, *replies: dict[str, typing.Any]) -> None:
+    def __init__(self, *replies: typing.Any) -> None:
         self.replies = list(replies)
-        self.asked: list[tuple[str, list[dict[str, typing.Any]]]] = []
+        self.asked: list[tuple[str, list[dict]]] = []
 
-    async def __call__(
-        self, question: str, history: list[typing.Any]
-    ) -> dict[str, typing.Any]:
+    async def __call__(self, question: str, history: list[typing.Any]) -> typing.Any:
         self.asked.append((question, [turn.model_dump() for turn in history]))
         return self.replies.pop(0)
 
 
 def turn(
-    name: str, number: int, earlier: list[str], question: str
+    name: str, number: int, earlier: typing.Any, question: str
 ) -> dict[str, typing.Any]:
     return {"id": f"{name}-t{number}", "earlier": earlier, "question": question}
 
 
-def run(rows: list[dict[str, typing.Any]], service: Service) -> typing.Any:
-    return asyncio.run(ask_unit(rows, service))
+def run(rows: typing.Any, service: typing.Any) -> typing.Any:
+    return asyncio.run(answer.ask_unit(rows, service))
 
 
 def test_a_single_question_is_asked_once_with_no_history() -> None:
@@ -151,7 +149,7 @@ def test_asking_for_turn_3_alone_still_asks_the_turns_before_it() -> None:
 
 
 def test_a_run_that_reaches_its_ceiling_stops_the_conversation() -> None:
-    service = Service(reply(), typing.cast(typing.Any, None))
+    service = Service(reply(), None)
     rows = [turn("C16", 2, ["a"], "b"), turn("C16", 3, ["a", "b"], "c")]
 
     records, _ = run(rows, service)
@@ -169,6 +167,6 @@ def test_a_conversations_turns_are_kept_together_and_singles_stay_apart() -> Non
         {"id": "C16-t3"},
     ]
 
-    grouped = [[q["id"] for q in unit] for unit in units(questions)]
+    grouped = [[q["id"] for q in unit] for unit in answer.units(questions)]
 
     assert grouped == [["G001"], ["G002"], ["C16-t2", "C16-t3"], ["C17-t2"]]

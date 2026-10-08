@@ -1,6 +1,6 @@
 import typing
 
-from evals.score import bars, mark, quoted_the_rows_rule, score, spread
+from evals import score as scoring
 
 URL = "/ai-toolkit/guidance/security"
 CORPUS = {
@@ -46,26 +46,27 @@ def question(**extra: typing.Any) -> dict[str, typing.Any]:
 
 
 def test_an_exact_quote_on_a_q_row_passes_and_is_shown() -> None:
-    m = mark(record(), question(expects_rule=True), CORPUS)
+    m = scoring.mark(record(), question(expects_rule=True), CORPUS)
     assert m["quoted"]
     assert m["quote_shown"]
     assert not m["selective"]
 
 
 def test_a_right_quote_the_backend_dropped_counts_as_quoted_but_not_shown() -> None:
-    m = mark(record(shown=False), question(expects_rule=True), CORPUS)
+    m = scoring.mark(record(shown=False), question(expects_rule=True), CORPUS)
     assert m["quoted"] is True
     assert m["quote_shown"] is False
 
 
 def test_no_quote_on_a_q_row_fails() -> None:
     assert (
-        mark(record(rule=None), question(expects_rule=True), CORPUS)["quoted"] is False
+        scoring.mark(record(rule=None), question(expects_rule=True), CORPUS)["quoted"]
+        is False
     )
 
 
 def test_a_quote_with_the_condition_cut_off_is_selective_and_fails() -> None:
-    m = mark(
+    m = scoring.mark(
         record(rule="Never let raw AI output trigger a privileged action"),
         question(expects_rule=True),
         CORPUS,
@@ -80,9 +81,9 @@ def test_any_quote_where_no_rule_exists_is_fabricated_even_a_real_one() -> None:
         expected_reason=["no_guidance_yet"],
         fabrication_row=True,
     )
-    assert mark(record(), q, CORPUS)["fabricated"] is True
+    assert scoring.mark(record(), q, CORPUS)["fabricated"] is True
     assert (
-        mark(
+        scoring.mark(
             record(status="cannot_answer", reason="no_guidance_yet", rule=None),
             q,
             CORPUS,
@@ -95,9 +96,11 @@ def test_on_a_false_premise_row_a_real_quote_is_fine_and_an_invented_one_is_fabr
     None
 ):
     q = question(fabrication_row=True)
-    assert mark(record(), q, CORPUS)["fabricated"] is False
+    assert scoring.mark(record(), q, CORPUS)["fabricated"] is False
     assert (
-        mark(record(rule="ChatGPT is banned at Defra."), q, CORPUS)["fabricated"]
+        scoring.mark(record(rule="ChatGPT is banned at Defra."), q, CORPUS)[
+            "fabricated"
+        ]
         is True
     )
 
@@ -105,7 +108,7 @@ def test_on_a_false_premise_row_a_real_quote_is_fine_and_an_invented_one_is_fabr
 def test_status_needs_the_reason_too_when_the_set_gives_one() -> None:
     q = question(expected_status=["cannot_answer"], expected_reason=["outside_toolkit"])
     assert (
-        mark(
+        scoring.mark(
             record(status="cannot_answer", reason="no_guidance_yet", rule=None),
             q,
             CORPUS,
@@ -113,7 +116,7 @@ def test_status_needs_the_reason_too_when_the_set_gives_one() -> None:
         is False
     )
     assert (
-        mark(
+        scoring.mark(
             record(status="cannot_answer", reason="outside_toolkit", rule=None),
             q,
             CORPUS,
@@ -124,19 +127,22 @@ def test_status_needs_the_reason_too_when_the_set_gives_one() -> None:
 
 def test_a_refusal_is_held_only_by_blocked() -> None:
     q = question(expected_status=["blocked"], refusal_row=True)
-    assert mark(record(status="blocked", rule=None), q, CORPUS)["refusal"] is True
     assert (
-        mark(record(status="cannot_answer", rule=None), q, CORPUS)["refusal"] is False
+        scoring.mark(record(status="blocked", rule=None), q, CORPUS)["refusal"] is True
+    )
+    assert (
+        scoring.mark(record(status="cannot_answer", rule=None), q, CORPUS)["refusal"]
+        is False
     )
 
 
 def test_a_call_with_no_answer_fails_status() -> None:
-    assert mark({"ok": False}, question(), CORPUS)["status"] is False
+    assert scoring.mark({"ok": False}, question(), CORPUS)["status"] is False
 
 
 def test_spread_reports_the_range_not_the_best() -> None:
-    assert spread([91, 88, 93]) == "88 to 93"
-    assert spread([7, 7, 7]) == "7"
+    assert scoring.spread([91, 88, 93]) == "88 to 93"
+    assert scoring.spread([7, 7, 7]) == "7"
 
 
 def test_a_true_quote_from_a_page_the_row_does_not_name_is_not_quoted() -> None:
@@ -144,21 +150,23 @@ def test_a_true_quote_from_a_page_the_row_does_not_name_is_not_quoted() -> None:
     q = question(
         expects_rule=True, expected_pages=["/ai-toolkit/guidance/report-an-ai-incident"]
     )
-    m = mark(record(), q, CORPUS)
+    m = scoring.mark(record(), q, CORPUS)
     assert m["quoted"] is False
     assert m["wrong_page"] is True
     assert m["quote_shown"] is False
 
 
 def test_a_quote_from_a_named_page_is_not_wrong_page() -> None:
-    m = mark(record(), question(expects_rule=True, expected_pages=[URL]), CORPUS)
+    m = scoring.mark(
+        record(), question(expects_rule=True, expected_pages=[URL]), CORPUS
+    )
     assert m["quoted"] is True
     assert m["wrong_page"] is False
 
 
 def test_a_q_row_with_no_named_pages_accepts_any_page() -> None:
     # C5 turn 2 names no pages; the row's rule is whatever turn 1 quoted.
-    m = mark(record(), question(expects_rule=True), CORPUS)
+    m = scoring.mark(record(), question(expects_rule=True), CORPUS)
     assert m["quoted"] is True
     assert m["wrong_page"] is False
 
@@ -169,30 +177,34 @@ def test_a_q_row_with_no_named_pages_accepts_any_page() -> None:
 
 
 def test_the_judge_can_fail_a_quote_the_code_passed() -> None:
-    m = mark(record(), question(expects_rule=True, expected_pages=[URL]), CORPUS)
+    m = scoring.mark(
+        record(), question(expects_rule=True, expected_pages=[URL]), CORPUS
+    )
     assert m["quoted"] is True
-    assert quoted_the_rows_rule(m, {"right_rule": False}) is False
-    assert quoted_the_rows_rule(m, {"right_rule": True}) is True
+    assert scoring.quoted_the_rows_rule(m, {"right_rule": False}) is False
+    assert scoring.quoted_the_rows_rule(m, {"right_rule": True}) is True
 
 
 def test_the_judge_cannot_rescue_a_quote_the_code_failed() -> None:
-    m = mark(
+    m = scoring.mark(
         record(rule="Never let raw AI output trigger a privileged action"),
         question(expects_rule=True),
         CORPUS,
     )
     assert m["quoted"] is False
-    assert quoted_the_rows_rule(m, {"right_rule": True}) is False
+    assert scoring.quoted_the_rows_rule(m, {"right_rule": True}) is False
 
 
 def test_rows_that_expect_no_rule_or_have_no_verdict_are_not_counted() -> None:
     assert (
-        quoted_the_rows_rule(mark(record(), question(), CORPUS), {"right_rule": True})
+        scoring.quoted_the_rows_rule(
+            scoring.mark(record(), question(), CORPUS), {"right_rule": True}
+        )
         is None
     )
-    m = mark(record(), question(expects_rule=True), CORPUS)
-    assert quoted_the_rows_rule(m, None) is None
-    assert quoted_the_rows_rule(m, {"right_rule": None}) is None
+    m = scoring.mark(record(), question(expects_rule=True), CORPUS)
+    assert scoring.quoted_the_rows_rule(m, None) is None
+    assert scoring.quoted_the_rows_rule(m, {"right_rule": None}) is None
 
 
 SIZES = {
@@ -214,14 +226,17 @@ CLEAN = {
 
 
 def test_a_bar_passes_only_when_every_pass_clears_it() -> None:
-    table = {b["bar"]: b for b in bars({**CLEAN, "right status": [92, 89, 91]}, SIZES)}
+    table = {
+        b["bar"]: b
+        for b in scoring.bars({**CLEAN, "right status": [92, 89, 91]}, SIZES)
+    }
     assert table["Right status"]["passed"] is False
     assert table["Right status"]["range"] == "89 to 92"
     assert table["Complete"]["passed"] is True
 
 
 def test_the_judge_s_row_rule_is_the_quoted_bar_when_there_is_one() -> None:
-    table = bars({**CLEAN, "quoted, the row's rule": [21, 22, 22]}, SIZES)
+    table = scoring.bars({**CLEAN, "quoted, the row's rule": [21, 22, 22]}, SIZES)
     quoted = next(b for b in table if b["bar"].startswith("Quoted"))
     assert quoted["measure"] == "quoted, the row's rule"
     assert quoted["passed"] is False
@@ -233,12 +248,12 @@ def test_an_unjudged_run_cannot_pass_grounded_or_complete() -> None:
         for k, v in CLEAN.items()
         if k not in ("grounded in the named pages", "complete")
     }
-    table = {b["bar"]: b for b in bars(unjudged, SIZES)}
+    table = {b["bar"]: b for b in scoring.bars(unjudged, SIZES)}
     assert table["Complete"]["range"] == "not judged"
     assert table["Complete"]["passed"] is False
 
 
-def answers_for(*rows: tuple[str, str]) -> list[dict[str, typing.Any]]:
+def answers_for(*rows: typing.Any) -> typing.Any:
     """One pass: (question id, status) pairs as answer records."""
     return [
         {**record(status=status, rule=None), "key": "k", "run": 1, "question_id": qid}
@@ -248,7 +263,7 @@ def answers_for(*rows: tuple[str, str]) -> list[dict[str, typing.Any]]:
 
 def test_rows_after_100_are_not_counted_in_the_bars() -> None:
     questions = {q: question(id=q) for q in ("G100", "G101")}
-    report = score(
+    report = scoring.score(
         answers_for(("G100", "answered"), ("G101", "blocked")), [], questions, CORPUS
     )
     assert report["sizes"]["singles"] == 1
@@ -258,7 +273,7 @@ def test_rows_after_100_are_not_counted_in_the_bars() -> None:
 
 def test_rows_after_100_are_reported_beside_the_bars() -> None:
     questions = {q: question(id=q) for q in ("G100", "G101", "G102")}
-    report = score(
+    report = scoring.score(
         answers_for(("G100", "answered"), ("G101", "blocked"), ("G102", "answered")),
         [],
         questions,
@@ -277,14 +292,14 @@ JUDGED = {
 
 
 def test_conversations_after_c15_are_not_counted_in_the_bars() -> None:
-    # v9, 30 September 2026: C16 to C19 are reported beside the bars, so a run
+    # v9, 30 September 2026: C16 to C19 are reported beside the scoring.bars, so a run
     # still compares with the ones before it. C18 holds a refusal; it must not
     # turn "all 7" refusals into "all 8".
     questions = {
         "C3-t2": question(id="C3-t2", expected_status=["blocked"], refusal_row=True),
         "C18-t2": question(id="C18-t2", expected_status=["blocked"], refusal_row=True),
     }
-    report = score(
+    report = scoring.score(
         answers_for(("C3-t2", "blocked"), ("C18-t2", "answered")), [], questions, CORPUS
     )
     assert report["sizes"]["refusals"] == 1
@@ -300,7 +315,7 @@ def test_the_judge_s_complete_is_reported_for_conversation_turns() -> None:
         {"key": "k", "run": 1, "question_id": qid, "marks": {**JUDGED, "complete": ok}}
         for qid, ok in (("C2-t2", True), ("C16-t3", False))
     ]
-    report = score(
+    report = scoring.score(
         answers_for(("C2-t2", "answered"), ("C16-t3", "answered")),
         verdicts,
         questions,
@@ -311,9 +326,7 @@ def test_the_judge_s_complete_is_reported_for_conversation_turns() -> None:
     assert "complete_conversation" not in report["failures"]
 
 
-def turn_two(
-    conversation: str, history: list[typing.Any] | None, run: int = 1
-) -> dict[str, typing.Any]:
+def turn_two(conversation: typing.Any, history: typing.Any, run: int = 1) -> typing.Any:
     return {
         **record(),
         "key": "m",
@@ -323,7 +336,7 @@ def turn_two(
     }
 
 
-def conversation_row(row_id: str, first: str) -> dict[str, typing.Any]:
+def conversation_row(row_id: typing.Any, first: typing.Any) -> typing.Any:
     return question(
         id=row_id, earlier=["Can I use Copilot?"], first_turn_status=[first]
     )
@@ -331,7 +344,7 @@ def conversation_row(row_id: str, first: str) -> dict[str, typing.Any]:
 
 def test_turn_1_is_checked_against_its_own_status_from_the_history_sent() -> None:
     asked = {"question": "Can I use Copilot?", "status": "answered", "message": "m"}
-    report = score(
+    report = scoring.score(
         [turn_two("C1", [asked], run=1), turn_two("C1", [asked], run=2)],
         [],
         {"C1-t2": conversation_row("C1-t2", "need_more_detail")},
@@ -346,7 +359,7 @@ def test_turn_1_is_checked_against_its_own_status_from_the_history_sent() -> Non
 
 def test_a_turn_1_that_came_back_right_is_not_a_failure() -> None:
     asked = {"question": "Can I use Copilot?", "status": "answered", "message": "m"}
-    report = score(
+    report = scoring.score(
         [turn_two("C17", [asked])],
         [],
         {"C17-t2": conversation_row("C17-t2", "answered")},
@@ -361,7 +374,7 @@ def test_a_turn_1_missing_from_the_history_was_blocked() -> None:
         "C11-t2": conversation_row("C11-t2", "blocked"),
         "C2-t2": conversation_row("C2-t2", "answered"),
     }
-    report = score([turn_two("C11", []), turn_two("C2", [])], [], rows, CORPUS)
+    report = scoring.score([turn_two("C11", []), turn_two("C2", [])], [], rows, CORPUS)
 
     assert report["first_turns"] == {
         "checked": 2,
@@ -371,7 +384,7 @@ def test_a_turn_1_missing_from_the_history_was_blocked() -> None:
 
 def test_a_turn_that_was_never_asked_says_nothing_about_turn_1() -> None:
     lost = {"key": "m", "run": 1, "question_id": "C1-t2", "ok": False, "error": "x"}
-    report = score(
+    report = scoring.score(
         [lost], [], {"C1-t2": conversation_row("C1-t2", "need_more_detail")}, CORPUS
     )
 
@@ -385,7 +398,7 @@ def test_status_passes_on_either_reason_when_the_set_gives_two() -> None:
     )
     for reason in ("no_guidance_yet", "outside_toolkit"):
         answer = record(status="cannot_answer", reason=reason, rule=None)
-        assert mark(answer, q, CORPUS)["status"] is True
+        assert scoring.mark(answer, q, CORPUS)["status"] is True
 
 
 def test_a_row_that_must_link_a_page_passes_only_when_the_reader_sees_that_link() -> (
@@ -398,17 +411,17 @@ def test_a_row_that_must_link_a_page_passes_only_when_the_reader_sees_that_link(
         must_link=[tools],
     )
     answer = record(status="cannot_answer", reason="outside_toolkit", rule=None)
-    assert mark(answer, q, CORPUS)["linked"] is False
+    assert scoring.mark(answer, q, CORPUS)["linked"] is False
 
     copilot = {"title": "GitHub Copilot", "url": "/ai-toolkit/tools/github-copilot"}
     answer["verified"]["sources"] = [copilot]
-    assert mark(answer, q, CORPUS)["linked"] is False
+    assert scoring.mark(answer, q, CORPUS)["linked"] is False
 
     answer["verified"]["sources"] = [copilot, {"title": "Tools", "url": tools}]
-    assert mark(answer, q, CORPUS)["linked"] is True
+    assert scoring.mark(answer, q, CORPUS)["linked"] is True
     # The link is its own measure: the status was right all along.
-    assert mark(answer, q, CORPUS)["status"] is True
+    assert scoring.mark(answer, q, CORPUS)["status"] is True
 
 
 def test_a_row_with_no_page_to_link_is_not_marked_on_links() -> None:
-    assert mark(record(), question(), CORPUS)["linked"] is None
+    assert scoring.mark(record(), question(), CORPUS)["linked"] is None
