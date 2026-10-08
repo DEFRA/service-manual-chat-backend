@@ -9,11 +9,11 @@ Re-scoring needs no model calls: the answers, the verdicts and the pages at
 the run's content ref are all on disk.
 """
 
+import collections
 import math
 import typing
-from collections import defaultdict
 
-from evals.quotes import locate, stitched, whole_sentences
+from evals import quotes
 
 # The bars count over the first 100 questions, as the set's "What a run means" says,
 # so every run compares with the ones before it. Rows added since (v8, 101 to 103) are
@@ -45,7 +45,7 @@ def quote_marks(
             "stitched": False,
         }
     body = corpus.get(rule["source"]["url"])
-    span = locate(rule["text"], body) if body else None
+    span = quotes.locate(rule["text"], body) if body else None
     if body is None or span is None:
         return {
             "offered": True,
@@ -56,8 +56,8 @@ def quote_marks(
     return {
         "offered": True,
         "words_right": True,
-        "selective": not whole_sentences(body, span),
-        "stitched": stitched(body, span),
+        "selective": not quotes.whole_sentences(body, span),
+        "stitched": quotes.stitched(body, span),
     }
 
 
@@ -159,7 +159,7 @@ def measures(
 ) -> tuple[dict[str, typing.Any], dict[str, typing.Any]]:
     """Every measure for one pass, and the rows that failed each."""
     per_pass: dict[str, int] = {}
-    failures: dict[str, list[str]] = defaultdict(list)
+    failures: dict[str, list[str]] = collections.defaultdict(list)
     marks = {
         r["question_id"]: mark(r, questions[r["question_id"]], corpus) for r in records
     }
@@ -328,11 +328,13 @@ def first_turns(
     any later turn is asked. Reported beside the bars, as what turn 1 came
     back as and on how many passes.
     """
-    from app.ask.schemas import MAX_HISTORY_TURNS
+    from app.ask import schemas
 
     checked: set[str] = set()
     done: set[tuple[str, str, int]] = set()
-    failed: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    failed: dict[str, dict[str, int]] = collections.defaultdict(
+        lambda: collections.defaultdict(int)
+    )
     for record in sorted(answers, key=lambda r: r["question_id"]):
         question = questions[record["question_id"]]
         expected = question.get("first_turn_status")
@@ -343,7 +345,7 @@ def first_turns(
             not expected
             or not record["ok"]
             or once in done
-            or len(question["earlier"]) > MAX_HISTORY_TURNS
+            or len(question["earlier"]) > schemas.MAX_HISTORY_TURNS
         ):
             continue
         done.add(once)
@@ -368,11 +370,15 @@ def tally(
     corpus: dict[str, typing.Any],
 ) -> tuple[int, dict[str, list[int]], dict[str, dict[str, int]]]:
     """Passes, each measure per pass, and how many passes each row failed each measure."""
-    by_pass: dict[tuple[str, int], list[dict[str, typing.Any]]] = defaultdict(list)
+    by_pass: dict[tuple[str, int], list[dict[str, typing.Any]]] = (
+        collections.defaultdict(list)
+    )
     for record in answers:
         by_pass[(record["key"], record["run"])].append(record)
-    ranges: dict[str, list[int]] = defaultdict(list)
-    failed: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    ranges: dict[str, list[int]] = collections.defaultdict(list)
+    failed: dict[str, dict[str, int]] = collections.defaultdict(
+        lambda: collections.defaultdict(int)
+    )
     for (key, run), records in sorted(by_pass.items()):
         pass_verdicts = {
             r["question_id"]: judged.get((key, run, r["question_id"])) for r in records

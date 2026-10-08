@@ -6,20 +6,18 @@ the content directory without the `.md`, which is the same mapping the front
 end uses when it checks a quote against a page.
 """
 
-from dataclasses import dataclass
-from logging import getLogger
+import dataclasses
+import logging
 from pathlib import Path
 
-from app.ask.layout import lay_out, page_steps
-from app.ask.quote_check import check_quote, strip_inline_tags
-from app.ask.schemas import Answer, ModelAnswer, Source
+from app.ask import layout, quote_check, schemas
 
-logger = getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 FENCE = "---\n"
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class Page:
     url: str
     title: str
@@ -80,7 +78,7 @@ def load_corpus(content_dir: Path, prefix: str = "ai-toolkit") -> dict[str, Page
     return pages
 
 
-def verify[AnswerT: (Answer, ModelAnswer)](
+def verify[AnswerT: (schemas.Answer, schemas.ModelAnswer)](
     answer: AnswerT, corpus: dict[str, Page]
 ) -> AnswerT:
     """Keep only what the corpus backs up.
@@ -110,7 +108,9 @@ def verify[AnswerT: (Answer, ModelAnswer)](
     rule = answer.rule_verbatim
     if rule is not None:
         page = corpus.get(rule.source.url)
-        outcome = "no_page" if page is None else check_quote(rule.text, page.body)
+        outcome = (
+            "no_page" if page is None else quote_check.check_quote(rule.text, page.body)
+        )
         if outcome != "ok":
             # Logged by page, length and which check failed, never the words:
             # model output could echo what the person typed, which must never
@@ -125,8 +125,8 @@ def verify[AnswerT: (Answer, ModelAnswer)](
 
     message = answer.message
     if answer.status != "blocked":
-        steps = page_steps(page.body for page in corpus.values())
-        message = lay_out(answer.message, steps)
+        steps = layout.page_steps(page.body for page in corpus.values())
+        message = layout.lay_out(answer.message, steps)
     return answer.model_copy(
         update={"sources": sources, "rule_verbatim": rule, "message": message}
     )
@@ -145,10 +145,10 @@ def as_context(corpus: dict[str, Page]) -> str:
     """
     return "\n\n".join(
         f'<page url="{page.url}" title="{page.title}">\n'
-        f"{strip_inline_tags(page.body)}\n</page>"
+        f"{quote_check.strip_inline_tags(page.body)}\n</page>"
         for page in corpus.values()
     )
 
 
-def source_for(page: Page) -> Source:
-    return Source(title=page.title, url=page.url)
+def source_for(page: Page) -> schemas.Source:
+    return schemas.Source(title=page.title, url=page.url)

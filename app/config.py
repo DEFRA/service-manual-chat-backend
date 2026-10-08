@@ -1,11 +1,11 @@
-from typing import Literal
+import typing
 
-from pydantic import HttpUrl
-from pydantic_settings import BaseSettings, SettingsConfigDict
+import pydantic
+import pydantic_settings
 
 
-class AppConfig(BaseSettings):
-    model_config = SettingsConfigDict()
+class AppConfig(pydantic_settings.BaseSettings):
+    model_config = pydantic_settings.SettingsConfigDict()
     python_env: str | None = None
     host: str = "127.0.0.1"
     port: int = 8086
@@ -14,12 +14,12 @@ class AppConfig(BaseSettings):
     mongo_database: str = "service-manual-chat-backend"
     mongo_truststore: str = "TRUSTSTORE_CDP_ROOT_CA"
     aws_endpoint_url: str | None = None
-    http_proxy: HttpUrl | None = None
+    http_proxy: pydantic.HttpUrl | None = None
     enable_metrics: bool = False
     tracing_header: str = "x-cdp-request-id"
     # What answers /ask. stub needs no key; bedrock needs AWS_BEARER_TOKEN_BEDROCK
     # locally or an inference profile on CDP.
-    ask_engine: Literal["stub", "bedrock"] = "stub"
+    ask_engine: typing.Literal["stub", "bedrock"] = "stub"
     # Model id locally (the sandbox takes plain ids); an inference profile id
     # or ARN on CDP. eu-west-2 is London; no cross-region inference.
     bedrock_model_id: str = "anthropic.claude-sonnet-4-6"

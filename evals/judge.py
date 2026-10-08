@@ -20,15 +20,15 @@ substitute (28 September 2026).
 
 import asyncio
 import json
+import pathlib
 import typing
-from pathlib import Path
 
-from pydantic import BaseModel
-from pydantic_ai import Agent
-from pydantic_ai.models.bedrock import BedrockConverseModel, BedrockModelSettings
-from pydantic_ai.providers.bedrock import BedrockProvider
+import pydantic
+import pydantic_ai
+from pydantic_ai.models import bedrock as pydantic_ai_bedrock
+from pydantic_ai.providers import bedrock as pydantic_ai_bedrock_provider
 
-from evals.runs import Budget, read_answers, read_verdicts, write_verdicts
+from evals import runs
 
 JUDGE_MODEL_ID = "anthropic.claude-opus-4-6-v1"
 CONCURRENCY = 6
@@ -88,7 +88,7 @@ sentence naming the fact or claim that decided a fail, or "nothing" if all
 pass. The verdicts must follow from it."""
 
 
-class Verdict(BaseModel):
+class Verdict(pydantic.BaseModel):
     # The reason comes first so the verdicts follow from it (30 September 2026).
     reason: str
     grounded_in_named_sources: bool
@@ -164,9 +164,9 @@ def shown_to_judge(
 
 
 async def judge(
-    run: Path,
+    run: pathlib.Path,
     questions: dict[str, dict[str, typing.Any]],
-    budget: Budget,
+    budget: runs.Budget,
     *,
     judge_model: str = JUDGE_MODEL_ID,
     only_questions: list[str] | None = None,
@@ -174,22 +174,26 @@ async def judge(
 ) -> dict[str, typing.Any]:
     """Judge a run's answers and merge the verdicts into verdicts.json.gz.
     Returns a summary for meta.json."""
-    from app.ask.corpus import as_context, load_corpus
-    from app.config import config
+    from app import config as app_config
+    from app.ask import corpus as app_corpus
 
-    corpus = load_corpus(Path(config.content_dir))
+    corpus = app_corpus.load_corpus(pathlib.Path(app_config.config.content_dir))
     titles = {url: page.title for url, page in corpus.items()}
-    the_judge = Agent(
-        BedrockConverseModel(
+    the_judge = pydantic_ai.Agent(
+        pydantic_ai_bedrock.BedrockConverseModel(
             judge_model,
-            provider=BedrockProvider(region_name=config.bedrock_region),
+            provider=pydantic_ai_bedrock_provider.BedrockProvider(
+                region_name=app_config.config.bedrock_region
+            ),
         ),
         output_type=Verdict,
-        instructions=f"{PROMPT}\n\n# The toolkit pages\n\n{as_context(corpus)}",
-        model_settings=BedrockModelSettings(bedrock_cache_instructions=True),
+        instructions=f"{PROMPT}\n\n# The toolkit pages\n\n{app_corpus.as_context(corpus)}",
+        model_settings=pydantic_ai_bedrock.BedrockModelSettings(
+            bedrock_cache_instructions=True
+        ),
         retries=2,
     )
-    records = [r for r in read_answers(run) if r["ok"]]
+    records = [r for r in runs.read_answers(run) if r["ok"]]
     if only_questions:
         records = [r for r in records if r["question_id"] in only_questions]
     limit = asyncio.Semaphore(CONCURRENCY)
@@ -224,8 +228,8 @@ async def judge(
     first = [await score(records[0])] if records else []
     rest = await asyncio.gather(*(score(r) for r in records[1:]))
     fresh = [j for j in first + list(rest) if j]
-    merged = merge_verdicts(read_verdicts(run), fresh, only_fields)
-    write_verdicts(run, judge_model, merged)
+    merged = merge_verdicts(runs.read_verdicts(run), fresh, only_fields)
+    runs.write_verdicts(run, judge_model, merged)
     print(f"  judged {len(fresh)} of {len(records)} answers")
     return {
         "judge": judge_model,

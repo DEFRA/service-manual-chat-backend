@@ -6,6 +6,7 @@ import pytest_mock
 from fastapi.testclient import TestClient
 
 import app.main as main_mod
+from app import config as app_config
 from app.main import app
 
 client = TestClient(app)
@@ -14,7 +15,7 @@ client = TestClient(app)
 def test_lifespan(mocker: pytest_mock.MockerFixture) -> None:
     mock_mongo_client = mocker.AsyncMock()
     mock_get_mongo = mocker.patch(
-        "app.main.get_mongo_client", return_value=mock_mongo_client
+        "app.common.mongo.get_mongo_client", return_value=mock_mongo_client
     )
 
     # Using TestClient as a context manager triggers lifespan startup/shutdown
@@ -43,11 +44,11 @@ def test_main_sets_proxy_envs(
     monkeypatch.delenv("HTTP_PROXY", raising=False)
     monkeypatch.delenv("HTTPS_PROXY", raising=False)
 
-    monkeypatch.setattr(main_mod.config, "http_proxy", "http://proxy:8080")
-    monkeypatch.setattr(main_mod.config, "host", "127.0.0.1")
-    monkeypatch.setattr(main_mod.config, "port", 9000)
-    monkeypatch.setattr(main_mod.config, "log_config", None)
-    monkeypatch.setattr(main_mod.config, "python_env", "production")
+    monkeypatch.setattr(app_config.config, "http_proxy", "http://proxy:8080")
+    monkeypatch.setattr(app_config.config, "host", "127.0.0.1")
+    monkeypatch.setattr(app_config.config, "port", 9000)
+    monkeypatch.setattr(app_config.config, "log_config", None)
+    monkeypatch.setattr(app_config.config, "python_env", "production")
 
     main_mod.main()
 
@@ -63,11 +64,11 @@ def test_main_no_proxy_in_config(
     monkeypatch.delenv("HTTP_PROXY", raising=False)
     monkeypatch.delenv("HTTPS_PROXY", raising=False)
 
-    monkeypatch.setattr(main_mod.config, "http_proxy", None)
-    monkeypatch.setattr(main_mod.config, "host", "127.0.0.1")
-    monkeypatch.setattr(main_mod.config, "port", 8086)
-    monkeypatch.setattr(main_mod.config, "log_config", None)
-    monkeypatch.setattr(main_mod.config, "python_env", "production")
+    monkeypatch.setattr(app_config.config, "http_proxy", None)
+    monkeypatch.setattr(app_config.config, "host", "127.0.0.1")
+    monkeypatch.setattr(app_config.config, "port", 8086)
+    monkeypatch.setattr(app_config.config, "log_config", None)
+    monkeypatch.setattr(app_config.config, "python_env", "production")
 
     main_mod.main()
 
@@ -82,7 +83,7 @@ def test_log_content_names_the_ref_and_page_count(
 ) -> None:
     (tmp_path / "ai-toolkit.md").write_text("---\ntitle: AI toolkit\n---\nHome\n")
     (tmp_path / "REF").write_text("caefc03\n")
-    monkeypatch.setattr(main_mod.config, "content_dir", str(tmp_path))
+    monkeypatch.setattr(app_config.config, "content_dir", str(tmp_path))
 
     with caplog.at_level("INFO", logger="app.main"):
         main_mod.log_content()
@@ -95,7 +96,7 @@ def test_log_content_says_mounted_without_a_ref(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    monkeypatch.setattr(main_mod.config, "content_dir", str(tmp_path))
+    monkeypatch.setattr(app_config.config, "content_dir", str(tmp_path))
 
     with caplog.at_level("INFO", logger="app.main"):
         main_mod.log_content()

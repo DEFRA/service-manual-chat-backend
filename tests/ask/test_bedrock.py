@@ -14,6 +14,7 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.providers.bedrock import BedrockProvider
 from pymongo import ReturnDocument
 
+from app import config as app_config
 from app.ask import bedrock
 from app.ask.bedrock import (
     REPLY_TO_OPTIONS,
@@ -36,8 +37,8 @@ CONTENT = Path(__file__).parents[1] / "fixtures" / "content"
 
 @pytest.fixture(autouse=True)
 def _local_content(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(bedrock.config, "content_dir", str(CONTENT))
-    monkeypatch.setattr(bedrock.config, "system_prompt_path", "prompts/system.md")
+    monkeypatch.setattr(app_config.config, "content_dir", str(CONTENT))
+    monkeypatch.setattr(app_config.config, "system_prompt_path", "prompts/system.md")
 
 
 class FakeDailyUsage:
@@ -84,7 +85,7 @@ def fake_mongo(
     fake_usage = FakeDailyUsage()
     collections = {bedrock.ASK_DAILY_USAGE_COLLECTION: fake_usage}
 
-    mock_client_cls = mocker.patch("app.common.mongo.AsyncMongoClient")
+    mock_client_cls = mocker.patch("pymongo.AsyncMongoClient")
     mock_instance = mock_client_cls.return_value
     mock_db = mocker.MagicMock()
     mock_db.__getitem__.side_effect = collections.__getitem__
@@ -313,7 +314,7 @@ async def test_the_history_reaches_the_model_and_the_instructions_do_not_change(
 def test_model_settings_without_a_guardrail_has_no_guardrail_config(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(bedrock.config, "bedrock_guardrail_id", None)
+    monkeypatch.setattr(app_config.config, "bedrock_guardrail_id", None)
     assert "bedrock_guardrail_config" not in model_settings()
     assert model_settings()["bedrock_cache_instructions"] is True
 
@@ -379,7 +380,7 @@ def test_caching_is_off_for_a_model_that_refuses_it(
         "arn:aws:bedrock:eu-west-2:1:inference-profile/anthropic.claude-3-haiku-x"
     )
     monkeypatch.setattr(
-        bedrock.config, "bedrock_model_id", "anthropic.claude-3-haiku-20240307-v1:0"
+        app_config.config, "bedrock_model_id", "anthropic.claude-3-haiku-20240307-v1:0"
     )
     assert model_settings()["bedrock_cache_instructions"] is False
 
@@ -388,7 +389,7 @@ def test_the_models_that_refuse_caching_come_from_config(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        bedrock.config,
+        app_config.config,
         "bedrock_models_without_prompt_caching",
         " amazon.nova-micro, anthropic.claude-3-haiku ,",
     )
@@ -399,7 +400,7 @@ def test_the_models_that_refuse_caching_come_from_config(
     assert not caches_instructions("amazon.nova-micro-v1:0")
     assert caches_instructions("anthropic.claude-sonnet-4-6")
 
-    monkeypatch.setattr(bedrock.config, "bedrock_models_without_prompt_caching", "")
+    monkeypatch.setattr(app_config.config, "bedrock_models_without_prompt_caching", "")
     assert models_without_prompt_caching() == []
     assert caches_instructions("anthropic.claude-3-haiku-20240307-v1:0")
 
@@ -442,7 +443,7 @@ async def test_editing_the_prompt_changes_the_next_answer_without_a_restart(
 ) -> None:
     prompt = tmp_path / "system.md"
     prompt.write_text("Version one.", encoding="utf-8")
-    monkeypatch.setattr(bedrock.config, "system_prompt_path", str(prompt))
+    monkeypatch.setattr(app_config.config, "system_prompt_path", str(prompt))
     seen: list[typing.Any] = []
 
     def respond(messages: list[typing.Any], info: AgentInfo) -> ModelResponse:
@@ -467,8 +468,8 @@ async def test_editing_the_prompt_changes_the_next_answer_without_a_restart(
 
 
 def test_model_settings_with_a_guardrail(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(bedrock.config, "bedrock_guardrail_id", "gr-1")
-    monkeypatch.setattr(bedrock.config, "bedrock_guardrail_version", "3")
+    monkeypatch.setattr(app_config.config, "bedrock_guardrail_id", "gr-1")
+    monkeypatch.setattr(app_config.config, "bedrock_guardrail_version", "3")
     assert model_settings()["bedrock_guardrail_config"] == {
         "guardrailIdentifier": "gr-1",
         "guardrailVersion": "3",
@@ -632,7 +633,7 @@ async def test_increment_daily_usage_is_a_single_atomic_upsert(
 async def test_the_request_that_reaches_the_ceiling_exactly_is_allowed(
     monkeypatch: pytest.MonkeyPatch, fake_mongo: FakeDailyUsage
 ) -> None:
-    monkeypatch.setattr(bedrock.config, "ask_daily_ceiling", 3)
+    monkeypatch.setattr(app_config.config, "ask_daily_ceiling", 3)
     fake_mongo.counts[bedrock._today()] = 2  # this request becomes the 3rd
 
     with agent().override(
@@ -656,7 +657,7 @@ def test_the_ceiling_message_does_not_tell_the_reader_to_try_again_in_a_minute()
 async def test_the_attempt_past_the_ceiling_is_refused_without_a_bedrock_call(
     monkeypatch: pytest.MonkeyPatch, fake_mongo: FakeDailyUsage
 ) -> None:
-    monkeypatch.setattr(bedrock.config, "ask_daily_ceiling", 3)
+    monkeypatch.setattr(app_config.config, "ask_daily_ceiling", 3)
     fake_mongo.counts[bedrock._today()] = 3  # already at the ceiling
 
     def respond(_messages: list[typing.Any], _info: AgentInfo) -> ModelResponse:
@@ -692,7 +693,7 @@ async def test_the_count_starts_again_at_0_on_a_new_utc_day(
 async def test_two_concurrent_requests_at_the_ceiling_let_exactly_one_through(
     monkeypatch: pytest.MonkeyPatch, fake_mongo: FakeDailyUsage
 ) -> None:
-    monkeypatch.setattr(bedrock.config, "ask_daily_ceiling", 3)
+    monkeypatch.setattr(app_config.config, "ask_daily_ceiling", 3)
     fake_mongo.counts[bedrock._today()] = 2  # one below the ceiling
     calls: list[int] = []
 
@@ -748,7 +749,7 @@ async def test_a_client_that_never_connects_still_times_out(
         msg = "should have timed out first"
         raise AssertionError(msg)  # pragma: no cover
 
-    monkeypatch.setattr(bedrock, "get_mongo_client", never_connects)
+    monkeypatch.setattr(mongo, "get_mongo_client", never_connects)
 
     with pytest.raises(bedrock.DailyUsageUnavailableError):
         await bedrock._increment_daily_usage()
@@ -773,7 +774,7 @@ async def test_a_refusal_is_logged_with_the_count_and_not_the_question(
     fake_mongo: FakeDailyUsage,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    monkeypatch.setattr(bedrock.config, "ask_daily_ceiling", 3)
+    monkeypatch.setattr(app_config.config, "ask_daily_ceiling", 3)
     fake_mongo.counts[bedrock._today()] = 3
     private_question = "what counts as personal data on my project"
 

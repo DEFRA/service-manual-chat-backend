@@ -6,12 +6,12 @@ environment once, at import.
 
 import hashlib
 import os
+import pathlib
 import re
 import subprocess
 import sys
-from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
+REPO = pathlib.Path(__file__).resolve().parents[1]
 EVALS = REPO / "evals"
 RESULTS = EVALS / "results"
 PROMPT = REPO / "prompts/system.md"
@@ -29,7 +29,7 @@ def dockerfile_content_ref() -> str:
     return match.group(1)
 
 
-def git(directory: Path, *args: str) -> str:
+def git(directory: pathlib.Path, *args: str) -> str:
     result = subprocess.run(  # noqa: S603 - fixed git arguments
         ["git", "-C", str(directory), *args],  # noqa: S607
         capture_output=True,
@@ -39,7 +39,7 @@ def git(directory: Path, *args: str) -> str:
     return result.stdout.strip()
 
 
-def local_ref(content_dir: Path) -> str:
+def local_ref(content_dir: pathlib.Path) -> str:
     """A local checkout's commit, marked when its pages have uncommitted edits."""
     sha = git(content_dir, "rev-parse", "--short=12", "HEAD") or "unknown"
     dirty = git(content_dir, "status", "--porcelain", "--", ".")
@@ -47,8 +47,8 @@ def local_ref(content_dir: Path) -> str:
 
 
 def content(
-    content_dir: Path | None = None, ref: str | None = None
-) -> tuple[Path, str]:
+    content_dir: pathlib.Path | None = None, ref: str | None = None
+) -> tuple[pathlib.Path, str]:
     """The toolkit pages and the ref that names them.
 
     With no directory, the pages at `ref` (default: the Dockerfile's) are
@@ -96,7 +96,7 @@ def load_secrets() -> None:
     raise SystemExit(message)
 
 
-def prepare(content_dir: Path, *, needs_bedrock: bool) -> None:
+def prepare(content_dir: pathlib.Path, *, needs_bedrock: bool) -> None:
     if needs_bedrock:
         load_secrets()
     os.environ.setdefault("AWS_REGION", REGION)

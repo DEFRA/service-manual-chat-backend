@@ -21,7 +21,7 @@ def reset_mongo_client() -> collections.abc.Iterator[None]:
 async def test_get_mongo_client_initialization(
     mocker: pytest_mock.MockerFixture,
 ) -> None:
-    mock_client_cls = mocker.patch("app.common.mongo.AsyncMongoClient")
+    mock_client_cls = mocker.patch("pymongo.AsyncMongoClient")
     mock_instance = mock_client_cls.return_value
 
     # Setup the async ping command
@@ -47,7 +47,7 @@ async def test_get_mongo_client_with_custom_tls(
         "app.common.tls.custom_ca_certs", {"custom-cert-key": "/path/to/cert.pem"}
     )
 
-    mock_client_cls = mocker.patch("app.common.mongo.AsyncMongoClient")
+    mock_client_cls = mocker.patch("pymongo.AsyncMongoClient")
     mock_instance = mock_client_cls.return_value
     mock_db = mocker.MagicMock()
     mock_instance.get_database.return_value = mock_db
@@ -69,7 +69,7 @@ async def test_get_mongo_client_returns_existing(
     existing_client = mocker.Mock()
     monkeypatch.setattr(mongo, "client", existing_client)
 
-    mock_client_cls = mocker.patch("app.common.mongo.AsyncMongoClient")
+    mock_client_cls = mocker.patch("pymongo.AsyncMongoClient")
 
     result = await mongo.get_mongo_client()
 

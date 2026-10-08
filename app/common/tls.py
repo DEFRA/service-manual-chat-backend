@@ -1,11 +1,11 @@
 import base64
 import binascii
+import logging
 import os
 import ssl
 import tempfile
-from logging import getLogger
 
-logger = getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 custom_ca_certs: dict[str, str] = {}
 ctx: ssl.SSLContext | None = None

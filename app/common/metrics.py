@@ -1,17 +1,17 @@
+import logging
 import typing
-from logging import getLogger
 
-from aws_embedded_metrics import metric_scope
+import aws_embedded_metrics
 from aws_embedded_metrics.storage_resolution import StorageResolution
 
-logger = getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 # This is using the aws_embedded_metrics library, which doesn't seem to be playing nicely with fastapi
 # metrics.put_metric always seems to thrown an exception, even though the metrics are being sent to cloudwatch
 # This is a related issue: https://github.com/awslabs/aws-embedded-metrics-python/issues/52
 # More time needs to be spent on this, but for now, the metrics are being sent to cloudwatch
-@metric_scope
+@aws_embedded_metrics.metric_scope
 def __put_metric(
     metric_name: str,
     value: int | float,

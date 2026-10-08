@@ -18,11 +18,11 @@ and both are run against the one list of cases in `quote_check_cases.json`.
 Change all three together.
 """
 
+import dataclasses
 import re
-from dataclasses import dataclass
-from typing import Literal
+import typing
 
-Outcome = Literal["ok", "not_found", "partial", "stitched", "empty"]
+Outcome = typing.Literal["ok", "not_found", "partial", "stitched", "empty"]
 
 # Tags that sit inside a sentence. Every other tag ends a block, and a block
 # boundary is a sentence boundary: a list item that is a fragment with no full
@@ -119,7 +119,7 @@ def plain_text(markdown: str) -> str:
     return text.translate(TYPOGRAPHY)
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class Word:
     text: str
     starts_sentence: bool
