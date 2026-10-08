@@ -124,7 +124,7 @@ marked so; the rest are optional.
   must be on 3000 for its links to work.
 - **Startup fails on Mongo.** The template pings Mongo at boot even though
   `/ask` never uses it. Run through compose, which starts Mongo, rather than
-  `python -m app.main` alone.
+  `uv run service-manual-chat-http` alone.
 
 The sandbox has no guardrails. Local use only, toolkit content only, and
 never paste real correspondence in.
@@ -340,7 +340,7 @@ questions and 15 conversation turns with the answers we would accept. One
 command asks them all three times and prints the six bars:
 
 ```bash
-uv run python -m evals run --label what-this-run-tests
+uv run run-evals run --label what-this-run-tests
 ```
 
 About £9 with a Bedrock sandbox key. See [evals/README.md](./evals/README.md).

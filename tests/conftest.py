@@ -3,7 +3,7 @@ import collections.abc
 import fastapi.testclient
 import pytest
 
-from app import main as app_main
+from app.entrypoints import http as entrypoint
 
 pytest_plugins = ["tests.support.mongo"]
 
@@ -12,5 +12,5 @@ pytest_plugins = ["tests.support.mongo"]
 def client(
     override_app_mongo: None,  # noqa: ARG001
 ) -> collections.abc.Iterator[fastapi.testclient.TestClient]:
-    with fastapi.testclient.TestClient(app_main.app) as test_client:
+    with fastapi.testclient.TestClient(entrypoint.create_app()) as test_client:
         yield test_client

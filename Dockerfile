@@ -33,7 +33,7 @@ ARG PORT_DEBUG=8086
 ENV PORT=${PORT}
 EXPOSE ${PORT} ${PORT_DEBUG}
 
-CMD [ "-m", "app.main" ]
+ENTRYPOINT [ "service-manual-chat-http" ]
 
 FROM defradigital/python:${PARENT_VERSION} AS production
 
@@ -66,4 +66,4 @@ ARG PORT
 ENV PORT=${PORT}
 EXPOSE ${PORT}
 
-CMD [ "-m", "app.main" ]
+ENTRYPOINT [ "service-manual-chat-http" ]
