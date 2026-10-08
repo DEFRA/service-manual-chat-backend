@@ -28,7 +28,8 @@ def tarball_url(ref: str) -> str:
 
 def download(url: str) -> bytes:
     with urlopen(url, timeout=60) as response:  # noqa: S310 - https URL built above
-        return response.read()
+        body: bytes = response.read()
+        return body
 
 
 def is_page(relative: str) -> bool:
@@ -57,7 +58,10 @@ def extract(archive: bytes, dest: Path) -> list[Path]:
                 message = f"refusing to write outside {dest}: {member.name}"
                 raise SystemExit(message)
             target.parent.mkdir(parents=True, exist_ok=True)
-            with tar.extractfile(member) as source:  # type: ignore[union-attr]
+            source = tar.extractfile(member)
+            if source is None:
+                continue
+            with source:
                 target.write_bytes(source.read())
             written.append(target)
     return written

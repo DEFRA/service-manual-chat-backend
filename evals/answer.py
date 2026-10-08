@@ -12,21 +12,41 @@ end does, so a run cannot pass while the service has lost the thread
 """
 
 import asyncio
+import collections.abc
+import pathlib
 import statistics
 import time
+import typing
 
-from evals.runs import Budget, write_answers
+import pydantic_ai
+
+from evals import runs
+
+if typing.TYPE_CHECKING:
+    from app.ask import schemas as app_schemas
 
 CONCURRENCY = 4
 
+# Asks one question given the conversation so far; None once the run has reached
+# its ceiling.
+Caller = collections.abc.Callable[
+    [str, list["app_schemas.Turn"]],
+    collections.abc.Awaitable[dict[str, typing.Any] | None],
+]
 
-async def ask(agent, question: str, history: list, corpus) -> dict:
-    from app.ask.bedrock import same_options_for_the_rules, user_prompt
-    from app.ask.corpus import verify
+
+async def ask(
+    agent: pydantic_ai.Agent[typing.Any, typing.Any],
+    question: str,
+    history: list[app_schemas.Turn],
+    corpus: dict[str, typing.Any],
+) -> dict[str, typing.Any]:
+    from app.ask import bedrock
+    from app.ask import corpus as app_corpus
 
     started = time.perf_counter()
     try:
-        result = await agent.run(user_prompt(question, history))
+        result = await agent.run(bedrock.user_prompt(question, history))
     except Exception as error:  # noqa: BLE001 - every failure is a finding
         return {
             "ok": False,
@@ -34,7 +54,7 @@ async def ask(agent, question: str, history: list, corpus) -> dict:
             "error": f"{type(error).__name__}: {str(error)[:500]}",
         }
     usage = result.usage
-    shown = same_options_for_the_rules(question, history, result.output)
+    shown = bedrock.same_options_for_the_rules(question, history, result.output)
     return {
         "ok": True,
         "seconds": round(time.perf_counter() - started, 2),
@@ -44,39 +64,43 @@ async def ask(agent, question: str, history: list, corpus) -> dict:
         "cache_read_tokens": usage.cache_read_tokens,
         "output_tokens": usage.output_tokens,
         "answer": result.output.model_dump(),
-        "verified": verify(shown, corpus).model_dump(),
+        "verified": app_corpus.verify(shown, corpus).model_dump(),
         "_usage": usage,
     }
 
 
-def units(questions: list[dict]) -> list[list[dict]]:
+def units(questions: list[dict[str, typing.Any]]) -> list[list[dict[str, typing.Any]]]:
     """Each single question on its own, and a conversation's turns together."""
-    grouped: dict[str, list[dict]] = {}
+    grouped: dict[str, list[dict[str, typing.Any]]] = {}
     for question in questions:
         grouped.setdefault(question["id"].split("-t")[0], []).append(question)
     return list(grouped.values())
 
 
-def as_sent(seen: list) -> list:
+def as_sent(seen: list[app_schemas.Turn]) -> list[app_schemas.Turn]:
     """The turns the front end would send: no blocked ones, and the last few."""
-    from app.ask.schemas import MAX_HISTORY_TURNS
+    from app.ask import schemas
 
-    return [turn for turn in seen if turn.status != "blocked"][-MAX_HISTORY_TURNS:]
+    return [turn for turn in seen if turn.status != "blocked"][
+        -schemas.MAX_HISTORY_TURNS :
+    ]
 
 
-def as_turn(question: str, shown: dict):
+def as_turn(question: str, shown: dict[str, typing.Any]) -> app_schemas.Turn:
     """One exchange as the reader saw it, in the shape `/ask` takes as history."""
-    from app.ask.schemas import MAX_MESSAGE_LENGTH, Turn
+    from app.ask import schemas
 
-    return Turn(
+    return schemas.Turn(
         question=question,
         status=shown["status"],
-        message=shown["message"][:MAX_MESSAGE_LENGTH],
+        message=shown["message"][: schemas.MAX_MESSAGE_LENGTH],
         options=shown["options"],
     )
 
 
-async def ask_unit(rows: list[dict], call) -> tuple[list[dict], list[dict]]:
+async def ask_unit(
+    rows: list[dict[str, typing.Any]], call: Caller
+) -> tuple[list[dict[str, typing.Any]], list[dict[str, typing.Any]]]:
     """Ask a single question, or a conversation from its first turn.
 
     `call(question, history)` gives one record, or None once the run has
@@ -86,10 +110,10 @@ async def ask_unit(rows: list[dict], call) -> tuple[list[dict], list[dict]]:
     last = rows[-1]
     asked = [*last.get("earlier", []), last["question"]]
     scored = {len(row.get("earlier", [])) + 1: row for row in rows}
-    records: list[dict] = []
-    unscored: list[dict] = []
-    seen: list = []
-    lost_at = None
+    records: list[dict[str, typing.Any]] = []
+    unscored: list[dict[str, typing.Any]] = []
+    seen: list[app_schemas.Turn] = []
+    lost_at: int | None = None
     for number, question in enumerate(asked, start=1):
         row = scored.get(number)
         if lost_at:
@@ -117,30 +141,36 @@ async def ask_unit(rows: list[dict], call) -> tuple[list[dict], list[dict]]:
             unscored.append(record)
         try:
             seen.append(as_turn(question, record["verified"]))
-        except (KeyError, ValueError):
+        except KeyError, ValueError:
             # No answer, or one `/ask` would refuse as history: the
             # conversation cannot go on, in the evaluation or for a reader.
             lost_at = number
     return records, unscored
 
 
-async def answer(run, questions: list[dict], passes: int, budget: Budget) -> dict:
+async def answer(
+    run: pathlib.Path,
+    questions: list[dict[str, typing.Any]],
+    passes: int,
+    budget: runs.Budget,
+) -> dict[str, typing.Any]:
     """Ask every question `passes` times. Returns a summary for meta.json."""
-    from pathlib import Path
+    from app import config as app_config
+    from app.ask import bedrock
+    from app.ask import corpus as app_corpus
 
-    from app.ask.bedrock import agent
-    from app.ask.corpus import load_corpus
-    from app.config import config
-
-    corpus = load_corpus(Path(config.content_dir))
-    the_agent = agent()
+    config = app_config.config
+    corpus = app_corpus.load_corpus(pathlib.Path(config.content_dir))
+    the_agent = bedrock.agent()
     limit = asyncio.Semaphore(CONCURRENCY)
-    records: list[dict] = []
+    records: list[dict[str, typing.Any]] = []
     stopped = False
 
-    unscored: list[dict] = []
+    unscored: list[dict[str, typing.Any]] = []
 
-    async def call(question: str, history: list) -> dict | None:
+    async def call(
+        question: str, history: list[app_schemas.Turn]
+    ) -> dict[str, typing.Any] | None:
         nonlocal stopped
         async with limit:
             if budget.exhausted:
@@ -152,7 +182,7 @@ async def answer(run, questions: list[dict], passes: int, budget: Budget) -> dic
             budget.spend(usage)
         return record
 
-    async def one(pass_number: int, unit: list[dict]) -> None:
+    async def one(pass_number: int, unit: list[dict[str, typing.Any]]) -> None:
         answered, setup = await ask_unit(unit, call)
         unscored.extend(setup)
         for record in answered:
@@ -176,14 +206,14 @@ async def answer(run, questions: list[dict], passes: int, budget: Budget) -> dic
             if first and not first["ok"] and "403" in first["error"]:
                 message = (
                     "Bedrock refused the first question (403). The key in "
-                    "compose/secrets.env has probably expired. "
+                    ".env has probably expired. "
                     f"{first['error'][:200]}"
                 )
                 raise SystemExit(message)
         await asyncio.gather(*(one(pass_number, unit) for unit in every[start:]))
 
     records.sort(key=lambda r: (r["run"], r["question_id"]))
-    write_answers(run, records)
+    runs.write_answers(run, records)
     seconds = [r["seconds"] for r in records if r["ok"]]
     return {
         "answers": len(records),
