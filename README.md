@@ -31,10 +31,11 @@ most of it image builds. No Python or Node needed on the host.
    cd service-manual-chat-backend
    ```
 
-2. Create `compose/secrets.env` from the example and paste your key in:
+2. Create `.env` from the example and paste your key in as
+   `AWS_BEARER_TOKEN_BEDROCK`:
 
    ```bash
-   cp compose/secrets.env.example compose/secrets.env
+   cp .env.example .env
    ```
 
    The file is gitignored. Nothing else needs a personal value.
@@ -49,7 +50,8 @@ most of it image builds. No Python or Node needed on the host.
    takes about five seconds.
 
 Leave out `ASK_ENGINE=bedrock` to get canned answers with no key at all.
-`Ctrl+C` stops it; `docker compose --profile service down` removes the
+Leave out `--profile service` to run only the backend and its dependencies.
+`Ctrl+C` stops it; `docker compose down` removes the
 containers.
 
 ### What to edit
@@ -59,7 +61,7 @@ containers.
 - **The pages**, `../service-manual-ui/src/server/ai-ask/*.njk` and the
   partials under `src/server/common/templates/partials/ask-*.njk`. Mounted,
   so refresh the browser. Styles in `src/client/stylesheets` need
-  `docker compose exec frontend npm run build:frontend`.
+  `docker compose exec service-manual-ui npm run build:frontend`.
 - **The backend**, `app/`. Synced into the container by
   `docker compose --profile service up --watch`, and uvicorn reloads.
 - **The model**. Set `BEDROCK_MODEL_ID` to any London model id the sandbox
@@ -88,25 +90,25 @@ marked so; the rest are optional.
 | Variable | Default | What it does |
 | :-- | :-- | :-- |
 | `ASK_ENGINE` | `stub` | `stub` answers from canned fixtures with no key. `bedrock` calls Amazon Bedrock. |
-| `AWS_BEARER_TOKEN_BEDROCK` | none | Your sandbox API key, in `compose/secrets.env`. Read by boto3 directly. Not needed on CDP, where the task role signs requests. |
+| `AWS_BEARER_TOKEN_BEDROCK` | none | Your sandbox API key, in `.env`. Read by boto3 directly. Not needed on CDP, where the task role signs requests. |
 | `BEDROCK_MODEL_ID` | `anthropic.claude-sonnet-4-6` | Plain model id locally; an inference profile id or ARN on CDP. |
 | `BEDROCK_REGION` | `eu-west-2` | London. No cross-region inference. |
 | `BEDROCK_MODELS_WITHOUT_PROMPT_CACHING` | `anthropic.claude-3-haiku` | Comma separated. A model id containing any of these is sent no cache point. |
 | `BEDROCK_GUARDRAIL_ID`, `BEDROCK_GUARDRAIL_VERSION` | none | Empty locally. On CDP the platform gives one guardrail per profile. |
 | `CONTENT_DIR` | `content` | The toolkit markdown pages the model answers from. Compose mounts `../service-manual-ui/src/content` here (override the host path with `CONTENT_DIR=... docker compose ...`). The image carries its own copy, see [Toolkit pages in the image](#toolkit-pages-in-the-image). |
 | `SYSTEM_PROMPT_PATH` | `prompts/system.md` | The prompt. Compose mounts `./prompts`. |
-| `AWS_ENDPOINT_URL_BEDROCK_RUNTIME` | set by compose | Points Bedrock at real AWS while `AWS_ENDPOINT_URL` sends everything else to localstack. Needed wherever both are set. |
+| `AWS_ENDPOINT_URL_BEDROCK_RUNTIME` | set by compose | Points Bedrock at real AWS while `AWS_ENDPOINT_URL` sends everything else to floci. Needed wherever both are set. |
 | `FRONTEND_DIR` | `../service-manual-ui` | Compose only: where the site checkout is. |
 
 ### If it does not work
 
 - **`Internal Server Error` from `/ask` and `KeyError: 'output'` in the
-  logs.** The Bedrock call went to localstack. Check
+  logs.** The Bedrock call went to floci. Check
   `AWS_ENDPOINT_URL_BEDROCK_RUNTIME` is set (compose sets it; the dev
   script sets it too).
 - **`UnrecognizedClientException` or `403` from Bedrock.** The key is
-  missing, mistyped or expired. Check `compose/secrets.env` has one line,
-  no quotes, no spaces, then `docker compose --profile service up` again so
+  missing, mistyped or expired. Check `.env` has one `AWS_BEARER_TOKEN_BEDROCK` line,
+  no quotes, no spaces, then `docker compose up` again so
   the container re-reads it.
 - **`ValidationException` naming the model.** That model id is not enabled
   in the sandbox. Try the default.
@@ -149,7 +151,7 @@ never paste real correspondence in.
 
 ### Python
 
-Please install python `>= 3.12` and `pipx` in your environment. This template uses [uv](https://github.com/astral-sh/uv) to manage the environment and dependencies.
+Please install python `>= 3.14` and `pipx` in your environment. This template uses [uv](https://github.com/astral-sh/uv) to manage the environment and dependencies.
 
 ```python
 # install uv via pipx
@@ -262,7 +264,7 @@ This configuration will:
 
 #### Ruff Configuration
 
-Ruff is configured in the `.ruff.toml` file
+Ruff is configured under `[tool.ruff]` in `pyproject.toml`
 
 ### Docker
 
@@ -276,11 +278,7 @@ See the `Dockerfile` and `compose.yml` for details
 
 Follow the convention below for environment variables and secrets in local development.
 
-**Note** that it does not use `.env` or `python-dotenv` as this is not the convention in the CDP environment.
-
-**Environment variables:** `compose/aws.env`.
-
-**Secrets:** `compose/secrets.env`. You need to create this, as it's excluded from version control.
+**Environment variables and secrets:** `.env`. Create it with `cp .env.example .env`; it's excluded from version control. Docker Compose reads it directly, and `scripts/start_dev_server.sh` loads it.
 
 **Libraries:** Ensure the python virtual environment is configured and libraries are installed using `uv sync`, [as above](#python)
 
@@ -288,19 +286,21 @@ Follow the convention below for environment variables and secrets in local devel
 
 ### Development
 
-This app can be run locally by either using the Docker Compose project or via the provided script `scripts/start_dev_server.sh`.
+The preferred way to run this app locally is the Docker Compose project. The provided script `scripts/start_dev_server.sh` is an alternative for running the app on the host under `uv`, for example to attach a debugger.
 
-#### Using Docker Compose
+#### Using Docker Compose (preferred)
 
 To run the application using Docker Compose, you can use the following command:
 
 ```bash
-docker compose --profile service up --build
+docker compose up --build
 ```
 
-If you want to enable hot-reloading, you can press the `w` key once the compose project is running to enable `watch` mode.
+Add `--profile service` to start the site too. If you want to enable hot-reloading, you can press the `w` key once the compose project is running to enable `watch` mode.
 
 #### Using the provided script
+
+Use this only if you need the app running on the host rather than in a container. It starts just the dependencies (floci, MongoDB) in Docker, so stop any running `docker compose up` for the full project first, or both will want port 8085.
 
 To run the application using the provided script, you can execute:
 
@@ -311,9 +311,9 @@ To run the application using the provided script, you can execute:
 This script will:
 
 - Check if Docker is running
-- Start dependent services with Docker Compose (Localstack, MongoDB)
+- Start only the dependent services with Docker Compose (floci, MongoDB)
 - Set up environment variables for local development
-- Load configuration from compose/aws.env and compose/secrets.env
+- Load configuration from `.env`
 - Verify the Python virtual environment is set up
 - Start the FastAPI application with hot-reload enabled
 
