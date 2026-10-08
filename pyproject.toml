@@ -73,14 +73,28 @@ module = "aws_embedded_metrics.*"
 ignore_missing_imports = true
 
 [tool.ruff]
-# Same as Black
 line-length = 88
-
-# Assume Python 3.14
 target-version = "py314"
 
+exclude = [
+    ".git",
+    ".github",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    "test_data",
+    "coverage",
+    "coverage_html",
+    "reports",
+]
+
 [tool.ruff.lint]
-# Enable a comprehensive set of rules
 select = [
     "E",   # pycodestyle errors
     "F",   # pyflakes
@@ -108,61 +122,35 @@ select = [
     "TID", # flake8-tidy-imports
     "ARG", # flake8-unused-arguments
 ]
-
-# Exclude a variety of commonly ignored directories
-exclude = [
-    ".git",
-    ".github",
-    ".pytest_cache",
-    ".ruff_cache",
-    ".venv",
-    "__pypackages__",
-    "_build",
-    "build",
-    "dist",
-    "node_modules",
-    "venv",
-    "test_data",
-    "coverage",
-    "reports",
-]
-
-# Allow unused variables when underscore-prefixed
-dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-
-# Ignore some rules
 ignore = [
     "E501",  # line too long, handled by formatter
     "B008",  # do not perform function calls in argument defaults
     "COM812", # missing trailing comma, conflicts with formatter
 ]
-
-# Ignore `E402` (import violations) in all `__init__.py` files
-[tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["E402", "F401"]
-"tests/**/*.py" = ["S101"]  # Allow assert in tests
-
-# Enable auto-fixing
 fixable = ["ALL"]
 unfixable = []
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101",  # Allow assert in tests
+    "S105",  # Test fixtures use fake tokens
+    "S106",  # Test fixtures use fake tokens
+    "S107",  # Test fixtures use fake tokens as defaults
+]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
 
 [tool.ruff.lint.isort]
 known-third-party = ["fastapi", "pydantic", "motor", "pytest"]
 known-first-party = ["app", "evals", "scripts", "tests"]
 
 [tool.ruff.format]
-# Like Black, use double quotes for strings
 quote-style = "double"
-
-# Like Black, indent with spaces, rather than tabs
 indent-style = "space"
-
-# Like Black, respect magic trailing commas
 skip-magic-trailing-comma = false
-
-# Like Black, automatically detect the appropriate line ending
 line-ending = "auto"
-
 
 [tool.coverage.run]
 source = ["app"]
@@ -179,6 +167,6 @@ output = "coverage.xml"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--strict-markers --import-mode=importlib"
-asyncio_mode = "auto"
-pythonpath = ["."]
 consider_namespace_packages = true
+pythonpath = ["."]
+asyncio_mode = "auto"
