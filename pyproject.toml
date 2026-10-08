@@ -34,9 +34,9 @@ run-evals = "evals.__main__:main"
 
 [tool.taskipy.tasks]
 format = "uv run ruff format . && uv run ruff check . --fix"
-lint = "uv run ruff format ./app ./evals ./scripts --check && uv run ruff check ./app ./evals ./scripts"
-typecheck = "uv run mypy ./app ./evals ./scripts"
-test = "uv run task lint && uv run task typecheck && uv run pytest -vv"
+lint = "uv run ruff format ./app ./evals ./scripts ./tests --check && uv run ruff check ./app ./evals ./scripts ./tests"
+typecheck = "uv run mypy ./app ./evals ./scripts ./tests"
+test = "uv run task lint && uv run task typecheck && uv run coverage run -m pytest -vv && uv run coverage html && uv run coverage xml"
 
 [build-system]
 requires = ["hatchling"]
@@ -54,7 +54,6 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 explicit_package_bases = true
-mypy_path = "scripts"
 
 [[tool.mypy.overrides]]
 module = "pymongo.*"
@@ -141,9 +140,6 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["E402", "F401"]
 "tests/**/*.py" = ["S101"]  # Allow assert in tests
-"app/**/test_*.py" = ["S101"]  # Allow assert in app test files
-"scripts/test_*.py" = ["S101"]  # Allow assert in script test files
-"evals/test_*.py" = ["S101"]  # Allow assert in evaluation test files
 
 # Enable auto-fixing
 fixable = ["ALL"]
@@ -151,7 +147,7 @@ unfixable = []
 
 [tool.ruff.lint.isort]
 known-third-party = ["fastapi", "pydantic", "motor", "pytest"]
-known-first-party = ["app", "fetch_content"]
+known-first-party = ["app", "evals", "scripts", "tests"]
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings
@@ -178,3 +174,9 @@ directory = "coverage_html"
 
 [tool.coverage.xml]
 output = "coverage.xml"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers --import-mode=importlib"
+asyncio_mode = "auto"
+pythonpath = ["."]

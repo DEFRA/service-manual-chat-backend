@@ -31,7 +31,7 @@ from app.ask.bedrock import (
 from app.ask.schemas import Answer, Turn
 from app.common import mongo
 
-CONTENT = Path(__file__).parent / "__fixtures__" / "content"
+CONTENT = Path(__file__).parents[1] / "fixtures" / "content"
 
 
 @pytest.fixture(autouse=True)

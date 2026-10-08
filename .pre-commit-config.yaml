@@ -19,7 +19,7 @@ repos:
     hooks:
       - id: mypy
         name: mypy
-        entry: .venv/bin/mypy app evals scripts
+        entry: .venv/bin/mypy app evals scripts tests
         language: system
         pass_filenames: false
         types: [python]
