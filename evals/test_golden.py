@@ -14,7 +14,7 @@ def turns(row: list[str]) -> dict[str, dict]:
     return {q["id"]: q for q in conversation(row, SINGLES)}
 
 
-def test_a_two_turn_conversation_scores_turn_2_and_carries_turn_1():
+def test_a_two_turn_conversation_scores_turn_2_and_carries_turn_1() -> None:
     rows = turns(
         [
             "C17",
@@ -32,7 +32,7 @@ def test_a_two_turn_conversation_scores_turn_2_and_carries_turn_1():
     assert rows["C17-t2"]["expected_status"] == ["answered"]
 
 
-def test_a_blocked_turn_2_after_an_answered_turn_1_is_a_refusal_row():
+def test_a_blocked_turn_2_after_an_answered_turn_1_is_a_refusal_row() -> None:
     rows = turns(
         [
             "C3",
@@ -46,7 +46,9 @@ def test_a_blocked_turn_2_after_an_answered_turn_1_is_a_refusal_row():
     assert rows["C3-t2"]["refusal_row"] is True
 
 
-def test_a_three_turn_conversation_scores_turns_2_and_3_with_everything_before_them():
+def test_a_three_turn_conversation_scores_turns_2_and_3_with_everything_before_them() -> (
+    None
+):
     rows = turns(
         [
             "C16",
@@ -67,7 +69,7 @@ def test_a_three_turn_conversation_scores_turns_2_and_3_with_everything_before_t
     )
 
 
-def test_each_turn_takes_its_own_status_when_the_row_lists_one_for_each():
+def test_each_turn_takes_its_own_status_when_the_row_lists_one_for_each() -> None:
     rows = turns(
         [
             "C14",
@@ -83,7 +85,7 @@ def test_each_turn_takes_its_own_status_when_the_row_lists_one_for_each():
     assert rows["C14-t3"]["refusal_row"] is False
 
 
-def test_one_status_for_a_longer_conversation_applies_to_every_turn():
+def test_one_status_for_a_longer_conversation_applies_to_every_turn() -> None:
     rows = turns(
         [
             "C13",
@@ -96,7 +98,7 @@ def test_one_status_for_a_longer_conversation_applies_to_every_turn():
     assert [q["expected_status"] for q in rows.values()] == [["answered"]] * 2
 
 
-def test_c12_is_asked_now_the_service_keeps_the_conversation():
+def test_c12_is_asked_now_the_service_keeps_the_conversation() -> None:
     rows = turns(
         [
             "C12",
@@ -110,7 +112,9 @@ def test_c12_is_asked_now_the_service_keeps_the_conversation():
     assert rows["C12-t3"]["earlier"] == ["What are the rules?", "Security."]
 
 
-def test_c15_asks_four_of_the_sets_own_questions_then_the_one_about_the_second():
+def test_c15_asks_four_of_the_sets_own_questions_then_the_one_about_the_second() -> (
+    None
+):
     rows = turns(
         [
             "C15",
@@ -126,7 +130,7 @@ def test_c15_asks_four_of_the_sets_own_questions_then_the_one_about_the_second()
     assert rows["C15-t5"]["expected_status"] == ["answered", "cannot_answer"]
 
 
-def test_no_conversation_is_left_out_of_the_set():
+def test_no_conversation_is_left_out_of_the_set() -> None:
     markdown = "\n".join(
         [
             "| **Status** | Draft v9, for review |",
@@ -148,7 +152,7 @@ def test_no_conversation_is_left_out_of_the_set():
     assert data["not_run"] == {}
 
 
-def test_a_pair_that_lists_two_statuses_reads_them_turn_1_first():
+def test_a_pair_that_lists_two_statuses_reads_them_turn_1_first() -> None:
     rows = turns(
         [
             "C20",
@@ -162,7 +166,7 @@ def test_a_pair_that_lists_two_statuses_reads_them_turn_1_first():
     assert rows["C20-t2"]["first_turn_status"] == ["cannot_answer"]
 
 
-def test_a_pair_written_as_after_turn_1_keeps_its_order():
+def test_a_pair_written_as_after_turn_1_keeps_its_order() -> None:
     rows = turns(
         [
             "C3",
@@ -175,7 +179,7 @@ def test_a_pair_written_as_after_turn_1_keeps_its_order():
     assert rows["C3-t2"]["first_turn_status"] == ["answered"]
 
 
-def test_every_conversation_says_what_turn_1_should_come_back_as():
+def test_every_conversation_says_what_turn_1_should_come_back_as() -> None:
     rows = turns(
         [
             "C1",
@@ -197,7 +201,7 @@ def test_every_conversation_says_what_turn_1_should_come_back_as():
     assert rows["C15-t5"]["first_turn_status"] == ["answered"]
 
 
-def test_a_cell_whose_statuses_do_not_match_its_turns_is_refused():
+def test_a_cell_whose_statuses_do_not_match_its_turns_is_refused() -> None:
     with pytest.raises(SystemExit, match="C21"):
         turns(
             [
@@ -209,7 +213,7 @@ def test_a_cell_whose_statuses_do_not_match_its_turns_is_refused():
         )
 
 
-def test_a_row_can_pass_on_either_of_two_reasons():
+def test_a_row_can_pass_on_either_of_two_reasons() -> None:
     row = [
         "29",
         "Which is better, GitHub Copilot or Claude?",
@@ -225,7 +229,7 @@ def test_a_row_can_pass_on_either_of_two_reasons():
     ]
 
 
-def test_row_29_must_link_the_tools_page():
+def test_row_29_must_link_the_tools_page() -> None:
     row = [
         "29",
         "Which is better, GitHub Copilot or Claude?",

@@ -15,7 +15,7 @@ REPO = Path(__file__).resolve().parents[1]
 EVALS = REPO / "evals"
 RESULTS = EVALS / "results"
 PROMPT = REPO / "prompts/system.md"
-SECRETS = REPO / "compose/secrets.env"
+SECRETS = REPO / ".env"
 REGION = "eu-west-2"
 
 

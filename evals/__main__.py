@@ -12,9 +12,10 @@ import argparse
 import asyncio
 import datetime
 import json
+import typing
 from pathlib import Path
 
-from evals import golden, runs
+from evals import golden, runs, setup
 from evals.setup import EVALS, REPO, content, prepare, prompt_version
 
 DEFAULT_CEILING = 30_000_000
@@ -26,8 +27,10 @@ TOKEN_KINDS = (
 )
 
 
-def pick_questions(set_data: dict, ids: str | None) -> list[dict]:
-    questions = set_data["questions"]
+def pick_questions(
+    set_data: dict[str, typing.Any], ids: str | None
+) -> list[dict[str, typing.Any]]:
+    questions: list[dict[str, typing.Any]] = set_data["questions"]
     if ids == "Q":
         return [q for q in questions if q["expects_rule"]]
     if ids:
@@ -35,10 +38,12 @@ def pick_questions(set_data: dict, ids: str | None) -> list[dict]:
     return questions
 
 
-def pounds(tokens: dict, model_id: str) -> float | None:
+def pounds(tokens: dict[str, typing.Any], model_id: str) -> float | None:
     """What those tokens cost at the dated London prices. Input tokens include cache reads
     and writes, so those are taken out and priced at their own rates."""
-    prices = json.loads((EVALS / "prices.json").read_text(encoding="utf-8"))
+    prices: dict[str, typing.Any] = json.loads(
+        (EVALS / "prices.json").read_text(encoding="utf-8")
+    )
     price = prices["models"].get(model_id)
     if not price or not tokens:
         return None
@@ -49,10 +54,12 @@ def pounds(tokens: dict, model_id: str) -> float | None:
         + tokens["cache_write_tokens"] * price["cache_write"]
         + tokens["output_tokens"] * price["output"]
     ) / 1_000_000
-    return round(usd * prices["usd_to_gbp"], 2)
+    return float(round(usd * prices["usd_to_gbp"], 2))
 
 
-def rescore(run: Path, set_path: Path | None, content_dir: Path | None) -> dict:
+def rescore(
+    run: Path, set_path: Path | None, content_dir: Path | None
+) -> dict[str, typing.Any]:
     meta = runs.read_meta(run)
     set_data = (
         json.loads(set_path.read_text(encoding="utf-8")) if set_path else golden.load()
@@ -83,7 +90,7 @@ def rescore(run: Path, set_path: Path | None, content_dir: Path | None) -> dict:
     return report
 
 
-def show(run: Path, report: dict) -> None:
+def show(run: Path, report: dict[str, typing.Any]) -> None:
     meta = runs.read_meta(run)
     answer_cost = pounds(meta.get("answer_tokens", {}), meta["model_id"])
     judge_cost = pounds(meta.get("judge_tokens", {}), meta.get("judge", ""))
@@ -169,7 +176,7 @@ def failing(failures: dict[str, dict[str, int]]) -> list[str]:
     return lines
 
 
-async def run_all(args) -> Path:
+async def run_all(args: argparse.Namespace) -> Path:
     set_data = golden.load()
     questions = pick_questions(set_data, args.questions)
     pages, ref = content(args.content_dir)
@@ -206,7 +213,7 @@ async def run_all(args) -> Path:
     return run
 
 
-async def judge_again(args) -> None:
+async def judge_again(args: argparse.Namespace) -> None:
     meta = runs.read_meta(args.run)
     pages, _ = content(
         args.content_dir,
@@ -233,13 +240,13 @@ async def judge_again(args) -> None:
         runs.write_meta(args.run, **summary)
 
 
-def import_run(args) -> None:
+def import_run(args: argparse.Namespace) -> None:
     """A run from the harness used before this one (golden-*.jsonl, one line per answer) as a run directory."""
     records = [
         json.loads(line) for line in args.jsonl.read_text(encoding="utf-8").splitlines()
     ]
     records = [r for r in records if r.get("caching") != "refused"]
-    run = runs.RESULTS / f"{args.jsonl.stem.removeprefix('golden-')}-imported"
+    run = setup.RESULTS / f"{args.jsonl.stem.removeprefix('golden-')}-imported"
     run.mkdir(parents=True)
     runs.write_answers(run, records)
     judged = args.jsonl.with_suffix(".judged.json")
@@ -266,18 +273,18 @@ def import_run(args) -> None:
     print(f"Imported {len(records)} answers into {run.relative_to(REPO)}")
 
 
-def run_command(args) -> None:
+def run_command(args: argparse.Namespace) -> None:
     path = asyncio.run(run_all(args))
     show(path, rescore(path, None, args.content_dir))
 
 
-def score_command(args) -> None:
+def score_command(args: argparse.Namespace) -> None:
     for path in args.runs:
         show(path, rescore(path, args.set, args.content_dir))
         print()
 
 
-def agree(args) -> None:
+def agree(args: argparse.Namespace) -> None:
     fields = (
         "grounded_in_named_sources",
         "grounded_in_toolkit",

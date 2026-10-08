@@ -1,8 +1,11 @@
 import asyncio
 import json
+import pathlib
+import typing
 from pathlib import Path
 
 import pytest
+import pytest_mock
 from pydantic_ai import Agent
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models import ModelRequestParameters
@@ -32,7 +35,7 @@ CONTENT = Path(__file__).parent / "__fixtures__" / "content"
 
 
 @pytest.fixture(autouse=True)
-def _local_content(monkeypatch):
+def _local_content(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(bedrock.config, "content_dir", str(CONTENT))
     monkeypatch.setattr(bedrock.config, "system_prompt_path", "prompts/system.md")
 
@@ -45,12 +48,19 @@ class FakeDailyUsage:
     enough for the concurrency test because nothing here awaits mid-update.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.counts: dict[str, int] = {}
         self.calls = 0
         self.error: Exception | None = None
 
-    async def find_one_and_update(self, filter_, update, *, upsert, return_document):
+    async def find_one_and_update(
+        self,
+        filter_: dict[str, typing.Any],
+        update: dict[str, typing.Any],
+        *,
+        upsert: bool,
+        return_document: typing.Any,
+    ) -> dict[str, typing.Any]:
         del upsert, return_document
         self.calls += 1
         if self.error is not None:
@@ -61,7 +71,9 @@ class FakeDailyUsage:
 
 
 @pytest.fixture(autouse=True)
-def fake_mongo(mocker, monkeypatch):
+def fake_mongo(
+    mocker: pytest_mock.MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> FakeDailyUsage:
     # No real MongoDB anywhere in this file: every test gets a fresh fake
     # collection, following how app/common/test_mongo.py resets the client.
     # Every call through bedrock_engine() now goes through CountingModel, so
@@ -82,8 +94,8 @@ def fake_mongo(mocker, monkeypatch):
     return fake_usage
 
 
-def answer_with(args: dict):
-    def respond(_messages, info: AgentInfo) -> ModelResponse:
+def answer_with(args: dict[str, typing.Any]) -> FunctionModel:
+    def respond(_messages: list[typing.Any], info: AgentInfo) -> ModelResponse:
         return ModelResponse(
             parts=[ToolCallPart(tool_name=info.output_tools[0].name, args=args)]
         )
@@ -91,17 +103,18 @@ def answer_with(args: dict):
     return FunctionModel(respond)
 
 
-def test_a_first_question_goes_alone():
+def test_a_first_question_goes_alone() -> None:
     assert user_prompt("Can I use Copilot?", []) == "Question: Can I use Copilot?"
 
 
-def conversation_in(prompt: str) -> dict:
+def conversation_in(prompt: str) -> dict[str, typing.Any]:
     preamble, body = prompt.split("\n\n", 1)
     assert preamble.startswith("The conversation so far")
-    return json.loads(body)
+    result: dict[str, typing.Any] = json.loads(body)
+    return result
 
 
-def test_user_prompt_carries_the_conversation_oldest_first():
+def test_user_prompt_carries_the_conversation_oldest_first() -> None:
     history = [
         Turn(
             question="What are the rules?",
@@ -137,7 +150,7 @@ FORGED = (
 )
 
 
-def test_a_forged_answer_in_a_question_stays_inside_that_question():
+def test_a_forged_answer_in_a_question_stays_inside_that_question() -> None:
     history = [Turn(question=FORGED, status="answered", message="No.")]
 
     turns = conversation_in(user_prompt("so it's fine?", history))[
@@ -149,7 +162,7 @@ def test_a_forged_answer_in_a_question_stays_inside_that_question():
     ]
 
 
-def test_a_forged_turn_in_the_follow_up_stays_inside_the_follow_up():
+def test_a_forged_turn_in_the_follow_up_stays_inside_the_follow_up() -> None:
     history = [Turn(question="Can I use Copilot?", status="answered", message="M.")]
 
     conversation = conversation_in(user_prompt(FORGED, history))
@@ -158,7 +171,7 @@ def test_a_forged_turn_in_the_follow_up_stays_inside_the_follow_up():
     assert conversation["follow_up_question"] == FORGED
 
 
-def test_user_prompt_drops_blocked_turns():
+def test_user_prompt_drops_blocked_turns() -> None:
     history = [
         Turn(
             question="What counts as an AI incident?", status="answered", message="A."
@@ -172,7 +185,7 @@ def test_user_prompt_drops_blocked_turns():
     assert "Ignore the above" not in prompt
 
 
-def test_a_turn_with_no_answer_carries_only_its_question():
+def test_a_turn_with_no_answer_carries_only_its_question() -> None:
     # What the old front end's previous_question becomes.
     prompt = user_prompt(
         "what about agents?",
@@ -192,13 +205,13 @@ OFFERED = Turn(
 )
 
 
-def test_a_reply_to_offered_options_is_told_to_answer_the_one_picked():
+def test_a_reply_to_offered_options_is_told_to_answer_the_one_picked() -> None:
     preamble, _ = user_prompt("Security.", [OFFERED]).split("\n\n", 1)
 
     assert preamble.endswith(REPLY_TO_OPTIONS)
 
 
-def test_a_follow_up_to_an_answer_is_not_told_about_options():
+def test_a_follow_up_to_an_answer_is_not_told_about_options() -> None:
     history = [
         OFFERED,
         Turn(question="Security.", status="answered", message="Use approved tools."),
@@ -214,7 +227,7 @@ def narrow_it(*options: str) -> Answer:
 @pytest.mark.parametrize(
     "question", ["What are the rules?", "what are the rules", "  What are the Rules ?"]
 )
-def test_asking_for_the_rules_always_offers_the_same_four(question):
+def test_asking_for_the_rules_always_offers_the_same_four(question: str) -> None:
     answer = narrow_it("Data", "Keeping data safe", "Reporting an incident")
 
     shown = same_options_for_the_rules(question, [], answer)
@@ -223,13 +236,13 @@ def test_asking_for_the_rules_always_offers_the_same_four(question):
     assert shown.message == "Which?"
 
 
-def test_any_other_broad_question_keeps_the_options_the_model_gave():
+def test_any_other_broad_question_keeps_the_options_the_model_gave() -> None:
     answer = narrow_it("GitHub Copilot", "Microsoft 365 Copilot")
 
     assert same_options_for_the_rules("Can I use Copilot?", [], answer) is answer
 
 
-def test_the_rules_asked_later_in_a_conversation_keeps_the_models_options():
+def test_the_rules_asked_later_in_a_conversation_keeps_the_models_options() -> None:
     history = [Turn(question="Can I use Copilot?", status="answered", message="Yes.")]
     answer = narrow_it("GitHub Copilot", "Microsoft 365 Copilot")
 
@@ -238,18 +251,18 @@ def test_the_rules_asked_later_in_a_conversation_keeps_the_models_options():
     assert shown is answer
 
 
-def test_an_answer_to_the_rules_is_not_given_options():
+def test_an_answer_to_the_rules_is_not_given_options() -> None:
     answer = Answer(status="answered", message="Use approved tools.")
 
     assert same_options_for_the_rules("What are the rules?", [], answer) is answer
 
 
-def test_the_four_areas_fit_what_an_answer_may_carry():
+def test_the_four_areas_fit_what_an_answer_may_carry() -> None:
     assert narrow_it(*THE_RULES).options == list(THE_RULES)
 
 
-async def test_the_engine_offers_the_same_four_for_the_rules():
-    def respond(_messages, info: AgentInfo) -> ModelResponse:
+async def test_the_engine_offers_the_same_four_for_the_rules() -> None:
+    def respond(_messages: list[typing.Any], info: AgentInfo) -> ModelResponse:
         return ModelResponse(
             parts=[
                 ToolCallPart(
@@ -269,10 +282,12 @@ async def test_the_engine_offers_the_same_four_for_the_rules():
     assert answer.options == list(THE_RULES)
 
 
-async def test_the_history_reaches_the_model_and_the_instructions_do_not_change():
-    seen = []
+async def test_the_history_reaches_the_model_and_the_instructions_do_not_change() -> (
+    None
+):
+    seen: list[typing.Any] = []
 
-    def respond(messages, info: AgentInfo) -> ModelResponse:
+    def respond(messages: list[typing.Any], info: AgentInfo) -> ModelResponse:
         seen.append((messages[0].instructions, messages[0].parts[0].content))
         return ModelResponse(
             parts=[
@@ -295,43 +310,46 @@ async def test_the_history_reaches_the_model_and_the_instructions_do_not_change(
     )
 
 
-def test_model_settings_without_a_guardrail_has_no_guardrail_config(monkeypatch):
+def test_model_settings_without_a_guardrail_has_no_guardrail_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(bedrock.config, "bedrock_guardrail_id", None)
     assert "bedrock_guardrail_config" not in model_settings()
     assert model_settings()["bedrock_cache_instructions"] is True
 
 
-def test_model_settings_caps_output_at_1000_tokens():
+def test_model_settings_caps_output_at_1000_tokens() -> None:
     assert model_settings()["max_tokens"] == 1000
 
 
-def test_the_boto3_client_is_configured_for_a_single_attempt():
+def test_the_boto3_client_is_configured_for_a_single_attempt() -> None:
     # The agent's own retries setting governs output-shape retries, not
     # boto3's own HTTP retries: boto3 must not retry throttled calls on its
     # own, invisibly to the daily usage counter. No network call here, just
     # the client object's own config. agent().model is StopsAtABlock, so the
     # real BedrockConverseModel (and its client) is one level further in.
-    client = agent().model.wrapped.client
+    model = typing.cast(typing.Any, agent().model)
+    client = model.wrapped.client
 
     assert client.meta.config.retries["total_max_attempts"] == 1
 
 
-def test_the_private_model_resolution_method_still_exists():
+def test_the_private_model_resolution_method_still_exists() -> None:
     # Guards against pydantic-ai renaming or removing this private method
     # (e.g. in the pydantic-ai-slim 2.51 upgrade tracked in PR #31), which
     # bedrock_engine() depends on to wrap the live model with CountingModel.
     assert hasattr(Agent, "_get_model_outside_run")
 
 
-async def test_the_model_is_never_offered_daily_limit_as_a_reason():
+async def test_the_model_is_never_offered_daily_limit_as_a_reason() -> None:
     # daily_limit is set by the engine, after the model has
     # answered (or not been asked at all), never a choice the model makes.
     # Widening the wire contract's reason must not widen the tool schema
     # Bedrock is sent, or every question risks a second call or the error
     # outcome when the model picks it anyway.
-    seen = {}
+    seen: dict[str, typing.Any] = {}
 
-    def respond(_messages, info: AgentInfo) -> ModelResponse:
+    def respond(_messages: list[typing.Any], info: AgentInfo) -> ModelResponse:
         seen["schema"] = info.output_tools[0].parameters_json_schema
         return ModelResponse(
             parts=[
@@ -352,7 +370,9 @@ async def test_the_model_is_never_offered_daily_limit_as_a_reason():
     assert allowed == {"outside_toolkit", "no_guidance_yet"}
 
 
-def test_caching_is_off_for_a_model_that_refuses_it(monkeypatch):
+def test_caching_is_off_for_a_model_that_refuses_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     assert caches_instructions("anthropic.claude-sonnet-4-6")
     assert not caches_instructions("anthropic.claude-3-haiku-20240307-v1:0")
     assert not caches_instructions(
@@ -364,7 +384,9 @@ def test_caching_is_off_for_a_model_that_refuses_it(monkeypatch):
     assert model_settings()["bedrock_cache_instructions"] is False
 
 
-def test_the_models_that_refuse_caching_come_from_config(monkeypatch):
+def test_the_models_that_refuse_caching_come_from_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         bedrock.config,
         "bedrock_models_without_prompt_caching",
@@ -382,13 +404,15 @@ def test_the_models_that_refuse_caching_come_from_config(monkeypatch):
     assert caches_instructions("anthropic.claude-3-haiku-20240307-v1:0")
 
 
-async def test_the_request_built_for_bedrock_ends_its_system_prompt_with_a_cache_point():
+async def test_the_request_built_for_bedrock_ends_its_system_prompt_with_a_cache_point() -> (
+    None
+):
     # A function passed as instructions is "dynamic" to Pydantic AI, which then
     # sends no cache point at all. Map the messages the agent really sends
     # through the Bedrock model's own mapping and look for the marker.
-    seen = {}
+    seen: dict[str, typing.Any] = {}
 
-    def respond(messages, info: AgentInfo) -> ModelResponse:
+    def respond(messages: list[typing.Any], info: AgentInfo) -> ModelResponse:
         seen["messages"] = messages
         return ModelResponse(
             parts=[
@@ -414,14 +438,14 @@ async def test_the_request_built_for_bedrock_ends_its_system_prompt_with_a_cache
 
 
 async def test_editing_the_prompt_changes_the_next_answer_without_a_restart(
-    monkeypatch, tmp_path
-):
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
     prompt = tmp_path / "system.md"
     prompt.write_text("Version one.", encoding="utf-8")
     monkeypatch.setattr(bedrock.config, "system_prompt_path", str(prompt))
-    seen = []
+    seen: list[typing.Any] = []
 
-    def respond(messages, info: AgentInfo) -> ModelResponse:
+    def respond(messages: list[typing.Any], info: AgentInfo) -> ModelResponse:
         seen.append(messages[0].instructions)
         return ModelResponse(
             parts=[
@@ -442,7 +466,7 @@ async def test_editing_the_prompt_changes_the_next_answer_without_a_restart(
     assert seen[1].startswith("Version two.")
 
 
-def test_model_settings_with_a_guardrail(monkeypatch):
+def test_model_settings_with_a_guardrail(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(bedrock.config, "bedrock_guardrail_id", "gr-1")
     monkeypatch.setattr(bedrock.config, "bedrock_guardrail_version", "3")
     assert model_settings()["bedrock_guardrail_config"] == {
@@ -452,10 +476,10 @@ def test_model_settings_with_a_guardrail(monkeypatch):
     }
 
 
-async def test_engine_returns_a_verified_answer():
-    seen = {}
+async def test_engine_returns_a_verified_answer() -> None:
+    seen: dict[str, typing.Any] = {}
 
-    def respond(messages, info: AgentInfo) -> ModelResponse:
+    def respond(messages: list[typing.Any], info: AgentInfo) -> ModelResponse:
         seen["instructions"] = messages[0].instructions
         seen["prompt"] = messages[0].parts[0].content
         return ModelResponse(
@@ -487,6 +511,7 @@ async def test_engine_returns_a_verified_answer():
     with agent().override(model=FunctionModel(respond)):
         answer = await bedrock_engine("Can I paste personal data in?", [])
 
+    assert answer.rule_verbatim is not None
     assert answer.rule_verbatim.text == "For everyday use, remove personal data first."
     assert [s.url for s in answer.sources] == [
         "/ai-toolkit/guidance/using-data-with-ai"
@@ -496,7 +521,7 @@ async def test_engine_returns_a_verified_answer():
     assert '<page url="/ai-toolkit/guidance/using-data-with-ai"' in seen["instructions"]
 
 
-async def test_engine_drops_a_paraphrased_rule():
+async def test_engine_drops_a_paraphrased_rule() -> None:
     with agent().override(
         model=answer_with(
             {
@@ -518,10 +543,12 @@ async def test_engine_drops_a_paraphrased_rule():
     assert answer.rule_verbatim is None
 
 
-async def test_engine_retries_when_the_model_replies_in_prose(fake_mongo):
-    calls = []
+async def test_engine_retries_when_the_model_replies_in_prose(
+    fake_mongo: FakeDailyUsage,
+) -> None:
+    calls: list[int] = []
 
-    def respond(_messages, info: AgentInfo) -> ModelResponse:
+    def respond(_messages: list[typing.Any], info: AgentInfo) -> ModelResponse:
         calls.append(1)
         if len(calls) == 1:
             return ModelResponse(parts=[TextPart(content="Here is some prose")])
@@ -543,10 +570,12 @@ async def test_engine_retries_when_the_model_replies_in_prose(fake_mongo):
     assert fake_mongo.counts[bedrock._today()] == 2
 
 
-async def test_one_question_never_makes_more_than_two_bedrock_calls(fake_mongo):
-    calls = []
+async def test_one_question_never_makes_more_than_two_bedrock_calls(
+    fake_mongo: FakeDailyUsage,
+) -> None:
+    calls: list[int] = []
 
-    def respond(_messages, _info: AgentInfo) -> ModelResponse:
+    def respond(_messages: list[typing.Any], _info: AgentInfo) -> ModelResponse:
         calls.append(1)
         # Never valid: every reply is prose, so the agent would keep asking
         # forever if retries were not capped at 1 (2 calls in total: the
@@ -561,7 +590,9 @@ async def test_one_question_never_makes_more_than_two_bedrock_calls(fake_mongo):
     assert answer.status == "error"
 
 
-async def test_a_single_valid_answer_increments_the_counter_once(fake_mongo):
+async def test_a_single_valid_answer_increments_the_counter_once(
+    fake_mongo: FakeDailyUsage,
+) -> None:
     with agent().override(
         model=answer_with({"status": "answered", "message": "m", "sources": []})
     ):
@@ -570,8 +601,10 @@ async def test_a_single_valid_answer_increments_the_counter_once(fake_mongo):
     assert fake_mongo.counts[bedrock._today()] == 1
 
 
-async def test_a_failed_bedrock_call_still_counts_as_an_attempt(fake_mongo):
-    def respond(_messages, _info: AgentInfo) -> ModelResponse:
+async def test_a_failed_bedrock_call_still_counts_as_an_attempt(
+    fake_mongo: FakeDailyUsage,
+) -> None:
+    def respond(_messages: list[typing.Any], _info: AgentInfo) -> ModelResponse:
         msg = "throttled"
         raise RuntimeError(msg)
 
@@ -581,21 +614,24 @@ async def test_a_failed_bedrock_call_still_counts_as_an_attempt(fake_mongo):
     assert fake_mongo.counts[bedrock._today()] == 1
 
 
-async def test_increment_daily_usage_is_a_single_atomic_upsert(mocker, fake_mongo):
+async def test_increment_daily_usage_is_a_single_atomic_upsert(
+    mocker: pytest_mock.MockerFixture, fake_mongo: FakeDailyUsage
+) -> None:
     spy = mocker.spy(fake_mongo, "find_one_and_update")
 
     count = await bedrock._increment_daily_usage()
 
     assert count == 1
     spy.assert_awaited_once()
+    assert spy.await_args is not None
     args, kwargs = spy.await_args
     assert args == ({"_id": bedrock._today()}, {"$inc": {"attempts": 1}})
     assert kwargs == {"upsert": True, "return_document": ReturnDocument.AFTER}
 
 
 async def test_the_request_that_reaches_the_ceiling_exactly_is_allowed(
-    monkeypatch, fake_mongo
-):
+    monkeypatch: pytest.MonkeyPatch, fake_mongo: FakeDailyUsage
+) -> None:
     monkeypatch.setattr(bedrock.config, "ask_daily_ceiling", 3)
     fake_mongo.counts[bedrock._today()] = 2  # this request becomes the 3rd
 
@@ -608,7 +644,9 @@ async def test_the_request_that_reaches_the_ceiling_exactly_is_allowed(
     assert fake_mongo.counts[bedrock._today()] == 3
 
 
-def test_the_ceiling_message_does_not_tell_the_reader_to_try_again_in_a_minute():
+def test_the_ceiling_message_does_not_tell_the_reader_to_try_again_in_a_minute() -> (
+    None
+):
     assert "try again in a minute" not in bedrock.CEILING_ANSWER.message.lower()
     assert bedrock.CEILING_ANSWER.message != bedrock.ERROR_ANSWER.message
     assert bedrock.CEILING_ANSWER.reason == "daily_limit"
@@ -616,12 +654,12 @@ def test_the_ceiling_message_does_not_tell_the_reader_to_try_again_in_a_minute()
 
 
 async def test_the_attempt_past_the_ceiling_is_refused_without_a_bedrock_call(
-    monkeypatch, fake_mongo
-):
+    monkeypatch: pytest.MonkeyPatch, fake_mongo: FakeDailyUsage
+) -> None:
     monkeypatch.setattr(bedrock.config, "ask_daily_ceiling", 3)
     fake_mongo.counts[bedrock._today()] = 3  # already at the ceiling
 
-    def respond(_messages, _info: AgentInfo) -> ModelResponse:
+    def respond(_messages: list[typing.Any], _info: AgentInfo) -> ModelResponse:
         msg = "must not be called past the ceiling"
         raise AssertionError(msg)
 
@@ -632,7 +670,9 @@ async def test_the_attempt_past_the_ceiling_is_refused_without_a_bedrock_call(
     assert fake_mongo.counts[bedrock._today()] == 4
 
 
-async def test_the_count_starts_again_at_0_on_a_new_utc_day(monkeypatch, fake_mongo):
+async def test_the_count_starts_again_at_0_on_a_new_utc_day(
+    monkeypatch: pytest.MonkeyPatch, fake_mongo: FakeDailyUsage
+) -> None:
     monkeypatch.setattr(bedrock, "_today", lambda: "2026-10-01")
 
     with agent().override(model=answer_with({"status": "answered", "message": "m"})):
@@ -650,13 +690,13 @@ async def test_the_count_starts_again_at_0_on_a_new_utc_day(monkeypatch, fake_mo
 
 
 async def test_two_concurrent_requests_at_the_ceiling_let_exactly_one_through(
-    monkeypatch, fake_mongo
-):
+    monkeypatch: pytest.MonkeyPatch, fake_mongo: FakeDailyUsage
+) -> None:
     monkeypatch.setattr(bedrock.config, "ask_daily_ceiling", 3)
     fake_mongo.counts[bedrock._today()] = 2  # one below the ceiling
-    calls = []
+    calls: list[int] = []
 
-    def respond(_messages, info: AgentInfo) -> ModelResponse:
+    def respond(_messages: list[typing.Any], info: AgentInfo) -> ModelResponse:
         calls.append(1)
         return ModelResponse(
             parts=[
@@ -679,10 +719,12 @@ async def test_two_concurrent_requests_at_the_ceiling_let_exactly_one_through(
     assert fake_mongo.counts[bedrock._today()] == 4
 
 
-async def test_with_mongodb_unavailable_bedrock_is_not_called(fake_mongo, caplog):
+async def test_with_mongodb_unavailable_bedrock_is_not_called(
+    fake_mongo: FakeDailyUsage, caplog: pytest.LogCaptureFixture
+) -> None:
     fake_mongo.error = ConnectionError("no route to host")
 
-    def respond(_messages, _info: AgentInfo) -> ModelResponse:
+    def respond(_messages: list[typing.Any], _info: AgentInfo) -> ModelResponse:
         msg = "must not be called when MongoDB is unreachable"
         raise AssertionError(msg)
 
@@ -693,13 +735,15 @@ async def test_with_mongodb_unavailable_bedrock_is_not_called(fake_mongo, caplog
     assert any(record.levelname == "ERROR" for record in caplog.records)
 
 
-async def test_a_client_that_never_connects_still_times_out(monkeypatch):
+async def test_a_client_that_never_connects_still_times_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # The timeout must cover get_mongo_client() too, not just the update: on
     # first use it pings MongoDB with the driver's own ~30s wait. A client
     # that never comes back must still fail in _DAILY_USAGE_TIMEOUT_SECONDS.
     monkeypatch.setattr(bedrock, "_DAILY_USAGE_TIMEOUT_SECONDS", 0.05)
 
-    async def never_connects():
+    async def never_connects() -> None:
         await asyncio.sleep(10)
         msg = "should have timed out first"
         raise AssertionError(msg)  # pragma: no cover
@@ -710,7 +754,9 @@ async def test_a_client_that_never_connects_still_times_out(monkeypatch):
         await bedrock._increment_daily_usage()
 
 
-async def test_the_golden_set_agent_is_never_counted_and_needs_no_mongo(fake_mongo):
+async def test_the_golden_set_agent_is_never_counted_and_needs_no_mongo(
+    fake_mongo: FakeDailyUsage,
+) -> None:
     # evals/answer.py calls agent() and runs it directly: it never goes
     # through bedrock_engine, so it must never touch the counter.
     with agent().override(
@@ -723,13 +769,15 @@ async def test_the_golden_set_agent_is_never_counted_and_needs_no_mongo(fake_mon
 
 
 async def test_a_refusal_is_logged_with_the_count_and_not_the_question(
-    monkeypatch, fake_mongo, caplog
-):
+    monkeypatch: pytest.MonkeyPatch,
+    fake_mongo: FakeDailyUsage,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     monkeypatch.setattr(bedrock.config, "ask_daily_ceiling", 3)
     fake_mongo.counts[bedrock._today()] = 3
     private_question = "what counts as personal data on my project"
 
-    def respond(_messages, _info: AgentInfo) -> ModelResponse:
+    def respond(_messages: list[typing.Any], _info: AgentInfo) -> ModelResponse:
         msg = "must not be called past the ceiling"
         raise AssertionError(msg)
 
@@ -796,7 +844,7 @@ TRACE = {
 }
 
 
-def test_the_filters_that_acted_are_named_and_one_that_did_not_is_left_out():
+def test_the_filters_that_acted_are_named_and_one_that_did_not_is_left_out() -> None:
     assert guardrail_filters(TRACE) == (
         "input:topic:Legal advice",
         "input:content:PROMPT_ATTACK[confidence=MEDIUM strength=HIGH]",
@@ -806,23 +854,27 @@ def test_the_filters_that_acted_are_named_and_one_that_did_not_is_left_out():
     )
 
 
-def test_the_words_that_set_a_filter_off_are_never_among_the_names():
+def test_the_words_that_set_a_filter_off_are_never_among_the_names() -> None:
     assert READERS_WORDS not in " ".join(guardrail_filters(TRACE))
 
 
 @pytest.mark.parametrize("trace", [None, {}, {"guardrail": {}}])
-def test_a_reply_with_no_trace_names_no_filters(trace):
+def test_a_reply_with_no_trace_names_no_filters(
+    trace: dict[str, typing.Any] | None,
+) -> None:
     assert guardrail_filters(trace) == ()
 
 
-def blocked_reply(calls: list, trace: dict | None = None):
+def blocked_reply(
+    calls: list[int], trace: dict[str, typing.Any] | None = None
+) -> StopsAtABlock:
     # What Bedrock sends back when a guardrail steps in: its own fixed text,
     # not a tool call, with the stop reason Pydantic AI maps to content_filter.
-    details = {"finish_reason": "guardrail_intervened"}
+    details: dict[str, typing.Any] = {"finish_reason": "guardrail_intervened"}
     if trace is not None:
         details["trace"] = trace
 
-    def respond(_messages, _info: AgentInfo) -> ModelResponse:
+    def respond(_messages: list[typing.Any], _info: AgentInfo) -> ModelResponse:
         calls.append(1)
         return ModelResponse(
             parts=[TextPart(content=GUARDRAIL_TEXT)],
@@ -833,7 +885,7 @@ def blocked_reply(calls: list, trace: dict | None = None):
     return StopsAtABlock(FunctionModel(respond))
 
 
-async def test_a_question_the_guardrail_blocks_gets_the_blocked_status():
+async def test_a_question_the_guardrail_blocks_gets_the_blocked_status() -> None:
     with agent().override(model=blocked_reply([])):
         answer = await bedrock_engine("q", [])
 
@@ -842,8 +894,8 @@ async def test_a_question_the_guardrail_blocks_gets_the_blocked_status():
     assert GUARDRAIL_TEXT not in answer.message
 
 
-async def test_a_blocked_question_is_asked_once():
-    calls = []
+async def test_a_blocked_question_is_asked_once() -> None:
+    calls: list[int] = []
 
     with agent().override(model=blocked_reply(calls)):
         await bedrock_engine("q", [])
@@ -851,7 +903,9 @@ async def test_a_blocked_question_is_asked_once():
     assert len(calls) == 1
 
 
-async def test_a_block_is_logged_with_its_reasons_and_nothing_anyone_wrote(caplog):
+async def test_a_block_is_logged_with_its_reasons_and_nothing_anyone_wrote(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     private_question = "what counts as personal data on my project"
 
     with caplog.at_level("WARNING"), agent().override(model=blocked_reply([])):
@@ -865,7 +919,9 @@ async def test_a_block_is_logged_with_its_reasons_and_nothing_anyone_wrote(caplo
     assert not any(record.exc_info for record in caplog.records)
 
 
-async def test_a_block_is_logged_with_the_names_of_the_filters_that_acted(caplog):
+async def test_a_block_is_logged_with_the_names_of_the_filters_that_acted(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     with caplog.at_level("WARNING"), agent().override(model=blocked_reply([], TRACE)):
         await bedrock_engine("q", [])
 
@@ -874,15 +930,19 @@ async def test_a_block_is_logged_with_the_names_of_the_filters_that_acted(caplog
     assert READERS_WORDS not in logged
 
 
-async def test_a_block_with_no_trace_says_no_filter_was_named(caplog):
+async def test_a_block_with_no_trace_says_no_filter_was_named(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     with caplog.at_level("WARNING"), agent().override(model=blocked_reply([])):
         await bedrock_engine("q", [])
 
     assert "filters=none" in caplog.text
 
 
-async def test_an_answer_is_logged_with_the_status_the_model_chose(caplog):
-    def respond(_messages, info: AgentInfo) -> ModelResponse:
+async def test_an_answer_is_logged_with_the_status_the_model_chose(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    def respond(_messages: list[typing.Any], info: AgentInfo) -> ModelResponse:
         return ModelResponse(
             parts=[
                 ToolCallPart(
@@ -904,8 +964,10 @@ async def test_an_answer_is_logged_with_the_status_the_model_chose(caplog):
     assert "Not something I can help with." not in caplog.text
 
 
-async def test_a_block_that_gives_no_stop_reason_is_still_blocked(caplog):
-    def respond(_messages, _info: AgentInfo) -> ModelResponse:
+async def test_a_block_that_gives_no_stop_reason_is_still_blocked(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    def respond(_messages: list[typing.Any], _info: AgentInfo) -> ModelResponse:
         return ModelResponse(parts=[], finish_reason="content_filter")
 
     model = StopsAtABlock(FunctionModel(respond))
@@ -916,10 +978,12 @@ async def test_a_block_that_gives_no_stop_reason_is_still_blocked(caplog):
     assert "stop_reason=None" in caplog.text
 
 
-async def test_a_reply_in_the_wrong_shape_that_is_not_a_block_is_still_an_error():
-    calls = []
+async def test_a_reply_in_the_wrong_shape_that_is_not_a_block_is_still_an_error() -> (
+    None
+):
+    calls: list[int] = []
 
-    def respond(_messages, _info: AgentInfo) -> ModelResponse:
+    def respond(_messages: list[typing.Any], _info: AgentInfo) -> ModelResponse:
         calls.append(1)
         return ModelResponse(
             parts=[TextPart(content="still prose")], finish_reason="stop"
@@ -932,15 +996,15 @@ async def test_a_reply_in_the_wrong_shape_that_is_not_a_block_is_still_an_error(
     assert len(calls) == 2
 
 
-def test_the_agent_the_service_runs_stops_at_a_block():
+def test_the_agent_the_service_runs_stops_at_a_block() -> None:
     model = agent().model
 
     assert isinstance(model, StopsAtABlock)
     assert isinstance(model.wrapped, BedrockConverseModel)
 
 
-async def test_engine_turns_a_failure_into_the_error_outcome():
-    def respond(_messages, _info: AgentInfo) -> ModelResponse:
+async def test_engine_turns_a_failure_into_the_error_outcome() -> None:
+    def respond(_messages: list[typing.Any], _info: AgentInfo) -> ModelResponse:
         msg = "throttled"
         raise RuntimeError(msg)
 

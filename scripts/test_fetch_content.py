@@ -1,4 +1,5 @@
 import io
+import pathlib
 import tarfile
 
 import pytest
@@ -27,7 +28,7 @@ SITE = {
 }
 
 
-def test_extract_keeps_only_toolkit_markdown(tmp_path):
+def test_extract_keeps_only_toolkit_markdown(tmp_path: pathlib.Path) -> None:
     written = fetch_content.extract(tarball(SITE), tmp_path)
 
     assert sorted(p.relative_to(tmp_path).as_posix() for p in written) == [
@@ -41,7 +42,7 @@ def test_extract_keeps_only_toolkit_markdown(tmp_path):
     assert not (tmp_path / "ai-toolkit-triage.md").exists()
 
 
-def test_extract_refuses_a_path_that_escapes_dest(tmp_path):
+def test_extract_refuses_a_path_that_escapes_dest(tmp_path: pathlib.Path) -> None:
     archive = tarball({"src/content/ai-toolkit/../../../escape.md": "out"})
 
     with pytest.raises(SystemExit, match="outside"):
@@ -50,10 +51,12 @@ def test_extract_refuses_a_path_that_escapes_dest(tmp_path):
     assert not (tmp_path / "escape.md").exists()
 
 
-def test_fetch_records_the_ref(tmp_path, monkeypatch):
-    urls = []
+def test_fetch_records_the_ref(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    urls: list[str] = []
 
-    def fake_download(url):
+    def fake_download(url: str) -> bytes:
         urls.append(url)
         return tarball(SITE)
 
@@ -65,7 +68,9 @@ def test_fetch_records_the_ref(tmp_path, monkeypatch):
     assert (tmp_path / "REF").read_text() == "caefc03\n"
 
 
-def test_fetch_fails_when_the_ref_has_no_toolkit(tmp_path, monkeypatch):
+def test_fetch_fails_when_the_ref_has_no_toolkit(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(
         fetch_content, "download", lambda _url: tarball({"README.md": "empty"})
     )
@@ -76,7 +81,11 @@ def test_fetch_fails_when_the_ref_has_no_toolkit(tmp_path, monkeypatch):
     assert not (tmp_path / "REF").exists()
 
 
-def test_main_prints_the_count(tmp_path, monkeypatch, capsys):
+def test_main_prints_the_count(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     monkeypatch.setattr(fetch_content, "download", lambda _url: tarball(SITE))
 
     fetch_content.main(["--ref", "caefc03", "--dest", str(tmp_path)])

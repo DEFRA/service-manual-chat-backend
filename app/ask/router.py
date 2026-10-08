@@ -12,7 +12,8 @@ logger = getLogger(__name__)
 
 @router.post("/ask")
 async def ask(
-    body: AskRequest, engine: Annotated[AnswerEngine, Depends(get_engine)]
+    body: AskRequest,
+    engine: Annotated[AnswerEngine, Depends(get_engine)],
 ) -> Answer:
     # The question is what a person typed and may say anything about them, so
     # it never reaches the logs. Length and how much history came with it do.

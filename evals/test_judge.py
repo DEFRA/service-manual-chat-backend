@@ -1,9 +1,10 @@
 import json
+import typing
 
 from evals.judge import PROMPT, Verdict, merge_verdicts, shown_to_judge
 
 
-def verdict(qid, run=1, **marks):
+def verdict(qid: str, run: int = 1, **marks: typing.Any) -> dict[str, typing.Any]:
     return {"key": "sonnet-4-6", "run": run, "question_id": qid, "marks": marks}
 
 
@@ -18,7 +19,7 @@ OLD = [
 ]
 
 
-def test_a_full_re_judge_replaces_the_record():
+def test_a_full_re_judge_replaces_the_record() -> None:
     fresh = [
         verdict(
             "G041",
@@ -32,7 +33,7 @@ def test_a_full_re_judge_replaces_the_record():
     assert merged[0]["marks"]["complete"] is False
 
 
-def test_a_partial_re_judge_keeps_the_verdicts_it_was_not_asked_for():
+def test_a_partial_re_judge_keeps_the_verdicts_it_was_not_asked_for() -> None:
     # Re-judging for right_rule must not move Grounded or Complete: those figures are
     # already recorded in the set's change log.
     fresh = [
@@ -53,7 +54,7 @@ def test_a_partial_re_judge_keeps_the_verdicts_it_was_not_asked_for():
     assert marks["right_rule_reason"] == "wrong rule"
 
 
-def test_records_not_re_judged_are_untouched_and_new_ones_are_added():
+def test_records_not_re_judged_are_untouched_and_new_ones_are_added() -> None:
     fresh = [verdict("G042", right_rule=True, reason="r")]
     merged = merge_verdicts(OLD, fresh, only=["right_rule"])
     assert [m["question_id"] for m in merged] == ["G041", "G042"]
@@ -65,7 +66,7 @@ DATA_SAFE = "/ai-toolkit/guidance/keeping-data-safe"
 TITLES = {INCIDENT: "Report an AI incident", DATA_SAFE: "Keeping data safe"}
 
 
-def test_the_judge_sees_a_wrong_page_quote_the_reader_did_not():
+def test_the_judge_sees_a_wrong_page_quote_the_reader_did_not() -> None:
     # J11 in hand-check sample 2: row 41 names Report an AI incident, the quote came
     # from Keeping data safe, and the old backend check dropped it before display.
     quote = {
@@ -97,7 +98,9 @@ def test_the_judge_sees_a_wrong_page_quote_the_reader_did_not():
     assert answer["rule_verbatim"]["source"]["url"] == DATA_SAFE
 
 
-def test_the_judge_is_told_a_wrong_page_quote_fails_grounded_even_when_the_point_is_on_the_named_page():
+def test_the_judge_is_told_a_wrong_page_quote_fails_grounded_even_when_the_point_is_on_the_named_page() -> (
+    None
+):
     # J06: row 4's answer quoted Keeping data safe for a point Using data with AI also
     # makes, and the judge passed it because the quote added no new facts.
     flat = " ".join(PROMPT.split())
@@ -110,19 +113,19 @@ def test_the_judge_is_told_a_wrong_page_quote_fails_grounded_even_when_the_point
     assert "whether or not a quoted rule is expected" in flat
 
 
-def test_the_judge_gives_its_reason_before_its_verdicts():
+def test_the_judge_gives_its_reason_before_its_verdicts() -> None:
     # J06 on 30 September: the reason ended "This fails grounded_in_named_sources"
     # after the verdict had already been written as a pass.
     assert list(Verdict.model_json_schema()["properties"])[0] == "reason"
     assert "before the verdicts" in " ".join(PROMPT.split())
 
 
-def turn_record(**extra):
+def turn_record(**extra: typing.Any) -> dict[str, typing.Any]:
     answer = {"status": "answered", "message": "It stands.", "rule_verbatim": None}
     return {"answer": answer, "verified": answer, **extra}
 
 
-def turn_question(**extra):
+def turn_question(**extra: typing.Any) -> dict[str, typing.Any]:
     return {
         "question": "That's wrong.",
         "earlier": ["Tell me about agent swarms.", "Tell me more."],
@@ -133,7 +136,7 @@ def turn_question(**extra):
     }
 
 
-def test_the_judge_reads_a_later_turn_against_the_answers_the_service_gave():
+def test_the_judge_reads_a_later_turn_against_the_answers_the_service_gave() -> None:
     history = [
         {"question": "Tell me about agent swarms.", "status": "answered",
          "message": "A swarm is several agents.", "options": []},
@@ -150,13 +153,13 @@ def test_the_judge_reads_a_later_turn_against_the_answers_the_service_gave():
     assert "follow-up to" not in shown
 
 
-def test_a_run_from_before_turn_by_turn_shows_the_judge_the_question_before():
+def test_a_run_from_before_turn_by_turn_shows_the_judge_the_question_before() -> None:
     shown = shown_to_judge(turn_record(), turn_question(), TITLES)
 
     assert "Question: (follow-up to: Tell me more.) That's wrong." in shown
 
 
-def test_the_judge_is_told_both_statuses_when_the_set_accepts_two():
+def test_the_judge_is_told_both_statuses_when_the_set_accepts_two() -> None:
     question = turn_question(expected_status=["answered", "cannot_answer"])
 
     shown = shown_to_judge(turn_record(), question, TITLES)

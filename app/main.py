@@ -1,4 +1,5 @@
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from logging import getLogger
 from pathlib import Path
@@ -17,7 +18,7 @@ logger = getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
     # Startup
     client = await get_mongo_client()
     logger.info("MongoDB client connected")

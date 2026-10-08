@@ -16,6 +16,7 @@ has answered, so a reason that only the engine sets (`daily_limit`) is never
 a choice offered to the model.
 """
 
+import typing
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints, model_validator
@@ -106,7 +107,7 @@ class ModelAnswer(_AnswerFields):
     reason: CannotAnswerReason | None = None
 
     @model_validator(mode="after")
-    def fields_match_status(self) -> ModelAnswer:
+    def fields_match_status(self) -> typing.Self:
         _check_options(self.status, self.options)
 
         if self.status == "cannot_answer":
@@ -128,7 +129,7 @@ class Answer(_AnswerFields):
     reason: CannotAnswerReason | ErrorReason | None = None
 
     @model_validator(mode="after")
-    def fields_match_status(self) -> Answer:
+    def fields_match_status(self) -> typing.Self:
         _check_options(self.status, self.options)
 
         if self.status == "cannot_answer":
@@ -189,4 +190,10 @@ class AskRequest(BaseModel):
         if self.history or not self.previous_question:
             return self.history
         # The old front end sends no answer, so there is none to pass on.
-        return [Turn(question=self.previous_question, status="answered", message="")]
+        return [
+            Turn(
+                question=self.previous_question,
+                status="answered",
+                message="",
+            )
+        ]
