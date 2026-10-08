@@ -1,10 +1,20 @@
 version: 2
 
 updates:
-  # Update Python packages
-  - package-ecosystem: pip
+  # Update uv packages
+  - package-ecosystem: uv
     directory: /
     open-pull-requests-limit: 10
+
+    # Wait 7 days after release before raising an update
+    cooldown:
+      default-days: 7
+
+    # Group all uv package updates into one PR per run
+    groups:
+      uv:
+        patterns:
+          - '*'
 
     # Schedule run every Monday, local time
     schedule:
@@ -21,6 +31,16 @@ updates:
   # Update GitHub Actions
   - package-ecosystem: github-actions
     directory: /
+
+    # Wait 7 days after release before raising an update
+    cooldown:
+      default-days: 7
+
+    # Group all GitHub Actions updates into one PR per run
+    groups:
+      github-actions:
+        patterns:
+          - '*'
 
     # Schedule run every Monday, local time
     schedule:
