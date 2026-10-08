@@ -4,7 +4,7 @@ import tarfile
 
 import pytest
 
-import fetch_content
+from scripts import fetch_content
 
 
 def tarball(files: dict[str, str], top: str = "service-manual-ui-abc123") -> bytes:

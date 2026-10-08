@@ -9,7 +9,9 @@ from app.ask.quote_check import check_quote, plain_text, strip_inline_tags, word
 # Shared with service-manual-ui, which runs the same file against its own
 # checker, so the two cannot drift apart without one of them failing.
 CASES = json.loads(
-    (Path(__file__).parent / "quote_check_cases.json").read_text(encoding="utf-8")
+    (Path(__file__).parents[1] / "fixtures" / "quote_check_cases.json").read_text(
+        encoding="utf-8"
+    )
 )
 
 

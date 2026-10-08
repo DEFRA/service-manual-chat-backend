@@ -75,7 +75,6 @@ services:
             - .vscode/**/*
             - .github/**/*
             - requirements-dev.txt
-            - pytest.ini
             - .pre-commit-config.yaml
             - sonar-project.properties
             - LICENCE
