@@ -1,11 +1,11 @@
 """The golden set evaluation, one command per job.
 
-uv run python -m evals run --label cait-288-step-2     # ask x3, judge, score
-uv run python -m evals score evals/results/<run>       # re-score, no model calls
-uv run python -m evals judge evals/results/<run> [--judge ID] [--questions Q --only right_rule]
-uv run python -m evals golden                          # golden-set.md -> golden-set.json
-uv run python -m evals agree <run> <run>               # two judges' verdicts side by side
-uv run python -m evals import <old>.jsonl ...          # bring in a prototype run
+uv run run-evals run --label cait-288-step-2     # ask x3, judge, score
+uv run run-evals score evals/results/<run>       # re-score, no model calls
+uv run run-evals judge evals/results/<run> [--judge ID] [--questions Q --only right_rule]
+uv run run-evals golden                          # golden-set.md -> golden-set.json
+uv run run-evals agree <run> <run>               # two judges' verdicts side by side
+uv run run-evals import <old>.jsonl ...          # bring in a prototype run
 """
 
 import argparse
@@ -319,7 +319,7 @@ def resolved(value: str) -> pathlib.Path:
 
 def parser() -> argparse.ArgumentParser:
     top = argparse.ArgumentParser(
-        prog="python -m evals", description=(__doc__ or "").splitlines()[0]
+        prog="run-evals", description=(__doc__ or "").splitlines()[0]
     )
     commands = top.add_subparsers(dest="command", required=True)
 

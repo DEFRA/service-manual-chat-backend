@@ -31,6 +31,7 @@ dev = [
 ]
 
 [project.scripts]
+service-manual-chat-http = "app.entrypoints.http:main"
 run-evals = "evals.__main__:main"
 
 [tool.taskipy.tasks]
