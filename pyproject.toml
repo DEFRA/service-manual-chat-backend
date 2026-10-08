@@ -35,7 +35,8 @@ run-evals = "evals.__main__:main"
 [tool.taskipy.tasks]
 format = "uv run ruff format . && uv run ruff check . --fix"
 lint = "uv run ruff format ./app ./evals ./scripts --check && uv run ruff check ./app ./evals ./scripts"
-test = "uv run task lint && uv run pytest -vv"
+typecheck = "uv run mypy ./app ./evals ./scripts"
+test = "uv run task lint && uv run task typecheck && uv run pytest -vv"
 
 [build-system]
 requires = ["hatchling"]
