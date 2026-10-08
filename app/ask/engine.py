@@ -14,7 +14,9 @@ from app.config import config
 AnswerEngine = Callable[[str, list[Turn]], Awaitable[Answer]]
 
 
-async def stub_engine(question: str, history: list[Turn]) -> Answer:  # NOSONAR
+async def stub_engine(  # NOSONAR - must be async to match the interface, but does not await anything
+    question: str, history: list[Turn]
+) -> Answer:
     # Nothing to await, but an engine is awaitable so the router need not care.
     return stub_answer(question, history)
 

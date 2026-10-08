@@ -1,9 +1,13 @@
 import logging
 
+import pytest_mock
+
 from app.common.log_utils import EndpointFilter, ExtraFieldsFilter
 
 
-def test_extra_fields_filter_with_all_context(mocker):
+def test_extra_fields_filter_with_all_context(
+    mocker: pytest_mock.MockerFixture,
+) -> None:
     # Mock the context variables
     mock_trace_id = mocker.patch("app.common.log_utils.ctx_trace_id")
     mock_request = mocker.patch("app.common.log_utils.ctx_request")
@@ -31,15 +35,15 @@ def test_extra_fields_filter_with_all_context(mocker):
 
     # Assertions
     assert result is True
-    assert record.trace == {"id": "test-trace-id"}
-    assert record.url == {"full": "http://test.com"}
-    assert record.http == {
+    assert vars(record)["trace"] == {"id": "test-trace-id"}
+    assert vars(record)["url"] == {"full": "http://test.com"}
+    assert vars(record)["http"] == {
         "request": {"method": "GET"},
         "response": {"status_code": 200},
     }
 
 
-def test_extra_fields_filter_with_no_context(mocker):
+def test_extra_fields_filter_with_no_context(mocker: pytest_mock.MockerFixture) -> None:
     # Mock the context variables to return None/empty
     mock_trace_id = mocker.patch("app.common.log_utils.ctx_trace_id")
     mock_request = mocker.patch("app.common.log_utils.ctx_request")
@@ -71,7 +75,7 @@ def test_extra_fields_filter_with_no_context(mocker):
     assert not hasattr(record, "http")
 
 
-def test_endpoint_filter_blocks_matching_path():
+def test_endpoint_filter_blocks_matching_path() -> None:
     filter_path = "/health"
     log_filter = EndpointFilter(path=filter_path)
 
@@ -89,7 +93,7 @@ def test_endpoint_filter_blocks_matching_path():
     assert log_filter.filter(record) is False
 
 
-def test_endpoint_filter_allows_non_matching_path():
+def test_endpoint_filter_allows_non_matching_path() -> None:
     filter_path = "/health"
     log_filter = EndpointFilter(path=filter_path)
 

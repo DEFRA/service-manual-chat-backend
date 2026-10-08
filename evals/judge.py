@@ -20,8 +20,13 @@ substitute (28 September 2026).
 
 import asyncio
 import json
+import typing
+from pathlib import Path
 
 from pydantic import BaseModel
+from pydantic_ai import Agent
+from pydantic_ai.models.bedrock import BedrockConverseModel, BedrockModelSettings
+from pydantic_ai.providers.bedrock import BedrockProvider
 
 from evals.runs import Budget, read_answers, read_verdicts, write_verdicts
 
@@ -93,8 +98,10 @@ class Verdict(BaseModel):
 
 
 def merge_verdicts(
-    existing: list[dict], fresh: list[dict], only: list[str] | None = None
-) -> list[dict]:
+    existing: list[dict[str, typing.Any]],
+    fresh: list[dict[str, typing.Any]],
+    only: list[str] | None = None,
+) -> list[dict[str, typing.Any]]:
     """Fresh verdicts over existing ones by (key, run, question). With `only`, take just
     those fields from a fresh verdict, its reason filed as <field>_reason."""
     merged = {(j["key"], j["run"], j["question_id"]): j for j in existing}
@@ -111,7 +118,7 @@ def merge_verdicts(
     return list(merged.values())
 
 
-def said(turn: dict) -> str:
+def said(turn: dict[str, typing.Any]) -> str:
     options = f" Options: {'; '.join(turn['options'])}" if turn["options"] else ""
     return (
         f"Reader: {turn['question']}\n"
@@ -119,7 +126,11 @@ def said(turn: dict) -> str:
     )
 
 
-def shown_to_judge(record: dict, question: dict, titles: dict[str, str]) -> str:
+def shown_to_judge(
+    record: dict[str, typing.Any],
+    question: dict[str, typing.Any],
+    titles: dict[str, str],
+) -> str:
     """The answer as the reader saw it, except the quote: the raw one the model gave,
     because the old backend check dropped true quotes as misquotes (CAIT-280), and
     which rule was quoted is what right_rule judges."""
@@ -153,22 +164,16 @@ def shown_to_judge(record: dict, question: dict, titles: dict[str, str]) -> str:
 
 
 async def judge(
-    run,
-    questions: dict[str, dict],
+    run: Path,
+    questions: dict[str, dict[str, typing.Any]],
     budget: Budget,
     *,
     judge_model: str = JUDGE_MODEL_ID,
     only_questions: list[str] | None = None,
     only_fields: list[str] | None = None,
-) -> dict:
+) -> dict[str, typing.Any]:
     """Judge a run's answers and merge the verdicts into verdicts.json.gz.
     Returns a summary for meta.json."""
-    from pathlib import Path
-
-    from pydantic_ai import Agent
-    from pydantic_ai.models.bedrock import BedrockConverseModel, BedrockModelSettings
-    from pydantic_ai.providers.bedrock import BedrockProvider
-
     from app.ask.corpus import as_context, load_corpus
     from app.config import config
 
@@ -176,7 +181,8 @@ async def judge(
     titles = {url: page.title for url, page in corpus.items()}
     the_judge = Agent(
         BedrockConverseModel(
-            judge_model, provider=BedrockProvider(region_name=config.bedrock_region)
+            judge_model,
+            provider=BedrockProvider(region_name=config.bedrock_region),
         ),
         output_type=Verdict,
         instructions=f"{PROMPT}\n\n# The toolkit pages\n\n{as_context(corpus)}",
@@ -191,7 +197,7 @@ async def judge(
         ("input_tokens", "cache_read_tokens", "cache_write_tokens", "output_tokens"), 0
     )
 
-    async def score(record: dict) -> dict | None:
+    async def score(record: dict[str, typing.Any]) -> dict[str, typing.Any] | None:
         async with limit:
             if budget.exhausted:
                 return None

@@ -10,6 +10,7 @@ the run's content ref are all on disk.
 """
 
 import math
+import typing
 from collections import defaultdict
 
 from evals.quotes import locate, stitched, whole_sentences
@@ -31,7 +32,9 @@ def in_bars(question_id: str) -> bool:
     return int(question_id[1:].split("-")[0]) <= BAR_CONVERSATIONS
 
 
-def quote_marks(answer: dict, corpus: dict) -> dict:
+def quote_marks(
+    answer: dict[str, typing.Any], corpus: dict[str, typing.Any]
+) -> dict[str, typing.Any]:
     """How a raw `rule_verbatim` stands up. `corpus` maps URL to page body."""
     rule = answer["rule_verbatim"]
     if rule is None:
@@ -43,15 +46,26 @@ def quote_marks(answer: dict, corpus: dict) -> dict:
         }
     body = corpus.get(rule["source"]["url"])
     span = locate(rule["text"], body) if body else None
+    if body is None or span is None:
+        return {
+            "offered": True,
+            "words_right": False,
+            "selective": False,
+            "stitched": False,
+        }
     return {
         "offered": True,
-        "words_right": span is not None,
-        "selective": span is not None and not whole_sentences(body, span),
-        "stitched": span is not None and stitched(body, span),
+        "words_right": True,
+        "selective": not whole_sentences(body, span),
+        "stitched": stitched(body, span),
     }
 
 
-def mark(record: dict, question: dict, corpus: dict) -> dict:
+def mark(
+    record: dict[str, typing.Any],
+    question: dict[str, typing.Any],
+    corpus: dict[str, typing.Any],
+) -> dict[str, typing.Any]:
     """Pass or fail on each code-checked measure that applies. None: does not apply."""
     if not record["ok"]:
         return {
@@ -116,7 +130,9 @@ def mark(record: dict, question: dict, corpus: dict) -> dict:
     return out
 
 
-def quoted_the_rows_rule(mark: dict, verdict: dict | None) -> bool | None:
+def quoted_the_rows_rule(
+    mark: dict[str, typing.Any], verdict: dict[str, typing.Any] | None
+) -> bool | None:
     """Set v4, item 8: Quoted means the rule the row asks for. The code checks the words,
     the page and the sentence bounds; only the judge can say it is the right rule. None
     when the row expects no rule or the judge has not ruled on it."""
@@ -136,8 +152,11 @@ def spread(values: list[int]) -> str:
 
 
 def measures(
-    records: list[dict], questions: dict[str, dict], corpus: dict, verdicts: dict
-) -> tuple[dict, dict]:
+    records: list[dict[str, typing.Any]],
+    questions: dict[str, dict[str, typing.Any]],
+    corpus: dict[str, typing.Any],
+    verdicts: dict[str, typing.Any],
+) -> tuple[dict[str, typing.Any], dict[str, typing.Any]]:
     """Every measure for one pass, and the rows that failed each."""
     per_pass: dict[str, int] = {}
     failures: dict[str, list[str]] = defaultdict(list)
@@ -185,9 +204,9 @@ def measures(
 
 def judged_measures(
     every: list[str],
-    marks: dict[str, dict],
-    questions: dict[str, dict],
-    verdicts: dict,
+    marks: dict[str, dict[str, typing.Any]],
+    questions: dict[str, dict[str, typing.Any]],
+    verdicts: dict[str, typing.Any],
     per_pass: dict[str, int],
     failures: dict[str, list[str]],
 ) -> None:
@@ -223,7 +242,9 @@ def judged_measures(
         )
 
 
-def sizes(questions: dict[str, dict], asked: set[str]) -> dict[str, int]:
+def sizes(
+    questions: dict[str, dict[str, typing.Any]], asked: set[str]
+) -> dict[str, int]:
     """How many rows each bar counts over, among the questions this run asked."""
     rows = [questions[q] for q in asked]
     singles = [q for q in rows if q["id"].startswith("G")]
@@ -239,7 +260,9 @@ def sizes(questions: dict[str, dict], asked: set[str]) -> dict[str, int]:
     }
 
 
-def bars(ranges: dict[str, list[int]], n: dict[str, int]) -> list[dict]:
+def bars(
+    ranges: dict[str, list[int]], n: dict[str, int]
+) -> list[dict[str, typing.Any]]:
     """The set's six bars. Pass only if every pass clears the bar."""
     quoted = (
         "quoted, the row's rule"
@@ -288,13 +311,15 @@ def bars(ranges: dict[str, list[int]], n: dict[str, int]) -> list[dict]:
                 "measure": measure,
                 "needs": bar,
                 "range": spread(values) if values else "not judged",
-                "passed": bool(values) and all(clears(v) for v in values),
+                "passed": values is not None and all(clears(v) for v in values),
             },
         )
     return out
 
 
-def first_turns(answers: list[dict], questions: dict[str, dict]) -> dict:
+def first_turns(
+    answers: list[dict[str, typing.Any]], questions: dict[str, dict[str, typing.Any]]
+) -> dict[str, typing.Any]:
     """Whether turn 1 of each conversation came back as the set expects.
 
     Turn 1 is not a row, so this reads it from the history a later turn was
@@ -337,10 +362,13 @@ def first_turns(answers: list[dict], questions: dict[str, dict]) -> dict:
 
 
 def tally(
-    answers: list[dict], judged: dict, questions: dict[str, dict], corpus: dict
+    answers: list[dict[str, typing.Any]],
+    judged: dict[tuple[str, int, str], typing.Any],
+    questions: dict[str, dict[str, typing.Any]],
+    corpus: dict[str, typing.Any],
 ) -> tuple[int, dict[str, list[int]], dict[str, dict[str, int]]]:
     """Passes, each measure per pass, and how many passes each row failed each measure."""
-    by_pass: dict[tuple[str, int], list[dict]] = defaultdict(list)
+    by_pass: dict[tuple[str, int], list[dict[str, typing.Any]]] = defaultdict(list)
     for record in answers:
         by_pass[(record["key"], record["run"])].append(record)
     ranges: dict[str, list[int]] = defaultdict(list)
@@ -360,8 +388,11 @@ def tally(
 
 
 def score(
-    answers: list[dict], verdicts: list[dict], questions: dict[str, dict], corpus: dict
-) -> dict:
+    answers: list[dict[str, typing.Any]],
+    verdicts: list[dict[str, typing.Any]],
+    questions: dict[str, dict[str, typing.Any]],
+    corpus: dict[str, typing.Any],
+) -> dict[str, typing.Any]:
     """The report for one run: every measure as a range, the six bars, the failing rows,
     and the rows beside the bars. `corpus` maps URL to page body."""
     judged = {(j["key"], j["run"], j["question_id"]): j["marks"] for j in verdicts}

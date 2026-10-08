@@ -1,5 +1,8 @@
 import os
+import pathlib
 
+import pytest
+import pytest_mock
 from fastapi.testclient import TestClient
 
 import app.main as main_mod
@@ -9,7 +12,7 @@ from .main import app
 client = TestClient(app)
 
 
-def test_lifespan(mocker):
+def test_lifespan(mocker: pytest_mock.MockerFixture) -> None:
     mock_mongo_client = mocker.AsyncMock()
     mock_get_mongo = mocker.patch(
         "app.main.get_mongo_client", return_value=mock_mongo_client
@@ -22,18 +25,20 @@ def test_lifespan(mocker):
     mock_mongo_client.close.assert_awaited_once()  # Shutdown: close called
 
 
-def test_health():
+def test_health() -> None:
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
 
-def test_root():
+def test_root() -> None:
     response = client.get("/")
     assert response.status_code == 404
 
 
-def test_main_sets_proxy_envs(mocker, monkeypatch):
+def test_main_sets_proxy_envs(
+    mocker: pytest_mock.MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     mocker.patch("app.main.uvicorn.run")
 
     monkeypatch.delenv("HTTP_PROXY", raising=False)
@@ -51,7 +56,9 @@ def test_main_sets_proxy_envs(mocker, monkeypatch):
     assert os.environ.get("HTTPS_PROXY") == "http://proxy:8080"
 
 
-def test_main_no_proxy_in_config(mocker, monkeypatch):
+def test_main_no_proxy_in_config(
+    mocker: pytest_mock.MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     mocker.patch("app.main.uvicorn.run")
 
     monkeypatch.delenv("HTTP_PROXY", raising=False)
@@ -69,7 +76,11 @@ def test_main_no_proxy_in_config(mocker, monkeypatch):
     assert os.environ.get("HTTPS_PROXY") is None
 
 
-def test_log_content_names_the_ref_and_page_count(tmp_path, monkeypatch, caplog):
+def test_log_content_names_the_ref_and_page_count(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     (tmp_path / "ai-toolkit.md").write_text("---\ntitle: AI toolkit\n---\nHome\n")
     (tmp_path / "REF").write_text("caefc03\n")
     monkeypatch.setattr(main_mod.config, "content_dir", str(tmp_path))
@@ -80,7 +91,11 @@ def test_log_content_names_the_ref_and_page_count(tmp_path, monkeypatch, caplog)
     assert f"toolkit content dir={tmp_path} ref=caefc03 pages=1" in caplog.text
 
 
-def test_log_content_says_mounted_without_a_ref(tmp_path, monkeypatch, caplog):
+def test_log_content_says_mounted_without_a_ref(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     monkeypatch.setattr(main_mod.config, "content_dir", str(tmp_path))
 
     with caplog.at_level("INFO", logger="app.main"):

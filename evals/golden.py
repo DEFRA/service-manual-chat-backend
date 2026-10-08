@@ -17,8 +17,9 @@ its status is checked, beside the bars.
 import hashlib
 import json
 import re
+import typing
 
-from evals.setup import EVALS
+from evals.setup import EVALS, content, prepare
 
 GOLDEN_MD = EVALS / "golden-set.md"
 GOLDEN_JSON = EVALS / "golden-set.json"
@@ -77,7 +78,9 @@ def version(markdown: str) -> str:
     return match.group(1)
 
 
-def single(row: list[str], section: str, titles: dict[str, str]) -> dict:
+def single(
+    row: list[str], section: str, titles: dict[str, str]
+) -> dict[str, typing.Any]:
     number = int(row[0])
     status, reasons, quoted = parse_status(row[2])
     question = {
@@ -122,7 +125,9 @@ def turn_statuses(name: str, cell: str, turns: int) -> list[list[str]]:
     raise SystemExit(message)
 
 
-def conversation(row: list[str], singles: dict[int, str]) -> list[dict]:
+def conversation(
+    row: list[str], singles: dict[int, str]
+) -> list[dict[str, typing.Any]]:
     """A row for each turn after the first, with the questions before it."""
     name, first, then, expected = row[:4]
     if C15_LAST in first:
@@ -156,7 +161,7 @@ def conversation(row: list[str], singles: dict[int, str]) -> list[dict]:
     ]
 
 
-def parse(markdown: str, titles: dict[str, str]) -> dict:
+def parse(markdown: str, titles: dict[str, str]) -> dict[str, typing.Any]:
     questions, section = [], ""
     singles: dict[int, str] = {}
     for line in markdown.splitlines():
@@ -179,13 +184,12 @@ def parse(markdown: str, titles: dict[str, str]) -> dict:
     }
 
 
-def load() -> dict:
-    return json.loads(GOLDEN_JSON.read_text(encoding="utf-8"))
+def load() -> dict[str, typing.Any]:
+    data: dict[str, typing.Any] = json.loads(GOLDEN_JSON.read_text(encoding="utf-8"))
+    return data
 
 
 def main() -> None:
-    from evals.setup import content, prepare
-
     content_dir, _ = content()
     prepare(content_dir, needs_bedrock=False)
     from app.ask.corpus import load_corpus

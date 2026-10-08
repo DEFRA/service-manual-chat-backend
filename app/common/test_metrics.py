@@ -1,7 +1,9 @@
+import pytest_mock
+
 from app.common.metrics import counter
 
 
-def test_counter_success(mocker):
+def test_counter_success(mocker: pytest_mock.MockerFixture) -> None:
     mock_put_metric = mocker.patch("app.common.metrics.__put_metric")
 
     counter("test_metric", 123)
@@ -9,7 +11,7 @@ def test_counter_success(mocker):
     mock_put_metric.assert_called_once_with("test_metric", 123, "Count")
 
 
-def test_counter_handles_exception(mocker):
+def test_counter_handles_exception(mocker: pytest_mock.MockerFixture) -> None:
     mocker.patch("app.common.metrics.__put_metric", side_effect=Exception("Test Error"))
     mock_logger = mocker.patch("app.common.metrics.logger")
 

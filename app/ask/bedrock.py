@@ -8,6 +8,7 @@ output shape changes between the two.
 
 import asyncio
 import json
+import typing
 from datetime import UTC, datetime
 from functools import lru_cache
 from logging import getLogger
@@ -63,8 +64,8 @@ def instructions() -> str:
     # service runs. The corpus is small enough to reload too. Nothing that
     # changes per request belongs in here: the cache key is this exact text.
     prompt = Path(config.system_prompt_path).read_text(encoding="utf-8")
-    corpus = load_corpus(Path(config.content_dir))
-    return f"{prompt}\n\n# The toolkit pages\n\n{as_context(corpus)}"
+    loaded_corpus = load_corpus(Path(config.content_dir))
+    return f"{prompt}\n\n# The toolkit pages\n\n{as_context(loaded_corpus)}"
 
 
 ASK_DAILY_USAGE_COLLECTION = "ask_daily_usage"
@@ -73,7 +74,7 @@ ASK_DAILY_USAGE_COLLECTION = "ask_daily_usage"
 class CeilingReachedError(Exception):
     """The day's ceiling on Bedrock requests has been reached."""
 
-    def __init__(self, count: int):
+    def __init__(self, count: int) -> None:
         super().__init__(f"ask daily ceiling reached at {count}")
         self.count = count
 
@@ -100,6 +101,7 @@ async def _increment_daily_usage() -> int:
     # waiting on this before the service answers at all.
     async def _update() -> int:
         client = await get_mongo_client()
+
         db = get_db(client)
         doc = await db[ASK_DAILY_USAGE_COLLECTION].find_one_and_update(
             {"_id": _today()},
@@ -107,7 +109,12 @@ async def _increment_daily_usage() -> int:
             upsert=True,
             return_document=ReturnDocument.AFTER,
         )
-        return doc["attempts"]
+
+        if doc is None:
+            msg = "the daily usage counter was not returned"
+            raise DailyUsageUnavailableError(msg)
+
+        return int(doc["attempts"])
 
     try:
         return await asyncio.wait_for(_update(), timeout=_DAILY_USAGE_TIMEOUT_SECONDS)
@@ -196,7 +203,7 @@ class BlockedError(Exception):
         finish_reason: str,
         stop_reason: str | None,
         filters: tuple[str, ...] = (),
-    ):
+    ) -> None:
         super().__init__(f"blocked {finish_reason} stop_reason={stop_reason}")
         self.finish_reason = finish_reason
         self.stop_reason = stop_reason
@@ -298,8 +305,8 @@ def user_prompt(question: str, history: list[Turn]) -> str:
     return f"{preamble}\n\n{json.dumps(conversation, ensure_ascii=False, indent=2)}"
 
 
-def as_turn(turn: Turn) -> dict:
-    fields: dict = {"reader_asked": turn.question}
+def as_turn(turn: Turn) -> dict[str, typing.Any]:
+    fields: dict[str, typing.Any] = {"reader_asked": turn.question}
     if turn.message:
         fields["you_answered"] = turn.message
     fields["status"] = turn.status
@@ -412,7 +419,10 @@ async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
         # an output that never validated. The reader gets the error outcome
         # with their question kept; the cause goes to the logs, never the
         # question.
-        logger.exception("bedrock gave no answer model=%s", config.bedrock_model_id)
+        logger.exception(
+            "bedrock gave no answer model=%s",
+            config.bedrock_model_id,
+        )
         return ERROR_ANSWER
     usage = result.usage
     # The status is the model's own choice, `blocked` included: that is the
@@ -432,4 +442,7 @@ async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
     # the wire contract's, so this always validates.
     answer = Answer.model_validate(result.output.model_dump())
     answer = same_options_for_the_rules(question, history, answer)
-    return verify(answer, load_corpus(Path(config.content_dir)))
+    return verify(
+        answer,
+        load_corpus(Path(config.content_dir)),
+    )

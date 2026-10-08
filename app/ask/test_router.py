@@ -1,3 +1,5 @@
+import typing
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -10,7 +12,7 @@ client = TestClient(app)
 TURN = {"question": "Copilot?", "status": "answered", "message": "m"}
 
 
-def test_ask_returns_the_wire_shape():
+def test_ask_returns_the_wire_shape() -> None:
     response = client.post("/ask", json={"question": "Can I use Copilot?"})
 
     assert response.status_code == 200
@@ -26,7 +28,7 @@ def test_ask_returns_the_wire_shape():
     }
 
 
-def test_ask_answers_a_follow_up_against_the_history():
+def test_ask_answers_a_follow_up_against_the_history() -> None:
     response = client.post(
         "/ask",
         json={
@@ -42,7 +44,7 @@ def test_ask_answers_a_follow_up_against_the_history():
     assert response.json()["message"].startswith('Still on "Copilot?": ')
 
 
-def test_ask_still_takes_the_previous_question_alone():
+def test_ask_still_takes_the_previous_question_alone() -> None:
     # What the front end sends until it sends history. Remove with the field.
     response = client.post(
         "/ask",
@@ -53,7 +55,7 @@ def test_ask_still_takes_the_previous_question_alone():
     assert response.json()["message"].startswith('Still on "Copilot?": ')
 
 
-def test_history_wins_over_the_previous_question():
+def test_history_wins_over_the_previous_question() -> None:
     response = client.post(
         "/ask",
         json={
@@ -66,7 +68,9 @@ def test_history_wins_over_the_previous_question():
     assert response.json()["message"].startswith('Still on "Copilot?": ')
 
 
-def test_ask_logs_the_number_of_history_turns_and_not_the_words(caplog):
+def test_ask_logs_the_number_of_history_turns_and_not_the_words(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     caplog.set_level("INFO", logger="app.ask.router")
     client.post(
         "/ask",
@@ -81,7 +85,7 @@ def test_ask_logs_the_number_of_history_turns_and_not_the_words(caplog):
     assert "agents" not in caplog.text
 
 
-def test_ask_can_return_each_of_the_other_outcomes():
+def test_ask_can_return_each_of_the_other_outcomes() -> None:
     for question, status in [
         ("help me", "need_more_detail"),
         ("parking", "cannot_answer"),
@@ -94,7 +98,7 @@ def test_ask_can_return_each_of_the_other_outcomes():
         )
 
 
-def test_ask_without_a_rule_sends_null_not_missing():
+def test_ask_without_a_rule_sends_null_not_missing() -> None:
     response = client.post("/ask", json={"question": "which tool"})
 
     assert response.json()["rule_verbatim"] is None
@@ -116,15 +120,15 @@ def test_ask_without_a_rule_sends_null_not_missing():
         {"question": "q", "history": [{**TURN, "options": ["o"] * 5}]},
     ],
 )
-def test_ask_rejects_a_bad_request(body):
+def test_ask_rejects_a_bad_request(body: dict[str, typing.Any]) -> None:
     assert client.post("/ask", json=body).status_code == 422
 
 
-def test_get_engine_defaults_to_stub():
+def test_get_engine_defaults_to_stub() -> None:
     assert get_engine() is stub_engine
 
 
-def test_get_engine_selects_bedrock(monkeypatch):
+def test_get_engine_selects_bedrock(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(engine_mod.config, "ask_engine", "bedrock")
 
     from app.ask.bedrock import bedrock_engine
