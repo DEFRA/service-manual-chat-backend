@@ -180,3 +180,4 @@ testpaths = ["tests"]
 addopts = "--strict-markers --import-mode=importlib"
 asyncio_mode = "auto"
 pythonpath = ["."]
+consider_namespace_packages = true
