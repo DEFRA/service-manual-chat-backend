@@ -9,9 +9,9 @@ def test_extra_fields_filter_with_all_context(
     mocker: pytest_mock.MockerFixture,
 ) -> None:
     # Mock the context variables
-    mock_trace_id = mocker.patch("app.common.log_utils.ctx_trace_id")
-    mock_request = mocker.patch("app.common.log_utils.ctx_request")
-    mock_response = mocker.patch("app.common.log_utils.ctx_response")
+    mock_trace_id = mocker.patch("app.common.tracing.ctx_trace_id")
+    mock_request = mocker.patch("app.common.tracing.ctx_request")
+    mock_response = mocker.patch("app.common.tracing.ctx_response")
 
     # Set context values
     mock_trace_id.get.return_value = "test-trace-id"
@@ -45,9 +45,9 @@ def test_extra_fields_filter_with_all_context(
 
 def test_extra_fields_filter_with_no_context(mocker: pytest_mock.MockerFixture) -> None:
     # Mock the context variables to return None/empty
-    mock_trace_id = mocker.patch("app.common.log_utils.ctx_trace_id")
-    mock_request = mocker.patch("app.common.log_utils.ctx_request")
-    mock_response = mocker.patch("app.common.log_utils.ctx_response")
+    mock_trace_id = mocker.patch("app.common.tracing.ctx_trace_id")
+    mock_request = mocker.patch("app.common.tracing.ctx_request")
+    mock_response = mocker.patch("app.common.tracing.ctx_response")
 
     mock_trace_id.get.return_value = None
     mock_request.get.return_value = None

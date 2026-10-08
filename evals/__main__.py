@@ -12,11 +12,10 @@ import argparse
 import asyncio
 import datetime
 import json
+import pathlib
 import typing
-from pathlib import Path
 
 from evals import golden, runs, setup
-from evals.setup import EVALS, REPO, content, prepare, prompt_version
 
 DEFAULT_CEILING = 30_000_000
 TOKEN_KINDS = (
@@ -42,7 +41,7 @@ def pounds(tokens: dict[str, typing.Any], model_id: str) -> float | None:
     """What those tokens cost at the dated London prices. Input tokens include cache reads
     and writes, so those are taken out and priced at their own rates."""
     prices: dict[str, typing.Any] = json.loads(
-        (EVALS / "prices.json").read_text(encoding="utf-8")
+        (setup.EVALS / "prices.json").read_text(encoding="utf-8")
     )
     price = prices["models"].get(model_id)
     if not price or not tokens:
@@ -58,7 +57,7 @@ def pounds(tokens: dict[str, typing.Any], model_id: str) -> float | None:
 
 
 def rescore(
-    run: Path, set_path: Path | None, content_dir: Path | None
+    run: pathlib.Path, set_path: pathlib.Path | None, content_dir: pathlib.Path | None
 ) -> dict[str, typing.Any]:
     meta = runs.read_meta(run)
     set_data = (
@@ -73,29 +72,29 @@ def rescore(
     if local and not content_dir:
         message = f"This run answered from a local checkout ({meta['content_ref']}). Pass --content-dir."
         raise SystemExit(message)
-    pages, _ = content(content_dir, None if local else meta["content_ref"])
-    prepare(pages, needs_bedrock=False)
-    from app.ask.corpus import load_corpus
-    from evals.score import score
-    from evals.writing import counts
+    pages, _ = setup.content(content_dir, None if local else meta["content_ref"])
+    setup.prepare(pages, needs_bedrock=False)
+    from app.ask import corpus as app_corpus
+    from evals import score as scoring
+    from evals import writing
 
-    corpus = {url: page.body for url, page in load_corpus(pages).items()}
+    corpus = {url: page.body for url, page in app_corpus.load_corpus(pages).items()}
     questions = {q["id"]: q for q in set_data["questions"]}
     answers = runs.read_answers(run)
-    report = score(answers, runs.read_verdicts(run), questions, corpus)
-    report["writing"] = counts(answers)
+    report = scoring.score(answers, runs.read_verdicts(run), questions, corpus)
+    report["writing"] = writing.counts(answers)
     (run / runs.REPORT).write_text(
         json.dumps(report, indent=2) + "\n", encoding="utf-8"
     )
     return report
 
 
-def show(run: Path, report: dict[str, typing.Any]) -> None:
+def show(run: pathlib.Path, report: dict[str, typing.Any]) -> None:
     meta = runs.read_meta(run)
     answer_cost = pounds(meta.get("answer_tokens", {}), meta["model_id"])
     judge_cost = pounds(meta.get("judge_tokens", {}), meta.get("judge", ""))
     lines = [
-        f"Run            {run.relative_to(REPO)}",
+        f"Run            {run.relative_to(setup.REPO)}",
         f"Date           {meta['date']}",
         f"Label          {meta.get('label') or '-'}",
         f"Golden set     {meta['golden_set']}",
@@ -176,14 +175,16 @@ def failing(failures: dict[str, dict[str, int]]) -> list[str]:
     return lines
 
 
-async def run_all(args: argparse.Namespace) -> Path:
+async def run_all(args: argparse.Namespace) -> pathlib.Path:
     set_data = golden.load()
     questions = pick_questions(set_data, args.questions)
-    pages, ref = content(args.content_dir)
-    prepare(pages, needs_bedrock=True)
-    from app.config import config
-    from evals.answer import answer
-    from evals.judge import JUDGE_MODEL_ID, judge
+    pages, ref = setup.content(args.content_dir)
+    setup.prepare(pages, needs_bedrock=True)
+    from app import config as app_config
+    from evals import answer as answering
+    from evals import judge as judging
+
+    config = app_config.config
 
     run = runs.new_run(args.label)
     runs.write_meta(
@@ -193,7 +194,7 @@ async def run_all(args: argparse.Namespace) -> Path:
         golden_set=set_data["version"],
         golden_set_sha=set_data["source_sha"],
         questions=args.questions or "all",
-        prompt=prompt_version(),
+        prompt=setup.prompt_version(),
         content_ref=ref,
         model_id=config.bedrock_model_id,
         passes=args.passes,
@@ -201,13 +202,13 @@ async def run_all(args: argparse.Namespace) -> Path:
     )
     budget = runs.Budget(args.max_tokens)
     print(
-        f"{len(questions)} questions x {args.passes} passes on {config.bedrock_model_id}, into {run.relative_to(REPO)}"
+        f"{len(questions)} questions x {args.passes} passes on {config.bedrock_model_id}, into {run.relative_to(setup.REPO)}"
     )
-    runs.write_meta(run, **await answer(run, questions, args.passes, budget))
+    runs.write_meta(run, **await answering.answer(run, questions, args.passes, budget))
     if not args.no_judge:
-        print(f"Judging with {JUDGE_MODEL_ID}")
+        print(f"Judging with {judging.JUDGE_MODEL_ID}")
         by_id = {q["id"]: q for q in set_data["questions"]}
-        summary = await judge(run, by_id, budget)
+        summary = await judging.judge(run, by_id, budget)
         runs.write_meta(run, **summary)
     runs.write_meta(run, stopped_at_ceiling=budget.exhausted, tokens_spent=budget.spent)
     return run
@@ -215,12 +216,12 @@ async def run_all(args: argparse.Namespace) -> Path:
 
 async def judge_again(args: argparse.Namespace) -> None:
     meta = runs.read_meta(args.run)
-    pages, _ = content(
+    pages, _ = setup.content(
         args.content_dir,
         None if meta["content_ref"].startswith("local") else meta["content_ref"],
     )
-    prepare(pages, needs_bedrock=True)
-    from evals.judge import judge
+    setup.prepare(pages, needs_bedrock=True)
+    from evals import judge as judging
 
     set_data = golden.load()
     ids = (
@@ -228,7 +229,7 @@ async def judge_again(args: argparse.Namespace) -> None:
         if args.questions
         else None
     )
-    summary = await judge(
+    summary = await judging.judge(
         args.run,
         {q["id"]: q for q in set_data["questions"]},
         runs.Budget(args.max_tokens),
@@ -270,7 +271,7 @@ def import_run(args: argparse.Namespace) -> None:
         else "not judged",
         imported_from=args.jsonl.name,
     )
-    print(f"Imported {len(records)} answers into {run.relative_to(REPO)}")
+    print(f"Imported {len(records)} answers into {run.relative_to(setup.REPO)}")
 
 
 def run_command(args: argparse.Namespace) -> None:
@@ -312,8 +313,8 @@ def agree(args: argparse.Namespace) -> None:
                 print(f"    {qid} pass {run}: " + "".join("P" if x else "F" for x in v))
 
 
-def resolved(value: str) -> Path:
-    return Path(value).resolve()
+def resolved(value: str) -> pathlib.Path:
+    return pathlib.Path(value).resolve()
 
 
 def parser() -> argparse.ArgumentParser:

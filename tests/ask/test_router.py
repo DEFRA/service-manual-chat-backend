@@ -3,7 +3,7 @@ import typing
 import pytest
 from fastapi.testclient import TestClient
 
-from app.ask import engine as engine_mod
+from app import config as app_config
 from app.ask.engine import get_engine, stub_engine
 from app.ask.schemas import MAX_HISTORY_TURNS, MAX_MESSAGE_LENGTH, MAX_QUESTION_LENGTH
 from app.main import app
@@ -129,7 +129,7 @@ def test_get_engine_defaults_to_stub() -> None:
 
 
 def test_get_engine_selects_bedrock(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(engine_mod.config, "ask_engine", "bedrock")
+    monkeypatch.setattr(app_config.config, "ask_engine", "bedrock")
 
     from app.ask.bedrock import bedrock_engine
 

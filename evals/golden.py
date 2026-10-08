@@ -19,10 +19,10 @@ import json
 import re
 import typing
 
-from evals.setup import EVALS, content, prepare
+from evals import setup
 
-GOLDEN_MD = EVALS / "golden-set.md"
-GOLDEN_JSON = EVALS / "golden-set.json"
+GOLDEN_MD = setup.EVALS / "golden-set.md"
+GOLDEN_JSON = setup.EVALS / "golden-set.json"
 
 STATUSES = (
     "answered",
@@ -190,11 +190,11 @@ def load() -> dict[str, typing.Any]:
 
 
 def main() -> None:
-    content_dir, _ = content()
-    prepare(content_dir, needs_bedrock=False)
-    from app.ask.corpus import load_corpus
+    content_dir, _ = setup.content()
+    setup.prepare(content_dir, needs_bedrock=False)
+    from app.ask import corpus
 
-    titles = {page.title: url for url, page in load_corpus(content_dir).items()}
+    titles = {page.title: url for url, page in corpus.load_corpus(content_dir).items()}
     data = parse(GOLDEN_MD.read_text(encoding="utf-8"), titles)
     GOLDEN_JSON.write_text(
         json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"

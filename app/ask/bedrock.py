@@ -7,34 +7,33 @@ output shape changes between the two.
 """
 
 import asyncio
+import datetime
+import functools
 import json
+import logging
 import typing
-from datetime import UTC, datetime
-from functools import lru_cache
-from logging import getLogger
 from pathlib import Path
 
 import boto3
-from botocore.config import Config
-from pydantic_ai import Agent
-from pydantic_ai.messages import ModelMessage, ModelResponse
-from pydantic_ai.models import ModelRequestParameters
-from pydantic_ai.models.bedrock import BedrockConverseModel, BedrockModelSettings
-from pydantic_ai.models.wrapper import WrapperModel
-from pydantic_ai.providers.bedrock import BedrockProvider
-from pydantic_ai.settings import ModelSettings
-from pymongo import ReturnDocument
+import botocore.config
+import pydantic_ai
+import pymongo
+from pydantic_ai import messages as pydantic_ai_messages
+from pydantic_ai import models as pydantic_ai_models
+from pydantic_ai import settings as pydantic_ai_settings
+from pydantic_ai.models import bedrock as pydantic_ai_bedrock
+from pydantic_ai.models import wrapper as pydantic_ai_wrapper
+from pydantic_ai.providers import bedrock as pydantic_ai_bedrock_provider
 
-from app.ask.corpus import as_context, load_corpus, verify
-from app.ask.schemas import Answer, ModelAnswer, Turn
-from app.common.mongo import get_db, get_mongo_client
-from app.config import config
+from app import config as app_config
+from app.ask import corpus, schemas
+from app.common import mongo
 
-logger = getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def models_without_prompt_caching() -> list[str]:
-    names = config.bedrock_models_without_prompt_caching.split(",")
+    names = app_config.config.bedrock_models_without_prompt_caching.split(",")
     return [name.strip() for name in names if name.strip()]
 
 
@@ -42,18 +41,20 @@ def caches_instructions(model_id: str) -> bool:
     return not any(name in model_id for name in models_without_prompt_caching())
 
 
-def model_settings() -> BedrockModelSettings:
-    settings = BedrockModelSettings(
+def model_settings() -> pydantic_ai_bedrock.BedrockModelSettings:
+    settings = pydantic_ai_bedrock.BedrockModelSettings(
         # The instructions carry the whole toolkit, so cache them across calls.
         # Bedrock keeps the cache for 5 minutes; a read costs a tenth of a
         # fresh input token.
-        bedrock_cache_instructions=caches_instructions(config.bedrock_model_id),
+        bedrock_cache_instructions=caches_instructions(
+            app_config.config.bedrock_model_id
+        ),
         max_tokens=1000,
     )
-    if config.bedrock_guardrail_id:
+    if app_config.config.bedrock_guardrail_id:
         settings["bedrock_guardrail_config"] = {
-            "guardrailIdentifier": config.bedrock_guardrail_id,
-            "guardrailVersion": config.bedrock_guardrail_version or "DRAFT",
+            "guardrailIdentifier": app_config.config.bedrock_guardrail_id,
+            "guardrailVersion": app_config.config.bedrock_guardrail_version or "DRAFT",
             "trace": "enabled",
         }
     return settings
@@ -63,9 +64,9 @@ def instructions() -> str:
     # Read on every question so the prompt file can be edited while the
     # service runs. The corpus is small enough to reload too. Nothing that
     # changes per request belongs in here: the cache key is this exact text.
-    prompt = Path(config.system_prompt_path).read_text(encoding="utf-8")
-    loaded_corpus = load_corpus(Path(config.content_dir))
-    return f"{prompt}\n\n# The toolkit pages\n\n{as_context(loaded_corpus)}"
+    prompt = Path(app_config.config.system_prompt_path).read_text(encoding="utf-8")
+    loaded_corpus = corpus.load_corpus(Path(app_config.config.content_dir))
+    return f"{prompt}\n\n# The toolkit pages\n\n{corpus.as_context(loaded_corpus)}"
 
 
 ASK_DAILY_USAGE_COLLECTION = "ask_daily_usage"
@@ -84,7 +85,7 @@ class DailyUsageUnavailableError(Exception):
 
 
 def _today() -> str:
-    return datetime.now(UTC).strftime("%Y-%m-%d")
+    return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
 
 
 _DAILY_USAGE_TIMEOUT_SECONDS = 3
@@ -100,14 +101,14 @@ async def _increment_daily_usage() -> int:
     # that nor pymongo's own ~30s default on the update: the reader is
     # waiting on this before the service answers at all.
     async def _update() -> int:
-        client = await get_mongo_client()
+        client = await mongo.get_mongo_client()
 
-        db = get_db(client)
+        db = mongo.get_db(client)
         doc = await db[ASK_DAILY_USAGE_COLLECTION].find_one_and_update(
             {"_id": _today()},
             {"$inc": {"attempts": 1}},
             upsert=True,
-            return_document=ReturnDocument.AFTER,
+            return_document=pymongo.ReturnDocument.AFTER,
         )
 
         if doc is None:
@@ -123,7 +124,7 @@ async def _increment_daily_usage() -> int:
         raise DailyUsageUnavailableError(msg) from error
 
 
-class CountingModel(WrapperModel):
+class CountingModel(pydantic_ai_wrapper.WrapperModel):
     """Counts every request against the day's ceiling before it reaches Bedrock.
 
     Only ever built inside `bedrock_engine`, the /ask path. Never wrap
@@ -133,12 +134,12 @@ class CountingModel(WrapperModel):
 
     async def request(
         self,
-        messages: list[ModelMessage],
-        model_settings: ModelSettings | None,
-        model_request_parameters: ModelRequestParameters,
-    ) -> ModelResponse:
+        messages: list[pydantic_ai_messages.ModelMessage],
+        model_settings: pydantic_ai_settings.ModelSettings | None,
+        model_request_parameters: pydantic_ai_models.ModelRequestParameters,
+    ) -> pydantic_ai_messages.ModelResponse:
         count = await _increment_daily_usage()
-        if count > config.ask_daily_ceiling:
+        if count > app_config.config.ask_daily_ceiling:
             raise CeilingReachedError(count)
         return await super().request(messages, model_settings, model_request_parameters)
 
@@ -210,7 +211,7 @@ class BlockedError(Exception):
         self.filters = filters
 
 
-class StopsAtABlock(WrapperModel):
+class StopsAtABlock(pydantic_ai_wrapper.WrapperModel):
     """Ends the run when a reply was blocked, in place of asking again.
 
     A guardrail's block comes back as its own fixed text. Pydantic AI reads
@@ -223,10 +224,10 @@ class StopsAtABlock(WrapperModel):
 
     async def request(
         self,
-        messages: list[ModelMessage],
-        model_settings: ModelSettings | None,
-        model_request_parameters: ModelRequestParameters,
-    ) -> ModelResponse:
+        messages: list[pydantic_ai_messages.ModelMessage],
+        model_settings: pydantic_ai_settings.ModelSettings | None,
+        model_request_parameters: pydantic_ai_models.ModelRequestParameters,
+    ) -> pydantic_ai_messages.ModelResponse:
         response = await super().request(
             messages, model_settings, model_request_parameters
         )
@@ -242,35 +243,37 @@ class StopsAtABlock(WrapperModel):
         return response
 
 
-@lru_cache(maxsize=2)
-def agent_for(instructions_text: str) -> Agent[None, ModelAnswer]:
+@functools.lru_cache(maxsize=2)
+def agent_for(instructions_text: str) -> pydantic_ai.Agent[None, schemas.ModelAnswer]:
     client = boto3.client(
         "bedrock-runtime",
-        region_name=config.bedrock_region,
-        config=Config(retries={"total_max_attempts": 1}),
+        region_name=app_config.config.bedrock_region,
+        config=botocore.config.Config(retries={"total_max_attempts": 1}),
     )
     # The instructions go in as a string, not a function. Pydantic AI only
     # places the Bedrock cache point after static instructions, so a function
     # here means no cache point and every question paying full price. One
     # agent per distinct text: editing the prompt builds a new one.
     model = StopsAtABlock(
-        BedrockConverseModel(
-            config.bedrock_model_id,
-            provider=BedrockProvider(bedrock_client=client),
+        pydantic_ai_bedrock.BedrockConverseModel(
+            app_config.config.bedrock_model_id,
+            provider=pydantic_ai_bedrock_provider.BedrockProvider(
+                bedrock_client=client
+            ),
         )
     )
-    return Agent(
+    return pydantic_ai.Agent(
         model,
         # ModelAnswer, not Answer: the model is never offered daily_limit,
         # the one reason only the engine sets. See the note in schemas.py.
-        output_type=ModelAnswer,
+        output_type=schemas.ModelAnswer,
         instructions=instructions_text,
         model_settings=model_settings(),
         retries=1,
     )
 
 
-def agent() -> Agent[None, ModelAnswer]:
+def agent() -> pydantic_ai.Agent[None, schemas.ModelAnswer]:
     return agent_for(instructions())
 
 
@@ -283,7 +286,7 @@ REPLY_TO_OPTIONS = (
 )
 
 
-def user_prompt(question: str, history: list[Turn]) -> str:
+def user_prompt(question: str, history: list[schemas.Turn]) -> str:
     # The history goes here, in the user message, not in the instructions: the
     # instructions are the cache key and must not change per request.
     # Blocked turns are dropped so a refused injection is not replayed. The
@@ -305,7 +308,7 @@ def user_prompt(question: str, history: list[Turn]) -> str:
     return f"{preamble}\n\n{json.dumps(conversation, ensure_ascii=False, indent=2)}"
 
 
-def as_turn(turn: Turn) -> dict[str, typing.Any]:
+def as_turn(turn: schemas.Turn) -> dict[str, typing.Any]:
     fields: dict[str, typing.Any] = {"reader_asked": turn.question}
     if turn.message:
         fields["you_answered"] = turn.message
@@ -336,8 +339,8 @@ def _plain(question: str) -> str:
     return " ".join(words)
 
 
-def same_options_for_the_rules[AnswerT: (Answer, ModelAnswer)](
-    question: str, history: list[Turn], answer: AnswerT
+def same_options_for_the_rules[AnswerT: (schemas.Answer, schemas.ModelAnswer)](
+    question: str, history: list[schemas.Turn], answer: AnswerT
 ) -> AnswerT:
     """Offer the same four areas whenever a first question asks for the rules.
 
@@ -352,13 +355,13 @@ def same_options_for_the_rules[AnswerT: (Answer, ModelAnswer)](
     return answer.model_copy(update={"options": list(THE_RULES)})
 
 
-ERROR_ANSWER = Answer(
+ERROR_ANSWER = schemas.Answer(
     status="error",
     message="The toolkit could not answer just now. Try again in a minute.",
 )
 
 
-CEILING_ANSWER = Answer(
+CEILING_ANSWER = schemas.Answer(
     status="error",
     message="The toolkit has reached today's limit. Try again tomorrow.",
     reason="daily_limit",
@@ -367,13 +370,13 @@ CEILING_ANSWER = Answer(
 
 # The reader does not see this message: the front end has its own words for
 # a blocked question. Nothing from the guardrail's reply goes in it.
-BLOCKED_ANSWER = Answer(
+BLOCKED_ANSWER = schemas.Answer(
     status="blocked",
     message="This question cannot be answered here.",
 )
 
 
-async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
+async def bedrock_engine(question: str, history: list[schemas.Turn]) -> schemas.Answer:
     the_agent = agent()
     try:
         # PRIVATE API: _get_model_outside_run() is not part of pydantic-ai's
@@ -393,7 +396,7 @@ async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
         logger.warning(
             "ask daily ceiling reached count=%d ceiling=%d",
             ceiling.count,
-            config.ask_daily_ceiling,
+            app_config.config.ask_daily_ceiling,
         )
         return CEILING_ANSWER
     except DailyUsageUnavailableError:
@@ -408,7 +411,7 @@ async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
         logger.warning(
             "bedrock blocked the question model=%s finish_reason=%s "
             "stop_reason=%s filters=%s",
-            config.bedrock_model_id,
+            app_config.config.bedrock_model_id,
             blocked.finish_reason,
             blocked.stop_reason,
             ",".join(blocked.filters) or "none",
@@ -421,7 +424,7 @@ async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
         # question.
         logger.exception(
             "bedrock gave no answer model=%s",
-            config.bedrock_model_id,
+            app_config.config.bedrock_model_id,
         )
         return ERROR_ANSWER
     usage = result.usage
@@ -431,7 +434,7 @@ async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
     logger.info(
         "bedrock answered model=%s status=%s input_tokens=%s output_tokens=%s "
         "cache_read_tokens=%s cache_write_tokens=%s",
-        config.bedrock_model_id,
+        app_config.config.bedrock_model_id,
         result.output.status,
         usage.input_tokens,
         usage.output_tokens,
@@ -440,9 +443,9 @@ async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
     )
     # ModelAnswer to Answer: same fields, the model's reason is a subset of
     # the wire contract's, so this always validates.
-    answer = Answer.model_validate(result.output.model_dump())
+    answer = schemas.Answer.model_validate(result.output.model_dump())
     answer = same_options_for_the_rules(question, history, answer)
-    return verify(
+    return corpus.verify(
         answer,
-        load_corpus(Path(config.content_dir)),
+        corpus.load_corpus(Path(app_config.config.content_dir)),
     )

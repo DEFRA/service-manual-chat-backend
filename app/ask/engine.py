@@ -5,26 +5,25 @@ key. `bedrock` talks to Amazon Bedrock: the sandbox with a bearer token
 locally, an inference profile and guardrail on CDP.
 """
 
-from collections.abc import Awaitable, Callable
+from collections import abc
 
-from app.ask.schemas import Answer, Turn
-from app.ask.stub import stub_answer
-from app.config import config
+from app import config as app_config
+from app.ask import schemas, stub
 
-AnswerEngine = Callable[[str, list[Turn]], Awaitable[Answer]]
+AnswerEngine = abc.Callable[[str, list[schemas.Turn]], abc.Awaitable[schemas.Answer]]
 
 
 async def stub_engine(  # NOSONAR - must be async to match the interface, but does not await anything
-    question: str, history: list[Turn]
-) -> Answer:
+    question: str, history: list[schemas.Turn]
+) -> schemas.Answer:
     # Nothing to await, but an engine is awaitable so the router need not care.
-    return stub_answer(question, history)
+    return stub.stub_answer(question, history)
 
 
 def get_engine() -> AnswerEngine:
-    if config.ask_engine == "bedrock":
+    if app_config.config.ask_engine == "bedrock":
         # Imported here so the stub needs neither boto3 nor a region to run.
-        from app.ask.bedrock import bedrock_engine
+        from app.ask import bedrock
 
-        return bedrock_engine
+        return bedrock.bedrock_engine
     return stub_engine
