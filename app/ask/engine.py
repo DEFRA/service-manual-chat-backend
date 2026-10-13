@@ -13,9 +13,9 @@ from app.ask import schemas, stub
 AnswerEngine = Callable[[str, list[schemas.Turn]], Awaitable[schemas.Answer]]
 
 
-async def stub_engine(
+async def stub_engine(  # NOSONAR
     question: str, history: list[schemas.Turn]
-) -> schemas.Answer:  # NOSONAR
+) -> schemas.Answer:
     # Nothing to await, but an engine is awaitable so the router need not care.
     return stub.stub_answer(question, history)
 
