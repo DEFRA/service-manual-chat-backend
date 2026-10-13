@@ -12,7 +12,7 @@ the run's content ref are all on disk.
 import math
 from collections import defaultdict
 
-from evals.quotes import locate, stitched, whole_sentences
+from evals import quotes
 
 # The bars count over the first 100 questions, as the set's "What a run means" says,
 # so every run compares with the ones before it. Rows added since (v8, 101 to 103) are
@@ -42,12 +42,19 @@ def quote_marks(answer: dict, corpus: dict) -> dict:
             "stitched": False,
         }
     body = corpus.get(rule["source"]["url"])
-    span = locate(rule["text"], body) if body else None
+    if not body:
+        return {
+            "offered": True,
+            "words_right": False,
+            "selective": False,
+            "stitched": False,
+        }
+    span = quotes.locate(rule["text"], body)
     return {
         "offered": True,
         "words_right": span is not None,
-        "selective": span is not None and not whole_sentences(body, span),
-        "stitched": span is not None and stitched(body, span),
+        "selective": span is not None and not quotes.whole_sentences(body, span),
+        "stitched": span is not None and quotes.stitched(body, span),
     }
 
 
@@ -288,7 +295,7 @@ def bars(ranges: dict[str, list[int]], n: dict[str, int]) -> list[dict]:
                 "measure": measure,
                 "needs": bar,
                 "range": spread(values) if values else "not judged",
-                "passed": bool(values) and all(clears(v) for v in values),
+                "passed": values is not None and all(clears(v) for v in values),
             },
         )
     return out

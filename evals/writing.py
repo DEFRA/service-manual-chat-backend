@@ -26,7 +26,7 @@ def unspelt(message: str) -> bool:
 
 def opens_with_abbreviation(message: str) -> bool:
     first = re.match(r"\W*(\w+)", message)
-    return bool(first) and first.group(1).rstrip("s") in ABBREVIATIONS
+    return first is not None and first.group(1).rstrip("s") in ABBREVIATIONS
 
 
 def counts(answers: list[dict]) -> dict:

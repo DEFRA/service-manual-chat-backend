@@ -14,19 +14,29 @@ end does, so a run cannot pass while the service has lost the thread
 import asyncio
 import statistics
 import time
+from collections.abc import Awaitable, Callable
+from pathlib import Path
 
-from evals.runs import Budget, write_answers
+from pydantic_ai import Agent
+
+from app.ask import corpus as corpus_module
+from app.ask import schemas
+from evals import runs
 
 CONCURRENCY = 4
 
 
-async def ask(agent, question: str, history: list, corpus) -> dict:
-    from app.ask.bedrock import same_options_for_the_rules, user_prompt
-    from app.ask.corpus import verify
+async def ask(
+    agent: Agent[None, schemas.ModelAnswer],
+    question: str,
+    history: list[schemas.Turn],
+    corpus: dict[str, corpus_module.Page],
+) -> dict:
+    from app.ask import bedrock
 
     started = time.perf_counter()
     try:
-        result = await agent.run(user_prompt(question, history))
+        result = await agent.run(bedrock.user_prompt(question, history))
     except Exception as error:  # noqa: BLE001 - every failure is a finding
         return {
             "ok": False,
@@ -34,7 +44,7 @@ async def ask(agent, question: str, history: list, corpus) -> dict:
             "error": f"{type(error).__name__}: {str(error)[:500]}",
         }
     usage = result.usage
-    shown = same_options_for_the_rules(question, history, result.output)
+    shown = bedrock.same_options_for_the_rules(question, history, result.output)
     return {
         "ok": True,
         "seconds": round(time.perf_counter() - started, 2),
@@ -44,7 +54,7 @@ async def ask(agent, question: str, history: list, corpus) -> dict:
         "cache_read_tokens": usage.cache_read_tokens,
         "output_tokens": usage.output_tokens,
         "answer": result.output.model_dump(),
-        "verified": verify(shown, corpus).model_dump(),
+        "verified": corpus_module.verify(shown, corpus).model_dump(),
         "_usage": usage,
     }
 
@@ -59,24 +69,24 @@ def units(questions: list[dict]) -> list[list[dict]]:
 
 def as_sent(seen: list) -> list:
     """The turns the front end would send: no blocked ones, and the last few."""
-    from app.ask.schemas import MAX_HISTORY_TURNS
+    return [turn for turn in seen if turn.status != "blocked"][
+        -schemas.MAX_HISTORY_TURNS :
+    ]
 
-    return [turn for turn in seen if turn.status != "blocked"][-MAX_HISTORY_TURNS:]
 
-
-def as_turn(question: str, shown: dict):
+def as_turn(question: str, shown: dict) -> schemas.Turn:
     """One exchange as the reader saw it, in the shape `/ask` takes as history."""
-    from app.ask.schemas import MAX_MESSAGE_LENGTH, Turn
-
-    return Turn(
+    return schemas.Turn(
         question=question,
         status=shown["status"],
-        message=shown["message"][:MAX_MESSAGE_LENGTH],
+        message=shown["message"][: schemas.MAX_MESSAGE_LENGTH],
         options=shown["options"],
     )
 
 
-async def ask_unit(rows: list[dict], call) -> tuple[list[dict], list[dict]]:
+async def ask_unit(
+    rows: list[dict], call: Callable[[str, list[schemas.Turn]], Awaitable[dict | None]]
+) -> tuple[list[dict], list[dict]]:
     """Ask a single question, or a conversation from its first turn.
 
     `call(question, history)` gives one record, or None once the run has
@@ -124,16 +134,15 @@ async def ask_unit(rows: list[dict], call) -> tuple[list[dict], list[dict]]:
     return records, unscored
 
 
-async def answer(run, questions: list[dict], passes: int, budget: Budget) -> dict:
+async def answer(
+    run: Path, questions: list[dict], passes: int, budget: runs.Budget
+) -> dict:
     """Ask every question `passes` times. Returns a summary for meta.json."""
-    from pathlib import Path
+    from app import config
+    from app.ask import bedrock
 
-    from app.ask.bedrock import agent
-    from app.ask.corpus import load_corpus
-    from app.config import config
-
-    corpus = load_corpus(Path(config.content_dir))
-    the_agent = agent()
+    corpus = corpus_module.load_corpus(Path(config.config.content_dir))
+    the_agent = bedrock.agent()
     limit = asyncio.Semaphore(CONCURRENCY)
     records: list[dict] = []
     stopped = False
@@ -157,7 +166,7 @@ async def answer(run, questions: list[dict], passes: int, budget: Budget) -> dic
         unscored.extend(setup)
         for record in answered:
             records.append(
-                {"key": config.bedrock_model_id, "run": pass_number, **record}
+                {"key": config.config.bedrock_model_id, "run": pass_number, **record}
             )
             mark = (
                 f"{record['seconds']}s"
@@ -183,7 +192,7 @@ async def answer(run, questions: list[dict], passes: int, budget: Budget) -> dic
         await asyncio.gather(*(one(pass_number, unit) for unit in every[start:]))
 
     records.sort(key=lambda r: (r["run"], r["question_id"]))
-    write_answers(run, records)
+    runs.write_answers(run, records)
     seconds = [r["seconds"] for r in records if r["ok"]]
     return {
         "answers": len(records),

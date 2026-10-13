@@ -58,7 +58,7 @@ fi
 # Start the application
 echo "Starting FastAPI application..."
 # --no-build is not an option: pymongo has no wheel for this Python yet.
-uv run uvicorn app.main:app --host $HOST --port $PORT --reload --log-config=$LOG_CONFIG # NOSONAR
+uv run uvicorn app.entrypoints.fastapi:app --host $HOST --port $PORT --reload --log-config=$LOG_CONFIG # NOSONAR
 
 # Cleanup function
 cleanup() {

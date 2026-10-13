@@ -9,22 +9,22 @@ cites.
 
 import re
 
-from app.ask.schemas import Answer, RuleVerbatim, Source, Turn
+from app.ask import schemas
 
-USING_DATA = Source(
+USING_DATA = schemas.Source(
     title="Using data with AI",
     url="/ai-toolkit/guidance/using-data-with-ai",
     section="What the conditions mean",
 )
 
-PERSONAL_DATA_ANSWER = Answer(
+PERSONAL_DATA_ANSWER = schemas.Answer(
     status="answered",
     message=(
         "Microsoft 365 Copilot is an enterprise tool inside the Defra tenant, so "
         "Defra's data boundary applies. That is not the same as clearance to use "
         "personal data in it."
     ),
-    rule_verbatim=RuleVerbatim(
+    rule_verbatim=schemas.RuleVerbatim(
         text=(
             "For personal data, the DPIA route is for a service you are building "
             "to process it, not a way to paste it into an everyday tool. For "
@@ -34,14 +34,14 @@ PERSONAL_DATA_ANSWER = Answer(
     ),
     sources=[
         USING_DATA,
-        Source(
+        schemas.Source(
             title="Microsoft 365 Copilot",
             url="/ai-toolkit/tools/microsoft-365-copilot",
         ),
     ],
 )
 
-CHOOSING_A_TOOL_ANSWER = Answer(
+CHOOSING_A_TOOL_ANSWER = schemas.Answer(
     status="answered",
     message=(
         "Start from the data you will use, because your classification and the "
@@ -49,12 +49,14 @@ CHOOSING_A_TOOL_ANSWER = Answer(
         "established each tool is at Defra, not whether you are allowed to use it."
     ),
     sources=[
-        Source(title="Choosing a tool", url="/ai-toolkit/guidance/choosing-a-tool"),
-        Source(title="Find a tool", url="/ai-toolkit/tools"),
+        schemas.Source(
+            title="Choosing a tool", url="/ai-toolkit/guidance/choosing-a-tool"
+        ),
+        schemas.Source(title="Find a tool", url="/ai-toolkit/tools"),
     ],
 )
 
-GENERAL_ANSWER = Answer(
+GENERAL_ANSWER = schemas.Answer(
     status="answered",
     message=(
         "The AI digital toolkit covers choosing a tool, the data you can use with "
@@ -62,15 +64,15 @@ GENERAL_ANSWER = Answer(
         "those and the answer will link to the guidance it came from."
     ),
     sources=[
-        Source(title="AI digital toolkit", url="/ai-toolkit"),
-        Source(title="Deliver with AI", url="/ai-toolkit/deliver-with-ai"),
+        schemas.Source(title="AI digital toolkit", url="/ai-toolkit"),
+        schemas.Source(title="Deliver with AI", url="/ai-toolkit/deliver-with-ai"),
     ],
 )
 
 # The five outcomes that are not an answer, one each, so the front end can
 # build and test the screens for them. Triggered by words unlikely to appear
 # in the questions above.
-NEED_MORE_DETAIL = Answer(
+NEED_MORE_DETAIL = schemas.Answer(
     status="need_more_detail",
     message="The toolkit covers a few different things. Which is closest?",
     options=[
@@ -79,10 +81,10 @@ NEED_MORE_DETAIL = Answer(
         "Building a service that uses AI",
         "Getting support from the team",
     ],
-    sources=[Source(title="AI digital toolkit", url="/ai-toolkit")],
+    sources=[schemas.Source(title="AI digital toolkit", url="/ai-toolkit")],
 )
 
-OUTSIDE_TOOLKIT = Answer(
+OUTSIDE_TOOLKIT = schemas.Answer(
     status="cannot_answer",
     reason="outside_toolkit",
     message=(
@@ -91,17 +93,19 @@ OUTSIDE_TOOLKIT = Answer(
     ),
 )
 
-NO_GUIDANCE_YET = Answer(
+NO_GUIDANCE_YET = schemas.Answer(
     status="cannot_answer",
     reason="no_guidance_yet",
     message=(
         "The toolkit does not have guidance on buying AI products or services "
         "yet. This question has been noted as a gap."
     ),
-    sources=[Source(title="Deliver with AI", url="/ai-toolkit/deliver-with-ai")],
+    sources=[
+        schemas.Source(title="Deliver with AI", url="/ai-toolkit/deliver-with-ai")
+    ],
 )
 
-TALK_TO_A_PERSON = Answer(
+TALK_TO_A_PERSON = schemas.Answer(
     status="talk_to_a_person",
     message=(
         "Whether your own project needs a data protection impact assessment is a "
@@ -111,7 +115,7 @@ TALK_TO_A_PERSON = Answer(
     sources=[USING_DATA],
 )
 
-BLOCKED = Answer(
+BLOCKED = schemas.Answer(
     status="blocked",
     message=(
         "This service cannot help with that. It answers questions about using "
@@ -119,12 +123,12 @@ BLOCKED = Answer(
     ),
 )
 
-ERROR = Answer(
+ERROR = schemas.Answer(
     status="error",
     message="The toolkit could not answer just now. Try again in a minute.",
 )
 
-MATCHERS: list[tuple[tuple[str, ...], Answer]] = [
+MATCHERS: list[tuple[tuple[str, ...], schemas.Answer]] = [
     (("break the", "simulate an error"), ERROR),
     (("medical", "legal advice", "diagnos"), BLOCKED),
     (("my project", "my service", "do we need a dpia"), TALK_TO_A_PERSON),
@@ -170,7 +174,9 @@ def reads_as_follow_up(asked: str) -> bool:
     )
 
 
-def stub_answer(question: str, history: list[Turn] | None = None) -> Answer:
+def stub_answer(
+    question: str, history: list[schemas.Turn] | None = None
+) -> schemas.Answer:
     """Pick the stub answer for a question.
 
     Following up is the normal case, not the exception, so a question that

@@ -62,13 +62,8 @@ ignore = [
     "COM812", # missing trailing comma, conflicts with formatter
 ]
 
-# Ignore `E402` (import violations) in all `__init__.py` files
 [lint.per-file-ignores]
-"__init__.py" = ["E402", "F401"]
 "tests/**/*.py" = ["S101"]  # Allow assert in tests
-"app/**/test_*.py" = ["S101"]  # Allow assert in app test files
-"scripts/test_*.py" = ["S101"]  # Allow assert in script test files
-"evals/test_*.py" = ["S101"]  # Allow assert in evaluation test files
 
 # Enable auto-fixing
 fixable = ["ALL"]

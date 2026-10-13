@@ -24,16 +24,16 @@ from pydantic_ai.providers.bedrock import BedrockProvider
 from pydantic_ai.settings import ModelSettings
 from pymongo import ReturnDocument
 
-from app.ask.corpus import as_context, load_corpus, verify
-from app.ask.schemas import Answer, ModelAnswer, Turn
-from app.common.mongo import get_db, get_mongo_client
-from app.config import config
+from app import config
+from app.ask import corpus as corpus_module
+from app.ask import schemas
+from app.common import mongo
 
 logger = getLogger(__name__)
 
 
 def models_without_prompt_caching() -> list[str]:
-    names = config.bedrock_models_without_prompt_caching.split(",")
+    names = config.config.bedrock_models_without_prompt_caching.split(",")
     return [name.strip() for name in names if name.strip()]
 
 
@@ -46,13 +46,13 @@ def model_settings() -> BedrockModelSettings:
         # The instructions carry the whole toolkit, so cache them across calls.
         # Bedrock keeps the cache for 5 minutes; a read costs a tenth of a
         # fresh input token.
-        bedrock_cache_instructions=caches_instructions(config.bedrock_model_id),
+        bedrock_cache_instructions=caches_instructions(config.config.bedrock_model_id),
         max_tokens=1000,
     )
-    if config.bedrock_guardrail_id:
+    if config.config.bedrock_guardrail_id:
         settings["bedrock_guardrail_config"] = {
-            "guardrailIdentifier": config.bedrock_guardrail_id,
-            "guardrailVersion": config.bedrock_guardrail_version or "DRAFT",
+            "guardrailIdentifier": config.config.bedrock_guardrail_id,
+            "guardrailVersion": config.config.bedrock_guardrail_version or "DRAFT",
             "trace": "enabled",
         }
     return settings
@@ -62,9 +62,9 @@ def instructions() -> str:
     # Read on every question so the prompt file can be edited while the
     # service runs. The corpus is small enough to reload too. Nothing that
     # changes per request belongs in here: the cache key is this exact text.
-    prompt = Path(config.system_prompt_path).read_text(encoding="utf-8")
-    corpus = load_corpus(Path(config.content_dir))
-    return f"{prompt}\n\n# The toolkit pages\n\n{as_context(corpus)}"
+    prompt = Path(config.config.system_prompt_path).read_text(encoding="utf-8")
+    corpus = corpus_module.load_corpus(Path(config.config.content_dir))
+    return f"{prompt}\n\n# The toolkit pages\n\n{corpus_module.as_context(corpus)}"
 
 
 ASK_DAILY_USAGE_COLLECTION = "ask_daily_usage"
@@ -94,20 +94,23 @@ async def _increment_daily_usage() -> int:
     # is a single atomic operation in MongoDB, so two concurrent requests at
     # the ceiling get distinct counts and only one can be at or under it.
     # A short timeout around the whole thing, not just the update: on first
-    # use get_mongo_client() pings MongoDB too, and the driver's own wait for
+    # use mongo.get_mongo_client() pings MongoDB too, and the driver's own wait for
     # that is about 30 seconds. A down MongoDB must fail in seconds, not
     # that nor pymongo's own ~30s default on the update: the reader is
     # waiting on this before the service answers at all.
     async def _update() -> int:
-        client = await get_mongo_client()
-        db = get_db(client)
+        client = await mongo.get_mongo_client()
+        db = mongo.get_db(client)
         doc = await db[ASK_DAILY_USAGE_COLLECTION].find_one_and_update(
             {"_id": _today()},
             {"$inc": {"attempts": 1}},
             upsert=True,
             return_document=ReturnDocument.AFTER,
         )
-        return doc["attempts"]
+        if doc is None:
+            msg = "expected a document after an upsert"
+            raise DailyUsageUnavailableError(msg)
+        return int(doc["attempts"])
 
     try:
         return await asyncio.wait_for(_update(), timeout=_DAILY_USAGE_TIMEOUT_SECONDS)
@@ -131,7 +134,7 @@ class CountingModel(WrapperModel):
         model_request_parameters: ModelRequestParameters,
     ) -> ModelResponse:
         count = await _increment_daily_usage()
-        if count > config.ask_daily_ceiling:
+        if count > config.config.ask_daily_ceiling:
             raise CeilingReachedError(count)
         return await super().request(messages, model_settings, model_request_parameters)
 
@@ -236,10 +239,10 @@ class StopsAtABlock(WrapperModel):
 
 
 @lru_cache(maxsize=2)
-def agent_for(instructions_text: str) -> Agent[None, ModelAnswer]:
+def agent_for(instructions_text: str) -> Agent[None, schemas.ModelAnswer]:
     client = boto3.client(
         "bedrock-runtime",
-        region_name=config.bedrock_region,
+        region_name=config.config.bedrock_region,
         config=Config(retries={"total_max_attempts": 1}),
     )
     # The instructions go in as a string, not a function. Pydantic AI only
@@ -248,22 +251,22 @@ def agent_for(instructions_text: str) -> Agent[None, ModelAnswer]:
     # agent per distinct text: editing the prompt builds a new one.
     model = StopsAtABlock(
         BedrockConverseModel(
-            config.bedrock_model_id,
+            config.config.bedrock_model_id,
             provider=BedrockProvider(bedrock_client=client),
         )
     )
     return Agent(
         model,
-        # ModelAnswer, not Answer: the model is never offered daily_limit,
+        # schemas.ModelAnswer, not schemas.Answer: the model is never offered daily_limit,
         # the one reason only the engine sets. See the note in schemas.py.
-        output_type=ModelAnswer,
+        output_type=schemas.ModelAnswer,
         instructions=instructions_text,
         model_settings=model_settings(),
         retries=1,
     )
 
 
-def agent() -> Agent[None, ModelAnswer]:
+def agent() -> Agent[None, schemas.ModelAnswer]:
     return agent_for(instructions())
 
 
@@ -276,7 +279,7 @@ REPLY_TO_OPTIONS = (
 )
 
 
-def user_prompt(question: str, history: list[Turn]) -> str:
+def user_prompt(question: str, history: list[schemas.Turn]) -> str:
     # The history goes here, in the user message, not in the instructions: the
     # instructions are the cache key and must not change per request.
     # Blocked turns are dropped so a refused injection is not replayed. The
@@ -298,7 +301,7 @@ def user_prompt(question: str, history: list[Turn]) -> str:
     return f"{preamble}\n\n{json.dumps(conversation, ensure_ascii=False, indent=2)}"
 
 
-def as_turn(turn: Turn) -> dict:
+def as_turn(turn: schemas.Turn) -> dict:
     fields: dict = {"reader_asked": turn.question}
     if turn.message:
         fields["you_answered"] = turn.message
@@ -329,8 +332,8 @@ def _plain(question: str) -> str:
     return " ".join(words)
 
 
-def same_options_for_the_rules[AnswerT: (Answer, ModelAnswer)](
-    question: str, history: list[Turn], answer: AnswerT
+def same_options_for_the_rules[AnswerT: (schemas.Answer, schemas.ModelAnswer)](
+    question: str, history: list[schemas.Turn], answer: AnswerT
 ) -> AnswerT:
     """Offer the same four areas whenever a first question asks for the rules.
 
@@ -345,13 +348,13 @@ def same_options_for_the_rules[AnswerT: (Answer, ModelAnswer)](
     return answer.model_copy(update={"options": list(THE_RULES)})
 
 
-ERROR_ANSWER = Answer(
+ERROR_ANSWER = schemas.Answer(
     status="error",
     message="The toolkit could not answer just now. Try again in a minute.",
 )
 
 
-CEILING_ANSWER = Answer(
+CEILING_ANSWER = schemas.Answer(
     status="error",
     message="The toolkit has reached today's limit. Try again tomorrow.",
     reason="daily_limit",
@@ -360,13 +363,13 @@ CEILING_ANSWER = Answer(
 
 # The reader does not see this message: the front end has its own words for
 # a blocked question. Nothing from the guardrail's reply goes in it.
-BLOCKED_ANSWER = Answer(
+BLOCKED_ANSWER = schemas.Answer(
     status="blocked",
     message="This question cannot be answered here.",
 )
 
 
-async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
+async def bedrock_engine(question: str, history: list[schemas.Turn]) -> schemas.Answer:
     the_agent = agent()
     try:
         # PRIVATE API: _get_model_outside_run() is not part of pydantic-ai's
@@ -386,7 +389,7 @@ async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
         logger.warning(
             "ask daily ceiling reached count=%d ceiling=%d",
             ceiling.count,
-            config.ask_daily_ceiling,
+            config.config.ask_daily_ceiling,
         )
         return CEILING_ANSWER
     except DailyUsageUnavailableError:
@@ -401,7 +404,7 @@ async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
         logger.warning(
             "bedrock blocked the question model=%s finish_reason=%s "
             "stop_reason=%s filters=%s",
-            config.bedrock_model_id,
+            config.config.bedrock_model_id,
             blocked.finish_reason,
             blocked.stop_reason,
             ",".join(blocked.filters) or "none",
@@ -412,7 +415,9 @@ async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
         # an output that never validated. The reader gets the error outcome
         # with their question kept; the cause goes to the logs, never the
         # question.
-        logger.exception("bedrock gave no answer model=%s", config.bedrock_model_id)
+        logger.exception(
+            "bedrock gave no answer model=%s", config.config.bedrock_model_id
+        )
         return ERROR_ANSWER
     usage = result.usage
     # The status is the model's own choice, `blocked` included: that is the
@@ -421,15 +426,17 @@ async def bedrock_engine(question: str, history: list[Turn]) -> Answer:
     logger.info(
         "bedrock answered model=%s status=%s input_tokens=%s output_tokens=%s "
         "cache_read_tokens=%s cache_write_tokens=%s",
-        config.bedrock_model_id,
+        config.config.bedrock_model_id,
         result.output.status,
         usage.input_tokens,
         usage.output_tokens,
         usage.cache_read_tokens,
         usage.cache_write_tokens,
     )
-    # ModelAnswer to Answer: same fields, the model's reason is a subset of
+    # schemas.ModelAnswer to schemas.Answer: same fields, the model's reason is a subset of
     # the wire contract's, so this always validates.
-    answer = Answer.model_validate(result.output.model_dump())
+    answer = schemas.Answer.model_validate(result.output.model_dump())
     answer = same_options_for_the_rules(question, history, answer)
-    return verify(answer, load_corpus(Path(config.content_dir)))
+    return corpus_module.verify(
+        answer, corpus_module.load_corpus(Path(config.config.content_dir))
+    )
