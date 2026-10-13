@@ -11,7 +11,7 @@ dependencies = [
     "ecs-logging==2.3.0",
     "fastapi==0.141.1",
     "httpx==0.28.1",
-    "pydantic-ai-slim[bedrock]>=2.43.0",
+    "pydantic-ai-slim[bedrock]==2.48.0",
     "pydantic-settings==2.15.0",
     "pymongo[aws,encryption,snappy,zstd]==4.18.1",
     "uvicorn==0.34.3",
@@ -19,6 +19,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "mypy==2.4.0",
     "pre-commit==4.6.2",
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
@@ -27,6 +28,25 @@ dev = [
     "ruff==0.16.8",
     "taskipy==1.14.1",
 ]
+
+# Upper bound must stay compatible with the `uv` version baked into the
+# Dockerfile's PARENT_VERSION base image - check both when bumping either.
+[build-system]
+requires = ["uv_build>=0.10.4,<0.11"]
+build-backend = "uv_build"
+
+[tool.uv]
+exclude-newer = "1 week"
+
+[tool.uv.build-backend]
+module-name = "app"
+module-root = ""
+
+[tool.mypy]
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+explicit_package_bases = true
 
 [tool.taskipy.tasks]
 format = "uv run ruff format . && uv run ruff check . --fix"
