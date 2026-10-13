@@ -78,6 +78,9 @@ unfixable = []
 known-third-party = ["fastapi", "pydantic", "motor", "pytest"]
 known-first-party = ["app", "fetch_content"]
 
+[lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
 [format]
 # Like Black, use double quotes for strings
 quote-style = "double"
