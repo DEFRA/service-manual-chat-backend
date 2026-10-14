@@ -37,6 +37,26 @@ async def ask(
     started = time.perf_counter()
     try:
         result = await agent.run(bedrock.user_prompt(question, history))
+    except bedrock.BlockedError as error:
+        # Production shows a stop by the guardrail or Bedrock's own content
+        # filter as `blocked` (`bedrock_engine`), so the reader sees a
+        # refusal, not an error. Kept apart from the model's own `blocked` by
+        # `stopped_by_filter`. No usage comes back with the error.
+        stopped = schemas.ModelAnswer(
+            status="blocked", message=bedrock.BLOCKED_ANSWER.message
+        )
+        return {
+            "ok": True,
+            "seconds": round(time.perf_counter() - started, 2),
+            "requests": 1,
+            "input_tokens": 0,
+            "cache_write_tokens": 0,
+            "cache_read_tokens": 0,
+            "output_tokens": 0,
+            "answer": stopped.model_dump(),
+            "verified": corpus_module.verify(stopped, corpus).model_dump(),
+            "stopped_by_filter": str(error),
+        }
     except Exception as error:  # noqa: BLE001 - every failure is a finding
         return {
             "ok": False,
