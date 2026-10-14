@@ -14,8 +14,7 @@ import datetime
 import json
 from pathlib import Path
 
-from evals import golden, runs
-from evals.setup import EVALS, REPO, content, prepare, prompt_version
+from evals import golden, runs, setup
 
 DEFAULT_CEILING = 30_000_000
 TOKEN_KINDS = (
@@ -27,7 +26,7 @@ TOKEN_KINDS = (
 
 
 def pick_questions(set_data: dict, ids: str | None) -> list[dict]:
-    questions = set_data["questions"]
+    questions: list[dict] = set_data["questions"]
     if ids == "Q":
         return [q for q in questions if q["expects_rule"]]
     if ids:
@@ -38,7 +37,7 @@ def pick_questions(set_data: dict, ids: str | None) -> list[dict]:
 def pounds(tokens: dict, model_id: str) -> float | None:
     """What those tokens cost at the dated London prices. Input tokens include cache reads
     and writes, so those are taken out and priced at their own rates."""
-    prices = json.loads((EVALS / "prices.json").read_text(encoding="utf-8"))
+    prices = json.loads((setup.EVALS / "prices.json").read_text(encoding="utf-8"))
     price = prices["models"].get(model_id)
     if not price or not tokens:
         return None
@@ -49,7 +48,7 @@ def pounds(tokens: dict, model_id: str) -> float | None:
         + tokens["cache_write_tokens"] * price["cache_write"]
         + tokens["output_tokens"] * price["output"]
     ) / 1_000_000
-    return round(usd * prices["usd_to_gbp"], 2)
+    return round(float(usd) * float(prices["usd_to_gbp"]), 2)
 
 
 def rescore(run: Path, set_path: Path | None, content_dir: Path | None) -> dict:
@@ -66,17 +65,17 @@ def rescore(run: Path, set_path: Path | None, content_dir: Path | None) -> dict:
     if local and not content_dir:
         message = f"This run answered from a local checkout ({meta['content_ref']}). Pass --content-dir."
         raise SystemExit(message)
-    pages, _ = content(content_dir, None if local else meta["content_ref"])
-    prepare(pages, needs_bedrock=False)
-    from app.ask.corpus import load_corpus
-    from evals.score import score
-    from evals.writing import counts
+    pages, _ = setup.content(content_dir, None if local else meta["content_ref"])
+    setup.prepare(pages, needs_bedrock=False)
+    from app.ask import corpus as corpus_module
+    from evals import score as score_module
+    from evals import writing
 
-    corpus = {url: page.body for url, page in load_corpus(pages).items()}
+    corpus = {url: page.body for url, page in corpus_module.load_corpus(pages).items()}
     questions = {q["id"]: q for q in set_data["questions"]}
     answers = runs.read_answers(run)
-    report = score(answers, runs.read_verdicts(run), questions, corpus)
-    report["writing"] = counts(answers)
+    report = score_module.score(answers, runs.read_verdicts(run), questions, corpus)
+    report["writing"] = writing.counts(answers)
     (run / runs.REPORT).write_text(
         json.dumps(report, indent=2) + "\n", encoding="utf-8"
     )
@@ -88,7 +87,7 @@ def show(run: Path, report: dict) -> None:
     answer_cost = pounds(meta.get("answer_tokens", {}), meta["model_id"])
     judge_cost = pounds(meta.get("judge_tokens", {}), meta.get("judge", ""))
     lines = [
-        f"Run            {run.relative_to(REPO)}",
+        f"Run            {run.relative_to(setup.REPO)}",
         f"Date           {meta['date']}",
         f"Label          {meta.get('label') or '-'}",
         f"Golden set     {meta['golden_set']}",
@@ -169,14 +168,14 @@ def failing(failures: dict[str, dict[str, int]]) -> list[str]:
     return lines
 
 
-async def run_all(args) -> Path:
+async def run_all(args: argparse.Namespace) -> Path:
     set_data = golden.load()
     questions = pick_questions(set_data, args.questions)
-    pages, ref = content(args.content_dir)
-    prepare(pages, needs_bedrock=True)
-    from app.config import config
-    from evals.answer import answer
-    from evals.judge import JUDGE_MODEL_ID, judge
+    pages, ref = setup.content(args.content_dir)
+    setup.prepare(pages, needs_bedrock=True)
+    from app import config
+    from evals import answer as answer_module
+    from evals import judge as judge_module
 
     run = runs.new_run(args.label)
     runs.write_meta(
@@ -186,34 +185,36 @@ async def run_all(args) -> Path:
         golden_set=set_data["version"],
         golden_set_sha=set_data["source_sha"],
         questions=args.questions or "all",
-        prompt=prompt_version(),
+        prompt=setup.prompt_version(),
         content_ref=ref,
-        model_id=config.bedrock_model_id,
+        model_id=config.config.bedrock_model_id,
         passes=args.passes,
         token_ceiling=args.max_tokens,
     )
     budget = runs.Budget(args.max_tokens)
     print(
-        f"{len(questions)} questions x {args.passes} passes on {config.bedrock_model_id}, into {run.relative_to(REPO)}"
+        f"{len(questions)} questions x {args.passes} passes on {config.config.bedrock_model_id}, into {run.relative_to(setup.REPO)}"
     )
-    runs.write_meta(run, **await answer(run, questions, args.passes, budget))
+    runs.write_meta(
+        run, **await answer_module.answer(run, questions, args.passes, budget)
+    )
     if not args.no_judge:
-        print(f"Judging with {JUDGE_MODEL_ID}")
+        print(f"Judging with {judge_module.JUDGE_MODEL_ID}")
         by_id = {q["id"]: q for q in set_data["questions"]}
-        summary = await judge(run, by_id, budget)
+        summary = await judge_module.judge(run, by_id, budget)
         runs.write_meta(run, **summary)
     runs.write_meta(run, stopped_at_ceiling=budget.exhausted, tokens_spent=budget.spent)
     return run
 
 
-async def judge_again(args) -> None:
+async def judge_again(args: argparse.Namespace) -> None:
     meta = runs.read_meta(args.run)
-    pages, _ = content(
+    pages, _ = setup.content(
         args.content_dir,
         None if meta["content_ref"].startswith("local") else meta["content_ref"],
     )
-    prepare(pages, needs_bedrock=True)
-    from evals.judge import judge
+    setup.prepare(pages, needs_bedrock=True)
+    from evals import judge as judge_module
 
     set_data = golden.load()
     ids = (
@@ -221,7 +222,7 @@ async def judge_again(args) -> None:
         if args.questions
         else None
     )
-    summary = await judge(
+    summary = await judge_module.judge(
         args.run,
         {q["id"]: q for q in set_data["questions"]},
         runs.Budget(args.max_tokens),
@@ -233,13 +234,13 @@ async def judge_again(args) -> None:
         runs.write_meta(args.run, **summary)
 
 
-def import_run(args) -> None:
+def import_run(args: argparse.Namespace) -> None:
     """A run from the harness used before this one (golden-*.jsonl, one line per answer) as a run directory."""
     records = [
         json.loads(line) for line in args.jsonl.read_text(encoding="utf-8").splitlines()
     ]
     records = [r for r in records if r.get("caching") != "refused"]
-    run = runs.RESULTS / f"{args.jsonl.stem.removeprefix('golden-')}-imported"
+    run = setup.RESULTS / f"{args.jsonl.stem.removeprefix('golden-')}-imported"
     run.mkdir(parents=True)
     runs.write_answers(run, records)
     judged = args.jsonl.with_suffix(".judged.json")
@@ -263,21 +264,21 @@ def import_run(args) -> None:
         else "not judged",
         imported_from=args.jsonl.name,
     )
-    print(f"Imported {len(records)} answers into {run.relative_to(REPO)}")
+    print(f"Imported {len(records)} answers into {run.relative_to(setup.REPO)}")
 
 
-def run_command(args) -> None:
+def run_command(args: argparse.Namespace) -> None:
     path = asyncio.run(run_all(args))
     show(path, rescore(path, None, args.content_dir))
 
 
-def score_command(args) -> None:
+def score_command(args: argparse.Namespace) -> None:
     for path in args.runs:
         show(path, rescore(path, args.set, args.content_dir))
         print()
 
 
-def agree(args) -> None:
+def agree(args: argparse.Namespace) -> None:
     fields = (
         "grounded_in_named_sources",
         "grounded_in_toolkit",

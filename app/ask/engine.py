@@ -7,22 +7,23 @@ locally, an inference profile and guardrail on CDP.
 
 from collections.abc import Awaitable, Callable
 
-from app.ask.schemas import Answer, Turn
-from app.ask.stub import stub_answer
-from app.config import config
+from app import config
+from app.ask import schemas, stub
 
-AnswerEngine = Callable[[str, list[Turn]], Awaitable[Answer]]
+AnswerEngine = Callable[[str, list[schemas.Turn]], Awaitable[schemas.Answer]]
 
 
-async def stub_engine(question: str, history: list[Turn]) -> Answer:  # NOSONAR
+async def stub_engine(  # NOSONAR
+    question: str, history: list[schemas.Turn]
+) -> schemas.Answer:
     # Nothing to await, but an engine is awaitable so the router need not care.
-    return stub_answer(question, history)
+    return stub.stub_answer(question, history)
 
 
 def get_engine() -> AnswerEngine:
-    if config.ask_engine == "bedrock":
+    if config.config.ask_engine == "bedrock":
         # Imported here so the stub needs neither boto3 nor a region to run.
-        from app.ask.bedrock import bedrock_engine
+        from app.ask import bedrock
 
-        return bedrock_engine
+        return bedrock.bedrock_engine
     return stub_engine

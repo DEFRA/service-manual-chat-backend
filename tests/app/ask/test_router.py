@@ -2,15 +2,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.ask import engine as engine_mod
-from app.ask.engine import get_engine, stub_engine
-from app.ask.schemas import MAX_HISTORY_TURNS, MAX_MESSAGE_LENGTH, MAX_QUESTION_LENGTH
-from app.main import app
+from app.ask import schemas
+from app.entrypoints import fastapi
 
-client = TestClient(app)
+client = TestClient(fastapi.app)
 TURN = {"question": "Copilot?", "status": "answered", "message": "m"}
 
 
-def test_ask_returns_the_wire_shape():
+def test_ask_returns_the_wire_shape() -> None:
     response = client.post("/ask", json={"question": "Can I use Copilot?"})
 
     assert response.status_code == 200
@@ -26,7 +25,7 @@ def test_ask_returns_the_wire_shape():
     }
 
 
-def test_ask_answers_a_follow_up_against_the_history():
+def test_ask_answers_a_follow_up_against_the_history() -> None:
     response = client.post(
         "/ask",
         json={
@@ -42,7 +41,7 @@ def test_ask_answers_a_follow_up_against_the_history():
     assert response.json()["message"].startswith('Still on "Copilot?": ')
 
 
-def test_ask_still_takes_the_previous_question_alone():
+def test_ask_still_takes_the_previous_question_alone() -> None:
     # What the front end sends until it sends history. Remove with the field.
     response = client.post(
         "/ask",
@@ -53,7 +52,7 @@ def test_ask_still_takes_the_previous_question_alone():
     assert response.json()["message"].startswith('Still on "Copilot?": ')
 
 
-def test_history_wins_over_the_previous_question():
+def test_history_wins_over_the_previous_question() -> None:
     response = client.post(
         "/ask",
         json={
@@ -66,7 +65,9 @@ def test_history_wins_over_the_previous_question():
     assert response.json()["message"].startswith('Still on "Copilot?": ')
 
 
-def test_ask_logs_the_number_of_history_turns_and_not_the_words(caplog):
+def test_ask_logs_the_number_of_history_turns_and_not_the_words(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     caplog.set_level("INFO", logger="app.ask.router")
     client.post(
         "/ask",
@@ -81,7 +82,7 @@ def test_ask_logs_the_number_of_history_turns_and_not_the_words(caplog):
     assert "agents" not in caplog.text
 
 
-def test_ask_can_return_each_of_the_other_outcomes():
+def test_ask_can_return_each_of_the_other_outcomes() -> None:
     for question, status in [
         ("help me", "need_more_detail"),
         ("parking", "cannot_answer"),
@@ -94,7 +95,7 @@ def test_ask_can_return_each_of_the_other_outcomes():
         )
 
 
-def test_ask_without_a_rule_sends_null_not_missing():
+def test_ask_without_a_rule_sends_null_not_missing() -> None:
     response = client.post("/ask", json={"question": "which tool"})
 
     assert response.json()["rule_verbatim"] is None
@@ -105,28 +106,28 @@ def test_ask_without_a_rule_sends_null_not_missing():
     [
         {},
         {"question": ""},
-        {"question": "x" * (MAX_QUESTION_LENGTH + 1)},
-        {"question": "q", "history": [TURN] * (MAX_HISTORY_TURNS + 1)},
+        {"question": "x" * (schemas.MAX_QUESTION_LENGTH + 1)},
+        {"question": "q", "history": [TURN] * (schemas.MAX_HISTORY_TURNS + 1)},
         {
             "question": "q",
-            "history": [{**TURN, "message": "x" * (MAX_MESSAGE_LENGTH + 1)}],
+            "history": [{**TURN, "message": "x" * (schemas.MAX_MESSAGE_LENGTH + 1)}],
         },
         {"question": "q", "history": [{**TURN, "question": ""}]},
         {"question": "q", "history": [{**TURN, "status": "shrug"}]},
         {"question": "q", "history": [{**TURN, "options": ["o"] * 5}]},
     ],
 )
-def test_ask_rejects_a_bad_request(body):
+def test_ask_rejects_a_bad_request(body: dict) -> None:
     assert client.post("/ask", json=body).status_code == 422
 
 
-def test_get_engine_defaults_to_stub():
-    assert get_engine() is stub_engine
+def test_get_engine_defaults_to_stub() -> None:
+    assert engine_mod.get_engine() is engine_mod.stub_engine
 
 
-def test_get_engine_selects_bedrock(monkeypatch):
-    monkeypatch.setattr(engine_mod.config, "ask_engine", "bedrock")
+def test_get_engine_selects_bedrock(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(engine_mod.config.config, "ask_engine", "bedrock")
 
-    from app.ask.bedrock import bedrock_engine
+    from app.ask import bedrock
 
-    assert get_engine() is bedrock_engine
+    assert engine_mod.get_engine() is bedrock.bedrock_engine

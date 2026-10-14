@@ -11,8 +11,11 @@ import gzip
 import json
 import time
 from pathlib import Path
+from typing import Any
 
-from evals.setup import RESULTS
+from pydantic_ai.usage import RunUsage
+
+from evals import setup
 
 META = "meta.json"
 ANSWERS = "answers.jsonl.gz"
@@ -27,7 +30,7 @@ class Budget:
         self.ceiling = ceiling
         self.spent = 0
 
-    def spend(self, usage) -> None:
+    def spend(self, usage: RunUsage) -> None:
         self.spent += usage.input_tokens + usage.output_tokens
 
     @property
@@ -39,16 +42,17 @@ def new_run(label: str = "") -> Path:
     name = time.strftime("%Y%m%dT%H%M%S")
     if label:
         name += "-" + "".join(c if c.isalnum() or c in "-_" else "-" for c in label)
-    path = RESULTS / name
+    path = setup.RESULTS / name
     path.mkdir(parents=True)
     return path
 
 
 def read_meta(run: Path) -> dict:
-    return json.loads((run / META).read_text(encoding="utf-8"))
+    data: dict = json.loads((run / META).read_text(encoding="utf-8"))
+    return data
 
 
-def write_meta(run: Path, **fields) -> dict:
+def write_meta(run: Path, **fields: Any) -> dict:
     meta = read_meta(run) if (run / META).exists() else {}
     meta.update(fields)
     (run / META).write_text(
@@ -71,7 +75,8 @@ def read_verdicts(run: Path) -> list[dict]:
     if not (run / VERDICTS).exists():
         return []
     with gzip.open(run / VERDICTS, "rt", encoding="utf-8") as source:
-        return json.load(source)["judged"]
+        data: list[dict] = json.load(source)["judged"]
+        return data
 
 
 def write_verdicts(run: Path, judge: str, judged: list[dict]) -> None:

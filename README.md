@@ -122,7 +122,7 @@ marked so; the rest are optional.
   must be on 3000 for its links to work.
 - **Startup fails on Mongo.** The template pings Mongo at boot even though
   `/ask` never uses it. Run through compose, which starts Mongo, rather than
-  `python -m app.main` alone.
+  `python -m app.entrypoints.fastapi` alone.
 
 The sandbox has no guardrails. Local use only, toolkit content only, and
 never paste real correspondence in.

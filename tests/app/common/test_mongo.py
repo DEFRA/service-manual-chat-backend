@@ -1,12 +1,15 @@
-import pytest
+from collections.abc import Iterator
 
+import pytest
+from pytest_mock import MockerFixture
+
+from app import config
 from app.common import mongo
-from app.config import config
 
 
 # Reset the global client variable before each test
 @pytest.fixture(autouse=True)
-def reset_mongo_client():
+def reset_mongo_client() -> Iterator[None]:
     mongo.client = None
     mongo.db = None
     yield
@@ -15,7 +18,7 @@ def reset_mongo_client():
 
 
 @pytest.mark.asyncio
-async def test_get_mongo_client_initialization(mocker):
+async def test_get_mongo_client_initialization(mocker: MockerFixture) -> None:
     mock_client_cls = mocker.patch("app.common.mongo.AsyncMongoClient")
     mock_instance = mock_client_cls.return_value
 
@@ -28,14 +31,16 @@ async def test_get_mongo_client_initialization(mocker):
     client = await mongo.get_mongo_client()
 
     assert client == mock_instance
-    mock_client_cls.assert_called_once_with(config.mongo_uri)
+    mock_client_cls.assert_called_once_with(config.config.mongo_uri)
     mock_db.command.assert_awaited_once_with("ping")
 
 
 @pytest.mark.asyncio
-async def test_get_mongo_client_with_custom_tls(mocker, monkeypatch):
+async def test_get_mongo_client_with_custom_tls(
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # Mock config and custom certs
-    monkeypatch.setattr(config, "mongo_truststore", "custom-cert-key")
+    monkeypatch.setattr(config.config, "mongo_truststore", "custom-cert-key")
     mocker.patch.dict(
         "app.common.tls.custom_ca_certs", {"custom-cert-key": "/path/to/cert.pem"}
     )
@@ -50,12 +55,14 @@ async def test_get_mongo_client_with_custom_tls(mocker, monkeypatch):
 
     # Verify TLS param was passed
     mock_client_cls.assert_called_once_with(
-        config.mongo_uri, tlsCAFile="/path/to/cert.pem"
+        config.config.mongo_uri, tlsCAFile="/path/to/cert.pem"
     )
 
 
 @pytest.mark.asyncio
-async def test_get_mongo_client_returns_existing(mocker, monkeypatch):
+async def test_get_mongo_client_returns_existing(
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # Set an existing client
     existing_client = mocker.Mock()
     monkeypatch.setattr(mongo, "client", existing_client)
@@ -69,7 +76,7 @@ async def test_get_mongo_client_returns_existing(mocker, monkeypatch):
     mock_client_cls.assert_not_called()
 
 
-def test_get_db(mocker):
+def test_get_db(mocker: MockerFixture) -> None:
     mock_client = mocker.MagicMock()
     mock_db = mocker.Mock()
     mock_client.get_database.return_value = mock_db
@@ -77,7 +84,7 @@ def test_get_db(mocker):
     # First call initializes
     result = mongo.get_db(mock_client)
     assert result == mock_db
-    mock_client.get_database.assert_called_once_with(config.mongo_database)
+    mock_client.get_database.assert_called_once_with(config.config.mongo_database)
 
     # Second call returns cached
     result2 = mongo.get_db(mock_client)

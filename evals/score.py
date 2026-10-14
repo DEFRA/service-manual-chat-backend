@@ -12,7 +12,8 @@ the run's content ref are all on disk.
 import math
 from collections import defaultdict
 
-from evals.quotes import locate, stitched, whole_sentences
+from app.ask import schemas
+from evals import quotes
 
 # The bars count over the first 100 questions, as the set's "What a run means" says,
 # so every run compares with the ones before it. Rows added since (v8, 101 to 103) are
@@ -42,12 +43,19 @@ def quote_marks(answer: dict, corpus: dict) -> dict:
             "stitched": False,
         }
     body = corpus.get(rule["source"]["url"])
-    span = locate(rule["text"], body) if body else None
+    if not body:
+        return {
+            "offered": True,
+            "words_right": False,
+            "selective": False,
+            "stitched": False,
+        }
+    span = quotes.locate(rule["text"], body)
     return {
         "offered": True,
         "words_right": span is not None,
-        "selective": span is not None and not whole_sentences(body, span),
-        "stitched": span is not None and stitched(body, span),
+        "selective": span is not None and not quotes.whole_sentences(body, span),
+        "stitched": span is not None and quotes.stitched(body, span),
     }
 
 
@@ -288,7 +296,7 @@ def bars(ranges: dict[str, list[int]], n: dict[str, int]) -> list[dict]:
                 "measure": measure,
                 "needs": bar,
                 "range": spread(values) if values else "not judged",
-                "passed": bool(values) and all(clears(v) for v in values),
+                "passed": values is not None and all(clears(v) for v in values),
             },
         )
     return out
@@ -303,8 +311,6 @@ def first_turns(answers: list[dict], questions: dict[str, dict]) -> dict:
     any later turn is asked. Reported beside the bars, as what turn 1 came
     back as and on how many passes.
     """
-    from app.ask.schemas import MAX_HISTORY_TURNS
-
     checked: set[str] = set()
     done: set[tuple[str, str, int]] = set()
     failed: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
@@ -318,7 +324,7 @@ def first_turns(answers: list[dict], questions: dict[str, dict]) -> dict:
             not expected
             or not record["ok"]
             or once in done
-            or len(question["earlier"]) > MAX_HISTORY_TURNS
+            or len(question["earlier"]) > schemas.MAX_HISTORY_TURNS
         ):
             continue
         done.add(once)

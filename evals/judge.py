@@ -20,10 +20,11 @@ substitute (28 September 2026).
 
 import asyncio
 import json
+from pathlib import Path
 
 from pydantic import BaseModel
 
-from evals.runs import Budget, read_answers, read_verdicts, write_verdicts
+from evals import runs
 
 JUDGE_MODEL_ID = "anthropic.claude-opus-4-6-v1"
 CONCURRENCY = 6
@@ -153,9 +154,9 @@ def shown_to_judge(record: dict, question: dict, titles: dict[str, str]) -> str:
 
 
 async def judge(
-    run,
+    run: Path,
     questions: dict[str, dict],
-    budget: Budget,
+    budget: runs.Budget,
     *,
     judge_model: str = JUDGE_MODEL_ID,
     only_questions: list[str] | None = None,
@@ -163,27 +164,26 @@ async def judge(
 ) -> dict:
     """Judge a run's answers and merge the verdicts into verdicts.json.gz.
     Returns a summary for meta.json."""
-    from pathlib import Path
-
     from pydantic_ai import Agent
     from pydantic_ai.models.bedrock import BedrockConverseModel, BedrockModelSettings
     from pydantic_ai.providers.bedrock import BedrockProvider
 
-    from app.ask.corpus import as_context, load_corpus
-    from app.config import config
+    from app import config
+    from app.ask import corpus as corpus_module
 
-    corpus = load_corpus(Path(config.content_dir))
+    corpus = corpus_module.load_corpus(Path(config.config.content_dir))
     titles = {url: page.title for url, page in corpus.items()}
     the_judge = Agent(
         BedrockConverseModel(
-            judge_model, provider=BedrockProvider(region_name=config.bedrock_region)
+            judge_model,
+            provider=BedrockProvider(region_name=config.config.bedrock_region),
         ),
         output_type=Verdict,
-        instructions=f"{PROMPT}\n\n# The toolkit pages\n\n{as_context(corpus)}",
+        instructions=f"{PROMPT}\n\n# The toolkit pages\n\n{corpus_module.as_context(corpus)}",
         model_settings=BedrockModelSettings(bedrock_cache_instructions=True),
         retries=2,
     )
-    records = [r for r in read_answers(run) if r["ok"]]
+    records = [r for r in runs.read_answers(run) if r["ok"]]
     if only_questions:
         records = [r for r in records if r["question_id"] in only_questions]
     limit = asyncio.Semaphore(CONCURRENCY)
@@ -218,8 +218,8 @@ async def judge(
     first = [await score(records[0])] if records else []
     rest = await asyncio.gather(*(score(r) for r in records[1:]))
     fresh = [j for j in first + list(rest) if j]
-    merged = merge_verdicts(read_verdicts(run), fresh, only_fields)
-    write_verdicts(run, judge_model, merged)
+    merged = merge_verdicts(runs.read_verdicts(run), fresh, only_fields)
+    runs.write_verdicts(run, judge_model, merged)
     print(f"  judged {len(fresh)} of {len(records)} answers")
     return {
         "judge": judge_model,

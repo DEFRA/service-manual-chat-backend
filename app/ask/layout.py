@@ -16,7 +16,7 @@ list says where the step stops, so what follows gets a paragraph of its own.
 import re
 from collections.abc import Iterable
 
-from app.ask.quote_check import plain_text
+from app.ask import quote_check
 
 # Chris's rule for usability round 2: only an answer over this is laid out.
 # Three or more numbered steps are the exception (CAIT-302): people follow
@@ -102,7 +102,7 @@ def page_steps(bodies: Iterable[str]) -> tuple[str, ...]:
         for ordered in _ORDERED_LIST.findall(body):
             found += _HTML_ITEM.findall(ordered)
         found += _MARKDOWN_ITEM.findall(body)
-    return tuple(" ".join(plain_text(item).split()) for item in found)
+    return tuple(" ".join(quote_check.plain_text(item).split()) for item in found)
 
 
 def _share(sentence: str, step: str) -> float:
