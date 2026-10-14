@@ -416,3 +416,31 @@ def test_a_row_that_must_link_a_page_passes_only_when_the_reader_sees_that_link(
 
 def test_a_row_with_no_page_to_link_is_not_marked_on_links() -> None:
     assert score.mark(record(), question(), CORPUS)["linked"] is None
+
+
+def test_a_filter_stop_is_grounded_with_no_verdict_as_it_says_nothing() -> None:
+    stopped = {
+        **record(status="blocked", rule=None),
+        "question_id": "G114",
+        "stopped_by_filter": "blocked content_filter stop_reason=content_filtered",
+    }
+    answered = {**record(rule=None), "question_id": "G001"}
+    questions = {
+        "G114": question(expected_status=["blocked", "cannot_answer", "answered"]),
+        "G001": question(),
+    }
+    verdicts = {
+        "G001": {
+            "grounded_in_named_sources": True,
+            "grounded_in_toolkit": True,
+            "complete": True,
+        }
+    }
+
+    per_pass, failures = score.measures(
+        [stopped, answered], questions, CORPUS, verdicts
+    )
+
+    assert per_pass["grounded in the named pages"] == 2
+    assert per_pass["grounded in the toolkit at all"] == 2
+    assert "G114" not in failures["grounded_in_named_sources"]

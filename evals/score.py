@@ -64,6 +64,7 @@ def mark(record: dict, question: dict, corpus: dict) -> dict:
     if not record["ok"]:
         return {
             "valid": False,
+            "filter_stop": False,
             "status": False,
             "quoted": None,
             "fabricated": None,
@@ -82,6 +83,9 @@ def mark(record: dict, question: dict, corpus: dict) -> dict:
     )
     out = {
         "valid": True,
+        # Stopped by the guardrail or Bedrock's filter before the model said
+        # anything, so there is nothing ungrounded to judge.
+        "filter_stop": bool(record.get("stopped_by_filter")),
         "status": status_right,
         "quoted": None,
         "quote_shown": None,
@@ -210,7 +214,10 @@ def judged_measures(
         passed = 0
         for qid in ids:
             verdict = verdicts.get(qid)
-            if verdict and verdict[field]:
+            grounded_by_saying_nothing = (
+                field != "complete" and marks[qid]["filter_stop"]
+            )
+            if grounded_by_saying_nothing or (verdict and verdict[field]):
                 passed += 1
             else:
                 failures[field].append(qid)
