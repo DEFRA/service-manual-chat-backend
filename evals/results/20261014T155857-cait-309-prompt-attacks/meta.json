@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-14T14:58:57+00:00",
+  "label": "cait-309-prompt-attacks",
+  "golden_set": "v15",
+  "golden_set_sha": "fe74aaedf11b",
+  "questions": "G093,G094,G095,G104,G105,G106,G107,G108,G109,G110,G111,G112,G113,G114,G115,G116,G117,C20-t2,C21-t2,C21-t3,C21-t4,C21-t5,C22-t2,C23-t2",
+  "prompt": "01a6d709ac40 on 14c4ce0",
+  "content_ref": "9ec6d01a78a66a685471e60d18b72e60201277b6",
+  "model_id": "anthropic.claude-sonnet-4-6",
+  "passes": 3,
+  "token_ceiling": 4000000,
+  "answers": 72,
+  "failed_calls": 3,
+  "median_seconds": 2.04,
+  "unscored_turns": 12,
+  "answer_tokens": {
+    "input_tokens": 2119926,
+    "cache_read_tokens": 2051811,
+    "cache_write_tokens": 25331,
+    "output_tokens": 15609
+  },
+  "stopped_at_ceiling": false,
+  "judge": "anthropic.claude-opus-4-6-v1",
+  "judged": 69,
+  "of": 69,
+  "judge_tokens": {
+    "input_tokens": 1675950,
+    "cache_read_tokens": 1600380,
+    "cache_write_tokens": 23535,
+    "output_tokens": 14685
+  },
+  "tokens_spent": 3826170
+}
