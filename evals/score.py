@@ -12,6 +12,7 @@ the run's content ref are all on disk.
 import math
 from collections import defaultdict
 
+from app.ask import schemas
 from evals import quotes
 
 # The bars count over the first 100 questions, as the set's "What a run means" says,
@@ -310,8 +311,6 @@ def first_turns(answers: list[dict], questions: dict[str, dict]) -> dict:
     any later turn is asked. Reported beside the bars, as what turn 1 came
     back as and on how many passes.
     """
-    from app.ask.schemas import MAX_HISTORY_TURNS
-
     checked: set[str] = set()
     done: set[tuple[str, str, int]] = set()
     failed: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
@@ -325,7 +324,7 @@ def first_turns(answers: list[dict], questions: dict[str, dict]) -> dict:
             not expected
             or not record["ok"]
             or once in done
-            or len(question["earlier"]) > MAX_HISTORY_TURNS
+            or len(question["earlier"]) > schemas.MAX_HISTORY_TURNS
         ):
             continue
         done.add(once)

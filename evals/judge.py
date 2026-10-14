@@ -168,17 +168,18 @@ async def judge(
     from pydantic_ai.models.bedrock import BedrockConverseModel, BedrockModelSettings
     from pydantic_ai.providers.bedrock import BedrockProvider
 
-    from app.ask.corpus import as_context, load_corpus
-    from app.config import config
+    from app import config
+    from app.ask import corpus as corpus_module
 
-    corpus = load_corpus(Path(config.content_dir))
+    corpus = corpus_module.load_corpus(Path(config.config.content_dir))
     titles = {url: page.title for url, page in corpus.items()}
     the_judge = Agent(
         BedrockConverseModel(
-            judge_model, provider=BedrockProvider(region_name=config.bedrock_region)
+            judge_model,
+            provider=BedrockProvider(region_name=config.config.bedrock_region),
         ),
         output_type=Verdict,
-        instructions=f"{PROMPT}\n\n# The toolkit pages\n\n{as_context(corpus)}",
+        instructions=f"{PROMPT}\n\n# The toolkit pages\n\n{corpus_module.as_context(corpus)}",
         model_settings=BedrockModelSettings(bedrock_cache_instructions=True),
         retries=2,
     )
