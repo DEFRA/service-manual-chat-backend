@@ -1128,13 +1128,11 @@ async def test_pydantic_ai_passes_a_failed_connection_on_with_botocores_as_cause
         raise failure
 
     client.converse = fail  # type: ignore[method-assign]
+    messages: list[ModelMessage] = [ModelRequest(parts=[UserPromptPart(content="q")])]
+    parameters = ModelRequestParameters()
 
     with pytest.raises(ModelAPIError) as raised:
-        await model.request(
-            [ModelRequest(parts=[UserPromptPart(content="q")])],
-            None,
-            ModelRequestParameters(),
-        )
+        await model.request(messages, None, parameters)
 
     assert raised.value.__cause__ is failure
 
