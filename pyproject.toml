@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "asgi-logger==0.1.0",
-    "aws-embedded-metrics==3.3.0",
+    "aws-embedded-metrics==3.5.0",
     "dnspython==2.8.0",
     "ecs-logging==2.3.0",
     "fastapi==0.141.1",
