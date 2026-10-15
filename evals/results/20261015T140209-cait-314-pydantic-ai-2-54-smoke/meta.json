@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-15T13:02:09+00:00",
+  "label": "cait-314-pydantic-ai-2.54-smoke",
+  "golden_set": "v16",
+  "golden_set_sha": "8985a077a152",
+  "questions": "G001,G041",
+  "prompt": "01a6d709ac40 on a112c75",
+  "content_ref": "9ec6d01a78a66a685471e60d18b72e60201277b6",
+  "model_id": "anthropic.claude-sonnet-4-6",
+  "passes": 1,
+  "token_ceiling": 30000000,
+  "answers": 2,
+  "failed_calls": 0,
+  "median_seconds": 4.15,
+  "unscored_turns": 0,
+  "answer_tokens": {
+    "input_tokens": 51530,
+    "cache_read_tokens": 25331,
+    "cache_write_tokens": 25331,
+    "output_tokens": 665
+  },
+  "stopped_at_ceiling": false,
+  "judge": "anthropic.claude-opus-4-6-v1",
+  "judged": 2,
+  "of": 2,
+  "judge_tokens": {
+    "input_tokens": 48787,
+    "cache_read_tokens": 23535,
+    "cache_write_tokens": 23535,
+    "output_tokens": 594
+  },
+  "tokens_spent": 101576
+}
