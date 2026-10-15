@@ -3,8 +3,16 @@ import json
 from pathlib import Path
 from typing import Any
 
+import boto3
 import pytest
+from botocore.exceptions import (
+    ConnectTimeoutError,
+    EndpointConnectionError,
+    ProxyConnectionError,
+    ReadTimeoutError,
+)
 from pydantic_ai import Agent
+from pydantic_ai.exceptions import ModelAPIError
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
@@ -1052,3 +1060,164 @@ async def test_engine_turns_a_failure_into_the_error_outcome() -> None:
 
     assert answer.status == "error"
     assert answer.message
+
+
+# What botocore raises when the connection to the proxy or to Bedrock could
+# not be made, and when it was made but the answer never came. The first never
+# reached the model; the second may already have run on it.
+FAILED_CONNECTIONS = [
+    ProxyConnectionError(
+        proxy_url="http://localhost:3128/", error="Connection refused"
+    ),
+    EndpointConnectionError(
+        endpoint_url="https://bedrock-runtime.eu-west-2.amazonaws.com/",
+        error="Connection refused",
+    ),
+    ConnectTimeoutError(
+        endpoint_url="https://bedrock-runtime.eu-west-2.amazonaws.com/",
+        error="timed out",
+    ),
+]
+
+READ_TIMEOUT = ReadTimeoutError(
+    endpoint_url="https://bedrock-runtime.eu-west-2.amazonaws.com/",
+    error="Read timed out",
+)
+
+
+def as_pydantic_ai_raises(cause: Exception) -> ModelAPIError:
+    # How BedrockConverseModel passes a transport failure on: its own error,
+    # with botocore's as the cause. Pinned by the test below.
+    error = ModelAPIError(model_name="m", message=str(cause))
+    error.__cause__ = cause
+    return error
+
+
+def fails_then_answers(calls: list, failures: list[Exception]) -> FunctionModel:
+    def respond(_messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        calls.append(1)
+        if len(calls) <= len(failures):
+            raise as_pydantic_ai_raises(failures[len(calls) - 1])
+        return ModelResponse(
+            parts=[
+                ToolCallPart(
+                    tool_name=info.output_tools[0].name,
+                    args={"status": "answered", "message": "m", "sources": []},
+                )
+            ]
+        )
+
+    return FunctionModel(respond)
+
+
+@pytest.fixture(autouse=True)
+def _no_pause_before_a_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(bedrock, "_PAUSE_BEFORE_RECONNECT_SECONDS", 0)
+
+
+@pytest.mark.parametrize("failure", FAILED_CONNECTIONS, ids=lambda e: type(e).__name__)
+async def test_pydantic_ai_passes_a_failed_connection_on_with_botocores_as_cause(
+    failure: Exception,
+) -> None:
+    # The retry reads the cause. If an upgrade of pydantic-ai stops chaining
+    # it, this fails before readers see the error answer again.
+    client = boto3.client("bedrock-runtime", region_name="eu-west-2")
+    model = BedrockConverseModel("m", provider=BedrockProvider(bedrock_client=client))
+
+    def fail(**_kwargs: Any) -> None:
+        raise failure
+
+    client.converse = fail  # type: ignore[method-assign]
+
+    with pytest.raises(ModelAPIError) as raised:
+        await model.request(
+            [ModelRequest(parts=[UserPromptPart(content="q")])],
+            None,
+            ModelRequestParameters(),
+        )
+
+    assert raised.value.__cause__ is failure
+
+
+@pytest.mark.parametrize("failure", FAILED_CONNECTIONS, ids=lambda e: type(e).__name__)
+async def test_one_failed_connection_then_an_answer_gives_the_answer(
+    failure: Exception,
+) -> None:
+    calls: list[int] = []
+
+    with bedrock.agent().override(model=fails_then_answers(calls, [failure])):
+        answer = await bedrock.bedrock_engine("q", [])
+
+    assert answer.status == "answered"
+    assert answer.message == "m"
+    assert len(calls) == 2
+
+
+async def test_a_retry_is_logged_once_at_warning_without_the_question(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    private_question = "what counts as personal data on my project"
+
+    with (
+        caplog.at_level("INFO"),
+        bedrock.agent().override(model=fails_then_answers([], [FAILED_CONNECTIONS[0]])),
+    ):
+        await bedrock.bedrock_engine(private_question, [])
+
+    retries = [r for r in caplog.records if "trying once more" in r.getMessage()]
+    assert len(retries) == 1
+    assert retries[0].levelname == "WARNING"
+    assert "ProxyConnectionError" in retries[0].getMessage()
+    assert "bedrock gave no answer" not in caplog.text
+    assert all(private_question not in r.getMessage() for r in caplog.records)
+
+
+async def test_two_failed_connections_give_the_error_answer(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    calls: list[int] = []
+    failures = [FAILED_CONNECTIONS[0], FAILED_CONNECTIONS[0], FAILED_CONNECTIONS[0]]
+
+    with (
+        caplog.at_level("WARNING"),
+        bedrock.agent().override(model=fails_then_answers(calls, failures)),
+    ):
+        answer = await bedrock.bedrock_engine("q", [])
+
+    assert answer == bedrock.ERROR_ANSWER
+    assert len(calls) == 2
+    assert "bedrock gave no answer" in caplog.text
+
+
+async def test_a_read_timeout_is_not_retried() -> None:
+    calls: list[int] = []
+
+    with bedrock.agent().override(model=fails_then_answers(calls, [READ_TIMEOUT])):
+        answer = await bedrock.bedrock_engine("q", [])
+
+    assert answer == bedrock.ERROR_ANSWER
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize(
+    "failures",
+    [[FAILED_CONNECTIONS[0]], [FAILED_CONNECTIONS[0], FAILED_CONNECTIONS[0]]],
+    ids=["then-answers", "fails-twice"],
+)
+async def test_a_retried_question_counts_once_towards_the_ceiling(
+    failures: list[Exception], fake_mongo: FakeDailyUsage
+) -> None:
+    with bedrock.agent().override(model=fails_then_answers([], failures)):
+        await bedrock.bedrock_engine("q", [])
+
+    assert fake_mongo.counts[bedrock._today()] == 1
+
+
+async def test_a_blocked_question_is_still_one_call_with_the_retry_in_place() -> None:
+    calls: list[int] = []
+
+    with bedrock.agent().override(model=blocked_reply(calls)):
+        answer = await bedrock.bedrock_engine("q", [])
+
+    assert answer == bedrock.BLOCKED_ANSWER
+    assert len(calls) == 1
