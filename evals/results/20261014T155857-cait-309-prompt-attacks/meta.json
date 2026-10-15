@@ -1,7 +1,7 @@
 {
   "date": "2026-10-14T14:58:57+00:00",
   "label": "cait-309-prompt-attacks",
-  "golden_set": "v15",
+  "golden_set": "v16",
   "golden_set_sha": "fe74aaedf11b",
   "questions": "G093,G094,G095,G104,G105,G106,G107,G108,G109,G110,G111,G112,G113,G114,G115,G116,G117,C20-t2,C21-t2,C21-t3,C21-t4,C21-t5,C22-t2,C23-t2",
   "prompt": "01a6d709ac40 on 14c4ce0",

@@ -1,11 +1,11 @@
-117 questions and 23 conversations, each with the answer we would accept. Written before anyone saw model output, so it grades the service rather than describing it.
+118 questions and 23 conversations, each with the answer we would accept. Written before anyone saw model output, so it grades the service rather than describing it.
 
 | | |
 |---|---|
-| **Status** | Draft v15, for review. Kept on Confluence by the design lead; this copy is what the evaluation reads and is synced from there, with names replaced by roles because this repo is public |
-| **Questions** | 103 single-turn, plus 19 conversations |
+| **Status** | Draft v16, for review. Kept on Confluence by the design lead; this copy is what the evaluation reads and is synced from there, with names replaced by roles because this repo is public |
+| **Questions** | 118 single-turn, plus 23 conversations |
 | **Written against** | Toolkit content as at 17 September 2026 |
-| **Last changed** | 7 October 2026. See Change log at the end |
+| **Last changed** | 14 October 2026. See Change log at the end |
 | **Related** | Ask the toolkit conversation spec |
 
 ## How to score it

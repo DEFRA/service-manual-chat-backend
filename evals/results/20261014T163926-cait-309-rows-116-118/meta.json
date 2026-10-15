@@ -1,7 +1,7 @@
 {
   "date": "2026-10-14T15:39:26+00:00",
   "label": "cait-309-rows-116-118",
-  "golden_set": "v15",
+  "golden_set": "v16",
   "golden_set_sha": "4b4f8fbec7e3",
   "questions": "G114,G116,G118",
   "prompt": "01a6d709ac40 on 6b8e6f7",
