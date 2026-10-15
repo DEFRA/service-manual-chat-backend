@@ -86,7 +86,40 @@ def _today() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%d")
 
 
+def _start_of_today() -> datetime:
+    # A BSON date for the TTL index to expire from: MongoDB can only expire
+    # documents from a date field, and the _id here is a string. Derived from
+    # _today(), not its own datetime.now(UTC): two separate "now" calls could
+    # disagree right at a UTC midnight boundary, and _today() is the one a
+    # test can hold fixed to simulate a day rollover.
+    return datetime.strptime(_today(), "%Y-%m-%d").replace(tzinfo=UTC)
+
+
+ASK_DAILY_USAGE_DAY_FIELD = "day"
+
 _DAILY_USAGE_TIMEOUT_SECONDS = 3
+
+
+async def ensure_ask_daily_usage_index() -> None:
+    """Create the TTL index that expires old ask_daily_usage documents.
+
+    Call once per process, at startup: well outside the three-second path
+    `_increment_daily_usage()` runs on, so a slow or failed index build never
+    refuses a question (AC5). MongoDB's `create_index` is a no-op when an
+    identical index already exists, so calling this again is safe. Changing
+    `ask_daily_usage_ttl_seconds` later needs `collMod` on the existing
+    index, or dropping and recreating it: creating it again here with a
+    different expiry fails.
+    """
+    try:
+        client = await mongo.get_mongo_client()
+        db = mongo.get_db(client)
+        await db[ASK_DAILY_USAGE_COLLECTION].create_index(
+            ASK_DAILY_USAGE_DAY_FIELD,
+            expireAfterSeconds=config.config.ask_daily_usage_ttl_seconds,
+        )
+    except Exception:
+        logger.exception("could not create the ask_daily_usage TTL index")
 
 
 async def _increment_daily_usage() -> int:
@@ -103,7 +136,13 @@ async def _increment_daily_usage() -> int:
         db = mongo.get_db(client)
         doc = await db[ASK_DAILY_USAGE_COLLECTION].find_one_and_update(
             {"_id": _today()},
-            {"$inc": {"attempts": 1}},
+            {
+                "$inc": {"attempts": 1},
+                # $setOnInsert, not $set: the day is written once, when the
+                # document is created, and must never move on a later
+                # increment the same day.
+                "$setOnInsert": {ASK_DAILY_USAGE_DAY_FIELD: _start_of_today()},
+            },
             upsert=True,
             return_document=ReturnDocument.AFTER,
         )
