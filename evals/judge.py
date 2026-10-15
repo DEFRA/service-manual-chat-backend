@@ -20,6 +20,7 @@ substitute (28 September 2026).
 
 import asyncio
 import json
+from collections.abc import Collection
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -153,6 +154,18 @@ def shown_to_judge(record: dict, question: dict, titles: dict[str, str]) -> str:
     )
 
 
+def to_judge(records: list[dict], only_questions: Collection[str] | None) -> list[dict]:
+    """The answers worth a verdict: not failed calls, and not filter stops,
+    where the model said nothing."""
+    return [
+        r
+        for r in records
+        if r["ok"]
+        and not r.get("stopped_by_filter")
+        and (not only_questions or r["question_id"] in only_questions)
+    ]
+
+
 async def judge(
     run: Path,
     questions: dict[str, dict],
@@ -183,9 +196,7 @@ async def judge(
         model_settings=BedrockModelSettings(bedrock_cache_instructions=True),
         retries=2,
     )
-    records = [r for r in runs.read_answers(run) if r["ok"]]
-    if only_questions:
-        records = [r for r in records if r["question_id"] in only_questions]
+    records = to_judge(runs.read_answers(run), only_questions)
     limit = asyncio.Semaphore(CONCURRENCY)
     tokens = dict.fromkeys(
         ("input_tokens", "cache_read_tokens", "cache_write_tokens", "output_tokens"), 0

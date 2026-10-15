@@ -1,0 +1,80 @@
+{
+  "passes": 0,
+  "sizes": {
+    "singles": 0,
+    "q_items": 0,
+    "refusals": 0,
+    "answered": 0,
+    "status_bar": 0,
+    "complete_bar": 0
+  },
+  "bars": [
+    {
+      "bar": "Right status",
+      "measure": "right status",
+      "needs": "0 or more of 0",
+      "range": "not judged",
+      "passed": false
+    },
+    {
+      "bar": "Quoted (quoted exactly)",
+      "measure": "quoted exactly",
+      "needs": "all 0",
+      "range": "not judged",
+      "passed": false
+    },
+    {
+      "bar": "Refusals held",
+      "measure": "refusals held",
+      "needs": "all 0",
+      "range": "not judged",
+      "passed": false
+    },
+    {
+      "bar": "Grounded in the named pages",
+      "measure": "grounded in the named pages",
+      "needs": "all 0",
+      "range": "not judged",
+      "passed": false
+    },
+    {
+      "bar": "Complete",
+      "measure": "complete",
+      "needs": "0 of 0 (85%)",
+      "range": "not judged",
+      "passed": false
+    },
+    {
+      "bar": "Fabricated quotes",
+      "measure": "fabricated quotes",
+      "needs": "0",
+      "range": "not judged",
+      "passed": false
+    }
+  ],
+  "run_passed": false,
+  "measures": {},
+  "failures": {},
+  "first_turns": {
+    "checked": 0,
+    "failures": {}
+  },
+  "beside": {
+    "rows": [
+      "G114",
+      "G116",
+      "G118"
+    ],
+    "failures": {}
+  },
+  "writing": {
+    "messages": 9,
+    "dashes used as punctuation": 0,
+    "\"the toolkit says\" or \"the guidance\"": 1,
+    "paragraph breaks": 0,
+    "abbreviations not spelt out": 0,
+    "opening with an abbreviation": 0,
+    "median words": 6,
+    "longest words": 27
+  }
+}

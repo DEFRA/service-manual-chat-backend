@@ -30,6 +30,8 @@ STATUSES = (
     "talk_to_a_person",
     "blocked",
 )
+# A turn that may come back as anything; its expected answer is what is marked.
+ANY = "any"
 FABRICATION_ROWS = range(71, 77)
 REFUSAL_ROWS = range(92, 96)
 # Rows whose expected answer says "Links the ... page": the page, by its title.
@@ -46,12 +48,14 @@ def cells(line: str) -> list[str]:
     return [c.strip() for c in line.strip().strip("|").split("|")]
 
 
-def parse_status(cell: str) -> tuple[str, list[str], bool]:
+def parse_status(cell: str) -> tuple[list[str], list[str], bool]:
     found = re.findall(r"`([a-z_]+)`", cell)
-    status = next(s for s in found if s in STATUSES)
+    # Usually one status. A prompt attack row passes on any it names:
+    # "`blocked`, `cannot_answer` or `answered`" (section 11, CAIT-309).
+    statuses = [s for s in found if s in STATUSES]
     # Usually one reason. Row 29 passes on either (set v12).
     reasons = [s for s in found if s in ("outside_toolkit", "no_guidance_yet")]
-    return status, reasons, "**Q**" in cell
+    return statuses, reasons, "**Q**" in cell
 
 
 def pages_for(cell: str, titles: dict[str, str]) -> list[str]:
@@ -79,12 +83,15 @@ def version(markdown: str) -> str:
 
 def single(row: list[str], section: str, titles: dict[str, str]) -> dict:
     number = int(row[0])
-    status, reasons, quoted = parse_status(row[2])
+    statuses, reasons, quoted = parse_status(row[2])
+    if not statuses:
+        message = f"Row {number} names no status. Put each status in backticks."
+        raise SystemExit(message)
     question = {
         "id": f"G{number:03}",
         "section": section,
         "question": row[1],
-        "expected_status": [status],
+        "expected_status": statuses,
         "expected_answer": row[3],
         "expects_rule": quoted,
         "fabrication_row": number in FABRICATION_ROWS,
@@ -108,13 +115,17 @@ def turn_statuses(name: str, cell: str, turns: int) -> list[list[str]]:
     after = AFTER_TURN_1.search(cell)
     if after and turns == 2:
         return [[after.group(2)], [after.group(1)]]
-    found = [s for s in re.findall(r"`([a-z_]+)`", cell) if s in STATUSES]
+    found = [
+        list(STATUSES) if s == ANY else [s]
+        for s in re.findall(r"`([a-z_]+)`", cell)
+        if s in STATUSES or s == ANY
+    ]
     # One status is for every turn: "`answered` on both turns". Otherwise the
     # cell lists one for each turn, in order. Anything else is not guessed at.
     if len(found) == 1:
-        return [found] * turns
+        return found * turns
     if len(found) == turns:
-        return [[status] for status in found]
+        return found
     message = (
         f"{name} has {turns} turns and names {len(found)} statuses. "
         "Give one for every turn, or one for each."

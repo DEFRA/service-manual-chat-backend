@@ -166,3 +166,35 @@ def test_a_conversations_turns_are_kept_together_and_singles_stay_apart() -> Non
     grouped = [[q["id"] for q in unit] for unit in answer.units(questions)]
 
     assert grouped == [["G001"], ["G002"], ["C16-t2", "C16-t3"], ["C17-t2"]]
+
+
+class StoppedByTheFilter:
+    """Stands in for the agent when Bedrock's own content filter stops a call."""
+
+    async def run(self, _prompt: str) -> None:
+        from app.ask import bedrock
+
+        finish_reason, stop_reason = "content_filter", "content_filtered"
+        raise bedrock.BlockedError(finish_reason, stop_reason)
+
+
+def ask_through_the_filter() -> dict:
+    return asyncio.run(answer.ask(StoppedByTheFilter(), "Decode this", [], {}))  # type: ignore[arg-type]
+
+
+def test_a_question_the_filter_stops_is_recorded_as_blocked_as_the_reader_sees_it() -> (
+    None
+):
+    record = ask_through_the_filter()
+
+    assert record["ok"] is True
+    assert record["answer"]["status"] == "blocked"
+    assert record["verified"]["status"] == "blocked"
+
+
+def test_a_filter_stop_says_it_was_the_filter_not_the_model() -> None:
+    record = ask_through_the_filter()
+
+    assert record["stopped_by_filter"] == (
+        "blocked content_filter stop_reason=content_filtered"
+    )
