@@ -101,7 +101,8 @@ _DAILY_USAGE_TIMEOUT_SECONDS = 3
 
 
 async def ensure_ask_daily_usage_index() -> None:
-    """Create the TTL index that expires old ask_daily_usage documents.
+    """Create the TTL index that expires old ask_daily_usage documents, and
+    backfill `day` onto documents written before it existed.
 
     Call once per process, at startup: well outside the three-second path
     `_increment_daily_usage()` runs on, so a slow or failed index build never
@@ -110,6 +111,12 @@ async def ensure_ask_daily_usage_index() -> None:
     `ask_daily_usage_ttl_seconds` later needs `collMod` on the existing
     index, or dropping and recreating it: creating it again here with a
     different expiry fails.
+
+    The backfill (AC6) covers documents from before this ticket, which have
+    no `day` field and so would never expire. It is safe to run on every
+    start: once every document has a `day`, the filter matches nothing. This
+    also covers production, where CDP gives no terminal to run a one-off
+    fix by hand, unlike dev and test.
     """
     try:
         client = await mongo.get_mongo_client()
@@ -120,6 +127,24 @@ async def ensure_ask_daily_usage_index() -> None:
         )
     except Exception:
         logger.exception("could not create the ask_daily_usage TTL index")
+
+    try:
+        client = await mongo.get_mongo_client()
+        db = mongo.get_db(client)
+        await db[ASK_DAILY_USAGE_COLLECTION].update_many(
+            {ASK_DAILY_USAGE_DAY_FIELD: {"$exists": False}},
+            [
+                {
+                    "$set": {
+                        ASK_DAILY_USAGE_DAY_FIELD: {
+                            "$dateFromString": {"dateString": "$_id"}
+                        }
+                    }
+                }
+            ],
+        )
+    except Exception:
+        logger.exception("could not backfill the ask_daily_usage day field")
 
 
 async def _increment_daily_usage() -> int:

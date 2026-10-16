@@ -74,6 +74,15 @@ class FakeDailyUsage:
         self.indexes.append((field, kwargs["expireAfterSeconds"]))
         return f"{field}_1"
 
+    async def update_many(self, filter_: dict, pipeline: list) -> None:
+        # The fake only ever sees the one backfill shape bedrock.py sends:
+        # set `day` from `_id` wherever `day` is missing. filter_ and
+        # pipeline are fixed in shape, so there is nothing to branch on.
+        del filter_, pipeline
+        for day in list(self.counts):
+            if self.days.get(day) is None:
+                self.days[day] = bedrock._start_of_day(day)
+
 
 @pytest.fixture(autouse=True)
 def fake_mongo(
@@ -703,6 +712,20 @@ async def test_the_day_field_matches_today_even_when_today_is_held_fixed(
     assert day.strftime("%Y-%m-%d") == "2026-10-01"
 
 
+async def test_ensure_ask_daily_usage_index_backfills_the_day_field(
+    fake_mongo: FakeDailyUsage,
+) -> None:
+    # A pre-change document: a count on record with no day, as if it was
+    # written before this ticket (AC6). No terminal reaches prod to fix
+    # these by hand, so the backfill has to run from the code instead.
+    fake_mongo.counts["2026-09-01"] = 5
+
+    await bedrock.ensure_ask_daily_usage_index()
+
+    day = fake_mongo.days["2026-09-01"]
+    assert day.strftime("%Y-%m-%d") == "2026-09-01"
+
+
 async def test_ensure_ask_daily_usage_index_requests_the_configured_expiry(
     monkeypatch: pytest.MonkeyPatch, fake_mongo: FakeDailyUsage
 ) -> None:
@@ -728,6 +751,24 @@ async def test_a_failed_index_build_is_logged_and_does_not_stop_the_counter(
     assert any(record.levelname == "ERROR" for record in caplog.records)
     # The ceiling and the ask path never saw the failed index build: the
     # counter still works right after it (AC5).
+    assert await bedrock._increment_daily_usage() == 1
+
+
+async def test_a_failed_backfill_is_logged_and_does_not_stop_the_counter(
+    fake_mongo: FakeDailyUsage, caplog: pytest.LogCaptureFixture
+) -> None:
+    async def boom(*_args: object, **_kwargs: object) -> None:
+        msg = "backfill failed"
+        raise RuntimeError(msg)
+
+    fake_mongo.update_many = boom  # type: ignore[method-assign]
+
+    with caplog.at_level("ERROR"):
+        await bedrock.ensure_ask_daily_usage_index()
+
+    assert any(record.levelname == "ERROR" for record in caplog.records)
+    # Same as a failed index build: a failed backfill never blocks the
+    # counter (AC5 applies here too, not only to the index build).
     assert await bedrock._increment_daily_usage() == 1
 
 
