@@ -693,8 +693,8 @@ async def test_the_day_field_matches_today_even_when_today_is_held_fixed(
 ) -> None:
     # _today() and the day field must agree even when a test (or a request
     # right at a UTC midnight boundary) means two separate "now" calls could
-    # otherwise disagree. Regression test: _start_of_today() must derive
-    # from _today(), not call datetime.now(UTC) a second time.
+    # otherwise disagree. Regression test: _update() must call _today() once
+    # and pass it to _start_of_day(), not call _today() a second time.
     monkeypatch.setattr(bedrock, "_today", lambda: "2026-10-01")
 
     await bedrock._increment_daily_usage()

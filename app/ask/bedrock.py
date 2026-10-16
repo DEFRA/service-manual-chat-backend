@@ -86,13 +86,13 @@ def _today() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%d")
 
 
-def _start_of_today() -> datetime:
+def _start_of_day(day: str) -> datetime:
     # A BSON date for the TTL index to expire from: MongoDB can only expire
-    # documents from a date field, and the _id here is a string. Derived from
-    # _today(), not its own datetime.now(UTC): two separate "now" calls could
-    # disagree right at a UTC midnight boundary, and _today() is the one a
-    # test can hold fixed to simulate a day rollover.
-    return datetime.strptime(_today(), "%Y-%m-%d").replace(tzinfo=UTC)
+    # documents from a date field, and the _id here is a string. Takes the
+    # same day string the caller already has, rather than calling _today()
+    # again: two separate "now" calls in one update could disagree right at
+    # a UTC midnight boundary, and the _id and the day field must agree.
+    return datetime.strptime(day, "%Y-%m-%d").replace(tzinfo=UTC)
 
 
 ASK_DAILY_USAGE_DAY_FIELD = "day"
@@ -134,14 +134,18 @@ async def _increment_daily_usage() -> int:
     async def _update() -> int:
         client = await mongo.get_mongo_client()
         db = mongo.get_db(client)
+        # Computed once: the _id filter and the day field must agree on
+        # what day it is, which two separate _today() calls might not,
+        # right at a UTC midnight boundary.
+        today = _today()
         doc = await db[ASK_DAILY_USAGE_COLLECTION].find_one_and_update(
-            {"_id": _today()},
+            {"_id": today},
             {
                 "$inc": {"attempts": 1},
                 # $setOnInsert, not $set: the day is written once, when the
                 # document is created, and must never move on a later
                 # increment the same day.
-                "$setOnInsert": {ASK_DAILY_USAGE_DAY_FIELD: _start_of_today()},
+                "$setOnInsert": {ASK_DAILY_USAGE_DAY_FIELD: _start_of_day(today)},
             },
             upsert=True,
             return_document=ReturnDocument.AFTER,
