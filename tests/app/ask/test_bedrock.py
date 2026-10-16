@@ -45,15 +45,18 @@ def _local_content(monkeypatch: pytest.MonkeyPatch) -> None:
 class FakeDailyUsage:
     """An in-memory stand-in for the `ask_daily_usage` collection.
 
-    No test needs a real MongoDB: this fakes the one operation `bedrock.py`
-    performs, `find_one_and_update` with `$inc` and `upsert=True`, atomically
-    enough for the concurrency test because nothing here awaits mid-update.
+    No test needs a real MongoDB: this fakes the two operations `bedrock.py`
+    performs, `find_one_and_update` with `$inc`/`$setOnInsert` and
+    `upsert=True` (atomically enough for the concurrency test because
+    nothing here awaits mid-update), and `create_index` for the TTL index.
     """
 
     def __init__(self) -> None:
         self.counts: dict[str, int] = {}
+        self.days: dict[str, object] = {}
         self.calls = 0
         self.error: Exception | None = None
+        self.indexes: list[tuple[str, int]] = []
 
     async def find_one_and_update(
         self, filter_: dict, update: dict, *, upsert: bool, return_document: object
@@ -63,8 +66,30 @@ class FakeDailyUsage:
         if self.error is not None:
             raise self.error
         day = filter_["_id"]
+        is_new = day not in self.counts
         self.counts[day] = self.counts.get(day, 0) + update["$inc"]["attempts"]
-        return {"_id": day, "attempts": self.counts[day]}
+        if is_new:
+            self.days[day] = update["$setOnInsert"][bedrock.ASK_DAILY_USAGE_DAY_FIELD]
+        return {
+            "_id": day,
+            "attempts": self.counts[day],
+            # .get, not [day]: some tests seed self.counts directly, with no
+            # day on record, to start a case already at the ceiling.
+            bedrock.ASK_DAILY_USAGE_DAY_FIELD: self.days.get(day),
+        }
+
+    async def create_index(self, field: str, **kwargs: int) -> str:
+        self.indexes.append((field, kwargs["expireAfterSeconds"]))
+        return f"{field}_1"
+
+    async def update_many(self, filter_: dict, pipeline: list) -> None:
+        # The fake only ever sees the one backfill shape bedrock.py sends:
+        # set `day` from `_id` wherever `day` is missing. filter_ and
+        # pipeline are fixed in shape, so there is nothing to branch on.
+        del filter_, pipeline
+        for day in list(self.counts):
+            if self.days.get(day) is None:
+                self.days[day] = bedrock._start_of_day(day)
 
 
 @pytest.fixture(autouse=True)
@@ -660,8 +685,99 @@ async def test_increment_daily_usage_is_a_single_atomic_upsert(
     spy.assert_awaited_once()
     assert spy.await_args is not None
     args, kwargs = spy.await_args
-    assert args == ({"_id": bedrock._today()}, {"$inc": {"attempts": 1}})
+    assert args[0] == {"_id": bedrock._today()}
+    assert args[1]["$inc"] == {"attempts": 1}
+    day = args[1]["$setOnInsert"][bedrock.ASK_DAILY_USAGE_DAY_FIELD]
+    assert day.strftime("%Y-%m-%d") == bedrock._today()
+    assert (day.hour, day.minute, day.second, day.microsecond) == (0, 0, 0, 0)
     assert kwargs == {"upsert": True, "return_document": ReturnDocument.AFTER}
+
+
+async def test_the_day_field_is_set_once_and_not_rewritten_on_a_later_increment(
+    fake_mongo: FakeDailyUsage,
+) -> None:
+    await bedrock._increment_daily_usage()
+    first_day = fake_mongo.days[bedrock._today()]
+
+    await bedrock._increment_daily_usage()
+
+    assert fake_mongo.counts[bedrock._today()] == 2
+    assert fake_mongo.days[bedrock._today()] == first_day
+
+
+async def test_the_day_field_matches_today_even_when_today_is_held_fixed(
+    monkeypatch: pytest.MonkeyPatch, fake_mongo: FakeDailyUsage
+) -> None:
+    # _today() and the day field must agree even when a test (or a request
+    # right at a UTC midnight boundary) means two separate "now" calls could
+    # otherwise disagree. Regression test: _update() must call _today() once
+    # and pass it to _start_of_day(), not call _today() a second time.
+    monkeypatch.setattr(bedrock, "_today", lambda: "2026-10-01")
+
+    await bedrock._increment_daily_usage()
+
+    day = fake_mongo.days["2026-10-01"]
+    assert day.strftime("%Y-%m-%d") == "2026-10-01"
+
+
+async def test_ensure_ask_daily_usage_index_backfills_the_day_field(
+    fake_mongo: FakeDailyUsage,
+) -> None:
+    # A pre-change document: a count on record with no day, as if it was
+    # written before this ticket (AC6). No terminal reaches prod to fix
+    # these by hand, so the backfill has to run from the code instead.
+    fake_mongo.counts["2026-09-01"] = 5
+
+    await bedrock.ensure_ask_daily_usage_index()
+
+    day = fake_mongo.days["2026-09-01"]
+    assert day.strftime("%Y-%m-%d") == "2026-09-01"
+
+
+async def test_ensure_ask_daily_usage_index_requests_the_configured_expiry(
+    monkeypatch: pytest.MonkeyPatch, fake_mongo: FakeDailyUsage
+) -> None:
+    monkeypatch.setattr(bedrock.config.config, "ask_daily_usage_ttl_seconds", 123)
+
+    await bedrock.ensure_ask_daily_usage_index()
+
+    assert fake_mongo.indexes == [(bedrock.ASK_DAILY_USAGE_DAY_FIELD, 123)]
+
+
+async def test_a_failed_index_build_is_logged_and_does_not_stop_the_counter(
+    fake_mongo: FakeDailyUsage, caplog: pytest.LogCaptureFixture
+) -> None:
+    async def boom(*_args: object, **_kwargs: object) -> str:
+        msg = "index build failed"
+        raise RuntimeError(msg)
+
+    fake_mongo.create_index = boom  # type: ignore[method-assign]
+
+    with caplog.at_level("ERROR"):
+        await bedrock.ensure_ask_daily_usage_index()
+
+    assert any(record.levelname == "ERROR" for record in caplog.records)
+    # The ceiling and the ask path never saw the failed index build: the
+    # counter still works right after it (AC5).
+    assert await bedrock._increment_daily_usage() == 1
+
+
+async def test_a_failed_backfill_is_logged_and_does_not_stop_the_counter(
+    fake_mongo: FakeDailyUsage, caplog: pytest.LogCaptureFixture
+) -> None:
+    async def boom(*_args: object, **_kwargs: object) -> None:
+        msg = "backfill failed"
+        raise RuntimeError(msg)
+
+    fake_mongo.update_many = boom  # type: ignore[method-assign]
+
+    with caplog.at_level("ERROR"):
+        await bedrock.ensure_ask_daily_usage_index()
+
+    assert any(record.levelname == "ERROR" for record in caplog.records)
+    # Same as a failed index build: a failed backfill never blocks the
+    # counter (AC5 applies here too, not only to the index build).
+    assert await bedrock._increment_daily_usage() == 1
 
 
 async def test_the_request_that_reaches_the_ceiling_exactly_is_allowed(

@@ -88,7 +88,65 @@ def _today() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%d")
 
 
+def _start_of_day(day: str) -> datetime:
+    # A BSON date for the TTL index to expire from: MongoDB can only expire
+    # documents from a date field, and the _id here is a string. Takes the
+    # same day string the caller already has, rather than calling _today()
+    # again: two separate "now" calls in one update could disagree right at
+    # a UTC midnight boundary, and the _id and the day field must agree.
+    return datetime.strptime(day, "%Y-%m-%d").replace(tzinfo=UTC)
+
+
+ASK_DAILY_USAGE_DAY_FIELD = "day"
+
 _DAILY_USAGE_TIMEOUT_SECONDS = 3
+
+
+async def ensure_ask_daily_usage_index() -> None:
+    """Create the TTL index that expires old ask_daily_usage documents, and
+    backfill `day` onto documents written before it existed.
+
+    Call once per process, at startup: well outside the three-second path
+    `_increment_daily_usage()` runs on, so a slow or failed index build never
+    refuses a question (AC5). MongoDB's `create_index` is a no-op when an
+    identical index already exists, so calling this again is safe. Changing
+    `ask_daily_usage_ttl_seconds` later needs `collMod` on the existing
+    index, or dropping and recreating it: creating it again here with a
+    different expiry fails.
+
+    The backfill (AC6) covers documents from before this ticket, which have
+    no `day` field and so would never expire. It is safe to run on every
+    start: once every document has a `day`, the filter matches nothing. This
+    also covers production, where CDP gives no terminal to run a one-off
+    fix by hand, unlike dev and test.
+    """
+    try:
+        client = await mongo.get_mongo_client()
+        db = mongo.get_db(client)
+        await db[ASK_DAILY_USAGE_COLLECTION].create_index(
+            ASK_DAILY_USAGE_DAY_FIELD,
+            expireAfterSeconds=config.config.ask_daily_usage_ttl_seconds,
+        )
+    except Exception:
+        logger.exception("could not create the ask_daily_usage TTL index")
+
+    try:
+        client = await mongo.get_mongo_client()
+        db = mongo.get_db(client)
+        await db[ASK_DAILY_USAGE_COLLECTION].update_many(
+            {ASK_DAILY_USAGE_DAY_FIELD: {"$exists": False}},
+            [
+                {
+                    "$set": {
+                        ASK_DAILY_USAGE_DAY_FIELD: {
+                            "$dateFromString": {"dateString": "$_id"}
+                        }
+                    }
+                }
+            ],
+        )
+    except Exception:
+        logger.exception("could not backfill the ask_daily_usage day field")
 
 
 async def _increment_daily_usage() -> int:
@@ -103,9 +161,19 @@ async def _increment_daily_usage() -> int:
     async def _update() -> int:
         client = await mongo.get_mongo_client()
         db = mongo.get_db(client)
+        # Computed once: the _id filter and the day field must agree on
+        # what day it is, which two separate _today() calls might not,
+        # right at a UTC midnight boundary.
+        today = _today()
         doc = await db[ASK_DAILY_USAGE_COLLECTION].find_one_and_update(
-            {"_id": _today()},
-            {"$inc": {"attempts": 1}},
+            {"_id": today},
+            {
+                "$inc": {"attempts": 1},
+                # $setOnInsert, not $set: the day is written once, when the
+                # document is created, and must never move on a later
+                # increment the same day.
+                "$setOnInsert": {ASK_DAILY_USAGE_DAY_FIELD: _start_of_day(today)},
+            },
             upsert=True,
             return_document=ReturnDocument.AFTER,
         )
