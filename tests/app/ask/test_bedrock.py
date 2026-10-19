@@ -357,6 +357,17 @@ def test_the_boto3_client_is_configured_for_a_single_attempt() -> None:
     assert client.meta.config.retries["total_max_attempts"] == 1
 
 
+def test_the_boto3_client_gives_up_before_the_site_does() -> None:
+    # botocore waits 60 seconds by default, past the site's 30 second timeout
+    # (AI_TOOLKIT_ASK_API_TIMEOUT_MS): the reader would see the site's error
+    # while the backend still waited on Bedrock. The read timeout plus the
+    # daily usage counter's own must leave the site time to show our answer.
+    client = bedrock.agent().model.wrapped.client
+
+    assert client.meta.config.read_timeout + bedrock._DAILY_USAGE_TIMEOUT_SECONDS < 30
+    assert client.meta.config.connect_timeout <= 5
+
+
 def test_the_private_model_resolution_method_still_exists() -> None:
     # Guards against pydantic-ai renaming or removing this private method
     # (e.g. in the pydantic-ai-slim 2.51 upgrade tracked in PR #31), which
