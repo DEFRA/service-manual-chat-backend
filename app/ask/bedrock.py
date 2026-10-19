@@ -295,12 +295,24 @@ class StopsAtABlock(WrapperModel):
         return response
 
 
+_CONNECT_TIMEOUT_SECONDS = 5
+_READ_TIMEOUT_SECONDS = 25
+
+
 @lru_cache(maxsize=2)
 def agent_for(instructions_text: str) -> Agent[None, schemas.ModelAnswer]:
     client = boto3.client(
         "bedrock-runtime",
         region_name=config.config.bedrock_region,
-        config=Config(retries={"total_max_attempts": 1}),
+        # botocore waits 60 seconds by default for both, and the site gives
+        # up at 30. Give up first, so the reader gets our error answer and
+        # the log says why. The read timeout is for the whole reply: Converse
+        # does not stream.
+        config=Config(
+            retries={"total_max_attempts": 1},
+            connect_timeout=_CONNECT_TIMEOUT_SECONDS,
+            read_timeout=_READ_TIMEOUT_SECONDS,
+        ),
     )
     # The instructions go in as a string, not a function. Pydantic AI only
     # places the Bedrock cache point after static instructions, so a function
