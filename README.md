@@ -5,6 +5,9 @@ Answers questions about the Defra AI digital toolkit for the
 toolkit page. `POST /ask` takes a question and returns an answer with its
 sources and, where a rule applies, the rule quoted word for word.
 
+Running it: [the runbook](docs/runbook.md) covers how it fits together,
+alerts, known issues and who to ask.
+
 This is work-in-progress. See [To Do List](./TODO.md)
 
 ## Try Ask the toolkit locally
