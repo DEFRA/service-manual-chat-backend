@@ -43,7 +43,7 @@ at the commit in `CONTENT_REF` (`Dockerfile`). The prompt is
 | Settings per environment | `services/service-manual-chat-backend/<env>/` and `services/service-manual-ui/<env>/` in cdp-app-config (internal) |
 | Inference profile and guardrail IDs | The same backend env files, and the CDP portal: the service's Resources tab |
 | Guardrail settings | Run by CDP. The service's own guardrail is the same in every environment. The portal does not show its version number yet. |
-| Logs | OpenSearch on CDP, for both services |
+| Logs | OpenSearch on CDP, for both services, kept 6 weeks. CDP also keeps them in S3 indefinitely, which only the platform team can open. The platform does not keep readers' public IP addresses. |
 | Alerts | Grafana on CDP. See [Alerts](#alerts). |
 | Every question and answer | Bedrock invocation logging, turned on by the platform: 30 days, unmasked, in a restricted S3 bucket. We cannot change it. |
 | The day's count | MongoDB, the backend's only stored data |
