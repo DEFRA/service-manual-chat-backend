@@ -93,6 +93,7 @@ marked so; the rest are optional.
 | `BEDROCK_REGION` | `eu-west-2` | London. No cross-region inference. |
 | `BEDROCK_MODELS_WITHOUT_PROMPT_CACHING` | `anthropic.claude-3-haiku` | Comma separated. A model id containing any of these is sent no cache point. |
 | `BEDROCK_GUARDRAIL_ID`, `BEDROCK_GUARDRAIL_VERSION` | none | Empty locally. On CDP the platform gives one guardrail per profile. |
+| `ASK_DAILY_CEILING` | `600` | Bedrock calls allowed per UTC day, across everyone, counted in MongoDB. Past it every question gets the `error` status with `reason` `daily_limit` and no model is called. `0` turns answering off: the first off switch in the site's runbook. Only the `bedrock` engine counts. |
 | `CONTENT_DIR` | `content` | The toolkit markdown pages the model answers from. Compose mounts `../service-manual-ui/src/content` here (override the host path with `CONTENT_DIR=... docker compose ...`). The image carries its own copy, see [Toolkit pages in the image](#toolkit-pages-in-the-image). |
 | `SYSTEM_PROMPT_PATH` | `prompts/system.md` | The prompt. Compose mounts `./prompts`. |
 | `AWS_ENDPOINT_URL_BEDROCK_RUNTIME` | set by compose | Points Bedrock at real AWS while `AWS_ENDPOINT_URL` sends everything else to localstack. Needed wherever both are set. |
@@ -120,9 +121,14 @@ marked so; the rest are optional.
   than the `AI_TOOLKIT_ASK_API_URL` change.
 - **Port 3000 or 8085 already in use.** Stop whatever holds it; the site
   must be on 3000 for its links to work.
-- **Startup fails on Mongo.** The template pings Mongo at boot even though
-  `/ask` never uses it. Run through compose, which starts Mongo, rather than
+- **Startup fails on Mongo.** The service pings Mongo at boot, and with
+  `ASK_ENGINE=bedrock` every call is counted there against
+  `ASK_DAILY_CEILING`. Run through compose, which starts Mongo, rather than
   `python -m app.entrypoints.fastapi` alone.
+- **Every question gets the error answer after about 3 seconds.** MongoDB
+  cannot be reached, so the daily count cannot be kept and the service
+  refuses rather than answer without a limit. The log says `ask daily usage
+  counter unavailable, refusing the call`.
 
 The sandbox has no guardrails. Local use only, toolkit content only, and
 never paste real correspondence in.
