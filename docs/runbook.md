@@ -138,7 +138,8 @@ costs" in the README.
   backend.
 - **A reader blocked by CDP's WAF sees a plain "403 Forbidden".** The WAF is
   platform wide (AWS common rules, known bad inputs, Bot Control) and
-  answers with its standard 403, not a GOV.UK page. A reader who reports a
+  answers with its standard 403 and no custom response body, so the reader
+  gets no GOV.UK page and no way to contact us. A reader who reports a
   bare 403 was probably stopped there, before the site; ask CDP.
 - **The site and backend logs cannot yet be joined by request ID.** The site
   does not pass `x-cdp-request-id` on to the backend. Match on time instead.
