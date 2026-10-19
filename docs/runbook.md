@@ -61,8 +61,8 @@ Deploy from the CDP portal. Two things have caught us out:
   new version. Wait for that build to finish before merging the next, or two
   merges can collide on one version.
 
-Order: dev, then test, then prod. Perf-test has the backend config but no site
-config for Ask.
+Order: dev, then test, then prod. Perf-test is for performance tests, not
+readers.
 
 ## Turning it off
 
@@ -143,6 +143,18 @@ costs" in the README.
   bare 403 was probably stopped there, before the site; ask CDP.
 - **The site and backend logs cannot yet be joined by request ID.** The site
   does not pass `x-cdp-request-id` on to the backend. Match on time instead.
+- **Some answers assume the reader works at Defra.** For example, an answer
+  about an incident can point to a route only Defra staff can use. Found in
+  user research; cases are being added to the golden set.
+- **The site calls the backend without a token.** Only services inside the
+  platform can reach the backend, and the daily ceiling caps the cost.
+  CAIT-325.
+- **The daily counter's documents never expire.** One is kept for each day.
+  CAIT-313 adds a 90 day expiry.
+- **The Ask journey test can fail on dev when the answer is fine.** Its
+  "answer with a source link" check waits about 6 seconds for the click,
+  and dev answers can take longer. Look at the answer before treating it as
+  a fault.
 
 ## Changing the prompt or the model
 
@@ -164,7 +176,7 @@ and delete the report email.
 | For | Ask |
 | :-- | :-- |
 | Platform, deploys, config, the guardrail, alerts | CDP, in #cdp-support on Slack |
-| A Bedrock sandbox key for evaluation runs | CCOE, who run the sandbox account |
+| A Bedrock sandbox key for evaluation runs | The Cloud Centre of Excellence (CCOE), who run the sandbox account |
 | Whether a pen test or IT Health Check is needed | The delivery group's security rep |
 | The toolkit's content | The AI digital toolkit team, through the team mailbox |
 | Tickets | Jira project CAIT |
