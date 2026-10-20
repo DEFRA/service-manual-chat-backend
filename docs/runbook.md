@@ -133,7 +133,7 @@ costs" in the README.
   approval process to bypass". Using a tool needs no approval, but the data
   rules still apply, and OFFICIAL-SENSITIVE and personal data can go only
   into specific tools, with approvals. Golden set row 120. To be fixed in
-  the next prompt round (CAIT-288).
+  the first week after launch (CAIT-288).
 - **A brief outbound proxy failure.** Before 0.37.0 one failed connection to
   CDP's proxy gave the reader an error. The backend now tries once more, and
   that attempt counts once against the ceiling. If `bedrock could not
