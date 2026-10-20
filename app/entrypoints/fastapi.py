@@ -22,6 +22,12 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     client = await mongo.get_mongo_client()
     logger.info("MongoDB client connected")
     log_content()
+    if config.config.ask_engine == "bedrock":
+        # Imported here so the stub engine needs neither boto3 nor a region
+        # to start, matching app/ask/engine.py's get_engine().
+        from app.ask import bedrock
+
+        await bedrock.ensure_ask_daily_usage_index()
     yield
     # Shutdown
     if client:

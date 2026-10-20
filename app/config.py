@@ -32,6 +32,10 @@ class AppConfig(BaseSettings):
     bedrock_guardrail_id: str | None = None
     bedrock_guardrail_version: str | None = None
     ask_daily_ceiling: int = 600
+    # How long an ask_daily_usage document is kept, from the start of its UTC
+    # day, before MongoDB's TTL monitor removes it (CAIT-313). Lets the
+    # privacy notice say "kept for 90 days", not "kept indefinitely".
+    ask_daily_usage_ttl_seconds: int = 90 * 24 * 60 * 60
     # The toolkit pages the model answers from and the prompt it follows.
     content_dir: str = "content"
     system_prompt_path: str = "prompts/system.md"

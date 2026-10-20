@@ -23,6 +23,38 @@ def test_lifespan(mocker: MockerFixture) -> None:
     mock_mongo_client.close.assert_awaited_once()  # Shutdown: close called
 
 
+def test_lifespan_ensures_the_ask_daily_usage_index_for_the_bedrock_engine(
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    mock_mongo_client = mocker.AsyncMock()
+    mocker.patch("app.common.mongo.get_mongo_client", return_value=mock_mongo_client)
+    monkeypatch.setattr(main_mod.config.config, "ask_engine", "bedrock")
+    mock_ensure = mocker.patch(
+        "app.ask.bedrock.ensure_ask_daily_usage_index", return_value=None
+    )
+
+    with TestClient(main_mod.app):
+        pass
+
+    mock_ensure.assert_awaited_once()
+
+
+def test_lifespan_skips_the_index_for_the_stub_engine(
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    mock_mongo_client = mocker.AsyncMock()
+    mocker.patch("app.common.mongo.get_mongo_client", return_value=mock_mongo_client)
+    monkeypatch.setattr(main_mod.config.config, "ask_engine", "stub")
+    mock_ensure = mocker.patch(
+        "app.ask.bedrock.ensure_ask_daily_usage_index", return_value=None
+    )
+
+    with TestClient(main_mod.app):
+        pass
+
+    mock_ensure.assert_not_called()
+
+
 def test_health() -> None:
     response = client.get("/health")
     assert response.status_code == 200
