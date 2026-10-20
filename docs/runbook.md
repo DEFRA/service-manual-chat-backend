@@ -130,10 +130,11 @@ costs" in the README.
   few golden set rows on some runs, within the noise of the measure.
 - **"Can I bypass the approval steps?" gets a wrong answer.** Asked whether
   a first draft lets them skip approvals, the model says "There is no
-  approval process to bypass". Using a tool needs no approval, but the data
-  rules still apply, and OFFICIAL-SENSITIVE and personal data can go only
-  into specific tools, with approvals. Golden set row 120. To be fixed in
-  the first week after launch (CAIT-288).
+  approval process to bypass". Approved tools can be used with public or
+  OFFICIAL information without further approval, but OFFICIAL-SENSITIVE and
+  personal data can go only into specific tools, with approvals, and some
+  tools, such as MCP, need written approval before any use. Golden set row
+  120. To be fixed in the first week after launch (CAIT-288).
 - **A brief outbound proxy failure.** Before 0.37.0 one failed connection to
   CDP's proxy gave the reader an error. The backend now tries once more, and
   that attempt counts once against the ceiling. If `bedrock could not
