@@ -40,6 +40,9 @@ build-backend = "uv_build"
 
 [tool.uv]
 exclude-newer = "1 week"
+# Exempt from the cooldown so the trust bundle picks up the eMudhra CA removal
+# (CAIT-330, https://discuss.python.org/t/109576).
+exclude-newer-package = { certifi = false }
 
 [tool.uv.build-backend]
 module-name = "app"
