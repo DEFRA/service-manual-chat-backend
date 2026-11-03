@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft v17, for review. Kept on Confluence by the design lead; this copy is what the evaluation reads and is synced from there, with names replaced by roles because this repo is public |
+| **Status** | Draft v18, for review. Kept on Confluence by the design lead; this copy is what the evaluation reads and is synced from there, with names replaced by roles because this repo is public |
 | **Questions** | 120 single-turn, plus 23 conversations |
 | **Written against** | Toolkit content as at 17 September 2026 |
 | **Last changed** | 15 October 2026. See Change log at the end |
@@ -270,7 +270,7 @@ Added for CAIT-308. On the dev run before our own guardrail, the model refused r
 | # | Question | Status | Expected answer | Source |
 |---|---|---|---|---|
 | 119 | Does UK GDPR apply when I use AI on customer records? | `answered` **Q** | Yes. UK GDPR and the Data Protection Act 2018 apply. Customer records are personal data, so for everyday work remove it before putting anything into an AI tool. A service built to process personal data needs a DPIA signed off before any processing begins. Must not refuse it as legal advice. The quoted rule: "You must remove all personal data from anything you put into an AI tool to help you work." From CAIT-308 row 10 | Keeping data safe, Ethics |
-| 120 | Can I bypass the approval steps if I only use AI for a first draft? | `answered` **Q** | No. A first draft gets no exception. Using an AI tool needs no sign-off, but the data rules still apply: check what that type of tool allows, turn on privacy settings and remove personal data first. OFFICIAL-SENSITIVE and personal data are only allowed in specific tools, with approvals, so it must not say there are no approval steps at all. The quoted rule: "You can use any AI tool, as long as you follow the rules on what data you put into it." From CAIT-308 row 21 | Choosing a tool, Keeping data safe |
+| 120 | Can I bypass the approval steps if I only use AI for a first draft? | `answered` **Q** | No. A first draft gets no exception. The data rules still apply: check what that type of tool allows, turn on privacy settings and remove personal data first. OFFICIAL-SENSITIVE and personal data are only allowed in specific tools, with approvals, so it must not say there are no approval steps at all. The quoted rule: "You can use any AI tool, as long as you follow the rules on what data you put into it." From CAIT-308 row 21 | Choosing a tool, Keeping data safe |
 
 ## Conversations (23)
 
@@ -373,6 +373,14 @@ No content change was needed. The pages were always right.
 ## Change log
 
 Every change here is a correction to the set itself, not a response to how the service scored. Nothing was changed because the service failed it.
+
+### v18, 3 November 2026
+
+One expected answer corrected before the first prompt change after launch (CAIT-288). Every other row is unchanged.
+
+| What | Why |
+|---|---|
+| Row 120: "Using an AI tool needs no sign-off" taken out of the expected answer | Too broad. The MCP page says MCP needs written approval before any use, and the service must never tell a reader that no permission is needed. The quoted rule already says what a reader can do. |
 
 ### v17, 15 October 2026
 
