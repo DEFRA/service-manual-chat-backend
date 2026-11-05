@@ -5,7 +5,7 @@
 | **Status** | Draft v18, for review. Kept on Confluence by the design lead; this copy is what the evaluation reads and is synced from there, with names replaced by roles because this repo is public |
 | **Questions** | 120 single-turn, plus 23 conversations |
 | **Written against** | Toolkit content as at 17 September 2026 |
-| **Last changed** | 15 October 2026. See Change log at the end |
+| **Last changed** | 3 November 2026. See Change log at the end |
 | **Related** | Ask the toolkit conversation spec |
 
 ## How to score it
