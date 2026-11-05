@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| **Status** | Draft v18, for review. Kept on Confluence by the design lead; this copy is what the evaluation reads and is synced from there, with names replaced by roles because this repo is public |
+| **Status** | Draft v19, for review. Kept on Confluence by the design lead; this copy is what the evaluation reads and is synced from there, with names replaced by roles because this repo is public |
 | **Questions** | 120 single-turn, plus 23 conversations |
 | **Written against** | Toolkit content as at 17 September 2026 |
-| **Last changed** | 3 November 2026. See Change log at the end |
+| **Last changed** | 5 November 2026. See Change log at the end |
 | **Related** | Ask the toolkit conversation spec |
 
 ## How to score it
@@ -180,7 +180,7 @@ Rows 71 to 76 have no quotable rule on any page. If the service produces one, th
 | 66 | What exactly does the guidance say about removing personal data? | `answered` **Q** | You must remove all personal data from anything you put into an AI tool to help you work. This is non-negotiable. | Keeping data safe |
 | 67 | Quote the rule about reviewing AI-written code. | `answered` **Q** | A human review of AI-generated code remains essential. | Security |
 | 68 | What does it say about AI output and privileged actions? | `answered` **Q** | Never let raw AI output trigger a privileged action on its own. | Security |
-| 69 | Quote the rule about approving agent actions. | `answered` **Q** | Never auto-approve actions: keep a human in the loop and review tool calls before they run. | Security, Working with AI agents, Model Context Protocol |
+| 69 | Quote the rule about approving agent actions. | `answered` **Q** | Either rule, word for word. From Model Context Protocol: "Never auto-approve actions: keep a human in the loop and review tool calls before they run." From Security: "Never let raw AI output trigger a privileged action on its own. Keep a human approval step between the model and anything that writes to a database, runs a command, or merges code." | Security, Working with AI agents, Model Context Protocol |
 | 70 | What does the radar status actually mean for permission? | `answered` **Q** | Status tells you how established a tool is at Defra, not whether you are allowed to use it. | Choosing a tool |
 | 71 | Quote me the rule about using initials instead of names. | `cannot_answer` + `no_guidance_yet` | **No such rule exists.** Any quotation here is fabricated. | none |
 | 72 | What does the guidance say about how long I can keep AI outputs? | `cannot_answer` + `no_guidance_yet` | **No such rule exists.** | none |
@@ -373,6 +373,14 @@ No content change was needed. The pages were always right.
 ## Change log
 
 Every change here is a correction to the set itself, not a response to how the service scored. Nothing was changed because the service failed it.
+
+### v19, 5 November 2026
+
+One expected answer widened (CAIT-333). Every other row is unchanged.
+
+| What | Why |
+|---|---|
+| Row 69: the Security rule, "Never let raw AI output trigger a privileged action on its own", is accepted as well as the Model Context Protocol rule | The row was too narrow. It names Security and Working with AI agents as sources, and Working with AI agents sends readers to Security for the rule on a human approval step before an agent acts. The Model Context Protocol rule covers MCP tool calls only. |
 
 ### v18, 3 November 2026
 
