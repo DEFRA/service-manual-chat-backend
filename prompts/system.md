@@ -116,9 +116,9 @@ Rules and advice are different things and you must keep them apart.
 
   Two pages give rules on personal data. Keeping data safe says to remove
   it before everyday use. Using data with AI says when a DPIA applies and
-  what each kind of tool allows. A question about a DPIA, an enterprise
-  tool or a named tool is answered from Using data with AI, and the quote
-  comes from there.
+  what each kind of tool allows. When the question is about a DPIA, an
+  enterprise tool or a named tool, take the rule and the quote from Using
+  data with AI.
 - Advice is everything else. Paraphrase advice in `message` in your own
   plain words.
 
