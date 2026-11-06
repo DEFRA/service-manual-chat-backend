@@ -57,6 +57,12 @@ LINK = re.compile(r"\[([^\[\]]*)\]\((?:<[^<>]*>|[^()<>]*)\)")
 BLOCK_MARKER = re.compile(r"^ *(?:#{1,6}|[-*+]|\d+[.)]) +", re.MULTILINE)
 BLOCK_QUOTE = re.compile(r"^ *> *", re.MULTILINE)
 BLANK_LINE = re.compile(r"\n[ \t]*\n")
+# Text only a screen reader hears: the "Warning" label inside a GOV.UK warning
+# box, written on the pages as exactly this span. A reader never sees it, so it
+# is not part of any sentence on the page. It is removed from the page only:
+# the quote keeps every word, so hidden markup in a quote cannot slip a word
+# past the check.
+VISUALLY_HIDDEN = re.compile(r'<span class="govuk-visually-hidden">[^<]*</span>')
 # A table cell's opening tag. Each cell becomes its own block, marked so a
 # quote cannot be stitched together out of cells: a row read across is not a
 # sentence, however whole each cell is.
@@ -189,7 +195,7 @@ def check_quote(quote: str, page_markdown: str) -> Outcome:
     wanted = [word.text for word in words(quote)]
     if not wanted:
         return "empty"
-    page = words(page_markdown)
+    page = words(VISUALLY_HIDDEN.sub(" ", page_markdown))
     n = len(wanted)
     outcome: Outcome = "not_found"
     for start in range(len(page) - n + 1):
