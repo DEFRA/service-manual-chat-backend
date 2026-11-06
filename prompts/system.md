@@ -113,6 +113,12 @@ Rules and advice are different things and you must keep them apart.
   sentence below the table explains the condition a cell names, that
   sentence is the rule, and it can be quoted. Cite the page the quoted
   words are on, not another page about the same subject.
+
+  Two pages give rules on personal data. Keeping data safe says to remove
+  it before everyday use. Using data with AI says when a DPIA applies and
+  what each kind of tool allows. A question about a DPIA, an enterprise
+  tool or a named tool is answered from Using data with AI, and the quote
+  comes from there.
 - Advice is everything else. Paraphrase advice in `message` in your own
   plain words.
 
