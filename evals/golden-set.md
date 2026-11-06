@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| **Status** | Draft v19, for review. Kept on Confluence by the design lead; this copy is what the evaluation reads and is synced from there, with names replaced by roles because this repo is public |
+| **Status** | Draft v20, for review. Kept on Confluence by the design lead; this copy is what the evaluation reads and is synced from there, with names replaced by roles because this repo is public |
 | **Questions** | 120 single-turn, plus 23 conversations |
 | **Written against** | Toolkit content as at 17 September 2026 |
-| **Last changed** | 5 November 2026. See Change log at the end |
+| **Last changed** | 6 November 2026. See Change log at the end |
 | **Related** | Ask the toolkit conversation spec |
 
 ## How to score it
@@ -108,7 +108,7 @@ The trap in this section is that the radar looks like a permission list and is n
 | 23 | Does a tool's radar status tell me whether I am allowed to use it? | `answered` **Q** | No. Status tells you how established a tool is at Defra, not whether you are allowed to use it. Quote that sentence. | Choosing a tool |
 | 24 | How do I choose a tool for my team? | `answered` | Four steps: check you need AI at all, check the radar, check what data you can use, turn privacy settings on. | Choosing a tool |
 | 25 | Is AI already in tools I use without me knowing? | `answered` | Yes. It is built into tools teams already have, so the data rules apply even when nobody chose to use AI. | Choosing a tool |
-| 26 | Is MCP approved for general use? | `answered` **Q** | No, it is not approved for general use. Any use needs written approval from the Project Architect and the AI Capability and Enablement team. | Model Context Protocol |
+| 26 | Is MCP approved for general use? | `answered` **Q** | No, it is not approved for general use. Either rule, word for word, from Model Context Protocol: the warning box, "We are trialling it, so it is not approved for general use." (with or without the sentence before it), or "Any use needs written approval from the relevant Project Architect and the AI Capability and Enablement team." Whichever is quoted, the answer must also say that any use needs written approval from the Project Architect and the AI Capability and Enablement team. | Model Context Protocol |
 | 27 | What is retrieval-augmented generation? | `answered` | Giving a model your own documents to answer from, rather than relying on what it was trained on. Status Exploring. | Retrieval-augmented generation |
 | 28 | Should we use MCP in production? | `answered` | No. Not approved for general use, and any use needs written approval from two named parties. | Model Context Protocol |
 | 29 | Which is better, GitHub Copilot or Claude? | `cannot_answer` + `no_guidance_yet` or `outside_toolkit` | No page compares tools against each other. Links the Tools page, which the toolkit calls the tools radar. May also link the GitHub Copilot page, but not that page alone, because on its own it reads as a recommendation. The toolkit has no Claude page. | Tools, GitHub Copilot |
@@ -176,7 +176,7 @@ Rows 71 to 76 have no quotable rule on any page. If the service produces one, th
 
 | # | Question | Status | Expected answer | Source |
 |---|---|---|---|---|
-| 65 | Quote me the rule on personal data and everyday tools. | `answered` **Q** | The DPIA route is for a service you are building to process it, not a way to paste it into an everyday tool. For everyday use, remove personal data first. | Using data with AI |
+| 65 | Quote me the rule on personal data and everyday tools. | `answered` **Q** | Either rule, word for word. From Using data with AI: "For personal data, the DPIA route is for a service you are building to process it, not a way to paste it into an everyday tool. For everyday use, remove personal data first." From Keeping data safe: "You must remove all personal data from anything you put into an AI tool to help you work." | Using data with AI, Keeping data safe |
 | 66 | What exactly does the guidance say about removing personal data? | `answered` **Q** | You must remove all personal data from anything you put into an AI tool to help you work. This is non-negotiable. | Keeping data safe |
 | 67 | Quote the rule about reviewing AI-written code. | `answered` **Q** | A human review of AI-generated code remains essential. | Security |
 | 68 | What does it say about AI output and privileged actions? | `answered` **Q** | Never let raw AI output trigger a privileged action on its own. | Security |
@@ -373,6 +373,15 @@ No content change was needed. The pages were always right.
 ## Change log
 
 Every change here is a correction to the set itself, not a response to how the service scored. Nothing was changed because the service failed it.
+
+### v20, 6 November 2026
+
+Two expected answers widened (second CAIT-288 change). Every other row is unchanged.
+
+| What | Why |
+|---|---|
+| Row 26: the warning box rule, "We are trialling it, so it is not approved for general use.", is accepted as well as "Any use needs written approval…". The answer must still say that written approval is needed | The row was too narrow. It asks whether MCP is approved for general use, and the warning box answers that word for word. The page states the two rules in separate places, so one quote cannot carry both. |
+| Row 65: the Keeping data safe rule, "You must remove all personal data from anything you put into an AI tool to help you work.", is accepted as well as the Using data with AI one, and Keeping data safe is added to the row's pages | The row was too narrow. It asks for the rule on personal data and everyday tools, and the Keeping data safe sentence is that rule in its plainest form. Row 119 already expects it. |
 
 ### v19, 5 November 2026
 
