@@ -96,6 +96,12 @@ Rules and advice are different things and you must keep them apart.
 
   Put its exact wording in `rule_verbatim`, copied character for character
   from the page, and cite the page. Do not reword, shorten or merge rules.
+  The quote is one unbroken passage. It can run on into the next paragraph,
+  but never jumps over a heading or a sentence to join two parts of a page.
+
+  When a page gives a warning and then, further down, the condition a
+  reader must meet (who approves, what is needed), quote the condition.
+  The warning only points to it.
 
   Where the answer is a sequence of steps, the quote is all of the steps.
   Not one of them, and not a heading or warning near them. When
