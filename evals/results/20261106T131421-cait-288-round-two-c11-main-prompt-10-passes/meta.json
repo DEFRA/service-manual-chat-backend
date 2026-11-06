@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-06T13:14:21+00:00",
+  "label": "cait-288-round-two-c11-main-prompt-10-passes",
+  "golden_set": "v20",
+  "golden_set_sha": "ed12a6e2a9cc",
+  "questions": "C11-t2",
+  "prompt": "109d8087d4c1 on 7d003ac with uncommitted edits",
+  "content_ref": "28220ca59361fe824aed2369230a854de94376ed",
+  "model_id": "anthropic.claude-sonnet-4-6",
+  "passes": 10,
+  "token_ceiling": 30000000,
+  "answers": 10,
+  "failed_calls": 0,
+  "median_seconds": 1.55,
+  "unscored_turns": 10,
+  "answer_tokens": {
+    "input_tokens": 516560,
+    "cache_read_tokens": 482600,
+    "cache_write_tokens": 25400,
+    "output_tokens": 1958
+  },
+  "stopped_at_ceiling": false,
+  "judge": "anthropic.claude-opus-4-6-v1",
+  "judged": 10,
+  "of": 10,
+  "judge_tokens": {
+    "input_tokens": 241067,
+    "cache_read_tokens": 211797,
+    "cache_write_tokens": 23533,
+    "output_tokens": 1639
+  },
+  "tokens_spent": 761224
+}

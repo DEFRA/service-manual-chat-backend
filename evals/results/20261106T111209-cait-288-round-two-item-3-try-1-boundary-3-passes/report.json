@@ -1,0 +1,210 @@
+{
+  "passes": 3,
+  "sizes": {
+    "singles": 3,
+    "q_items": 3,
+    "refusals": 0,
+    "answered": 3,
+    "status_bar": 3,
+    "complete_bar": 3
+  },
+  "bars": [
+    {
+      "bar": "Right status",
+      "measure": "right status",
+      "needs": "3 or more of 3",
+      "range": "3",
+      "passed": true
+    },
+    {
+      "bar": "Quoted (the row's rule)",
+      "measure": "quoted, the row's rule",
+      "needs": "all 3",
+      "range": "2 to 3",
+      "passed": false
+    },
+    {
+      "bar": "Refusals held",
+      "measure": "refusals held",
+      "needs": "all 0",
+      "range": "0",
+      "passed": true
+    },
+    {
+      "bar": "Grounded in the named pages",
+      "measure": "grounded in the named pages",
+      "needs": "all 3",
+      "range": "2 to 3",
+      "passed": false
+    },
+    {
+      "bar": "Complete",
+      "measure": "complete",
+      "needs": "3 of 3 (85%)",
+      "range": "3",
+      "passed": true
+    },
+    {
+      "bar": "Fabricated quotes",
+      "measure": "fabricated quotes",
+      "needs": "0",
+      "range": "0",
+      "passed": true
+    }
+  ],
+  "run_passed": false,
+  "measures": {
+    "no answer at all": {
+      "per_pass": [
+        0,
+        0,
+        0
+      ],
+      "range": "0"
+    },
+    "right status": {
+      "per_pass": [
+        3,
+        3,
+        3
+      ],
+      "range": "3"
+    },
+    "right status, conversation turns": {
+      "per_pass": [
+        0,
+        0,
+        0
+      ],
+      "range": "0"
+    },
+    "quoted exactly": {
+      "per_pass": [
+        2,
+        3,
+        2
+      ],
+      "range": "2 to 3"
+    },
+    "quoted and shown to the reader": {
+      "per_pass": [
+        2,
+        3,
+        2
+      ],
+      "range": "2 to 3"
+    },
+    "selective quotes": {
+      "per_pass": [
+        0,
+        0,
+        0
+      ],
+      "range": "0"
+    },
+    "stitched from table cells": {
+      "per_pass": [
+        0,
+        0,
+        0
+      ],
+      "range": "0"
+    },
+    "quotes from a page the row does not name": {
+      "per_pass": [
+        1,
+        0,
+        0
+      ],
+      "range": "0 to 1"
+    },
+    "fabricated quotes": {
+      "per_pass": [
+        0,
+        0,
+        0
+      ],
+      "range": "0"
+    },
+    "refusals held": {
+      "per_pass": [
+        0,
+        0,
+        0
+      ],
+      "range": "0"
+    },
+    "grounded in the named pages": {
+      "per_pass": [
+        2,
+        3,
+        3
+      ],
+      "range": "2 to 3"
+    },
+    "grounded in the toolkit at all": {
+      "per_pass": [
+        3,
+        3,
+        3
+      ],
+      "range": "3"
+    },
+    "complete": {
+      "per_pass": [
+        3,
+        3,
+        3
+      ],
+      "range": "3"
+    },
+    "quoted, the row's rule": {
+      "per_pass": [
+        2,
+        3,
+        2
+      ],
+      "range": "2 to 3"
+    }
+  },
+  "failures": {
+    "quoted": {
+      "G065": 1,
+      "G066": 1
+    },
+    "quote_shown": {
+      "G065": 1,
+      "G066": 1
+    },
+    "wrong_page": {
+      "G065": 1
+    },
+    "grounded_in_named_sources": {
+      "G065": 1
+    }
+  },
+  "first_turns": {
+    "checked": 0,
+    "failures": {}
+  },
+  "beside": {
+    "rows": [
+      "G119"
+    ],
+    "failures": {
+      "grounded_in_named_sources": {
+        "G119": 1
+      }
+    }
+  },
+  "writing": {
+    "messages": 12,
+    "dashes used as punctuation": 0,
+    "\"the toolkit says\" or \"the guidance\"": 0,
+    "paragraph breaks": 0,
+    "abbreviations not spelt out": 0,
+    "opening with an abbreviation": 0,
+    "median words": 74.0,
+    "longest words": 102
+  }
+}

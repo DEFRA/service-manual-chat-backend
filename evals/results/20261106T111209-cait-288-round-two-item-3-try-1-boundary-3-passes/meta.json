@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-06T11:12:09+00:00",
+  "label": "cait-288-round-two-item-3-try-1-boundary-3-passes",
+  "golden_set": "v19",
+  "golden_set_sha": "7036ca374122",
+  "questions": "G011,G065,G066,G119",
+  "prompt": "d0b6af50bf8d on 266a7ac",
+  "content_ref": "28220ca59361fe824aed2369230a854de94376ed",
+  "model_id": "anthropic.claude-sonnet-4-6",
+  "passes": 3,
+  "token_ceiling": 30000000,
+  "answers": 12,
+  "failed_calls": 0,
+  "median_seconds": 3.83,
+  "unscored_turns": 0,
+  "answer_tokens": {
+    "input_tokens": 310908,
+    "cache_read_tokens": 305748,
+    "cache_write_tokens": 0,
+    "output_tokens": 3905
+  },
+  "stopped_at_ceiling": false,
+  "judge": "anthropic.claude-opus-4-6-v1",
+  "judged": 12,
+  "of": 12,
+  "judge_tokens": {
+    "input_tokens": 292572,
+    "cache_read_tokens": 282396,
+    "cache_write_tokens": 0,
+    "output_tokens": 2790
+  },
+  "tokens_spent": 610175
+}
