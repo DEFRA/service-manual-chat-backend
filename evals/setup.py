@@ -103,7 +103,7 @@ def aws_profile() -> str | None:
         return os.environ["AWS_PROFILE"]
     if not CREDENTIALS.exists():
         return None
-    names = re.findall(
+    names: list[str] = re.findall(
         r"^\[(.+?)\]", CREDENTIALS.read_text(encoding="utf-8"), re.MULTILINE
     )
     if "default" in names or not names:
