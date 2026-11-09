@@ -183,7 +183,7 @@ and delete the report email.
 | For | Ask |
 | :-- | :-- |
 | Platform, deploys, config, the guardrail, alerts | CDP, in #cdp-support on Slack |
-| AWS credentials for evaluation runs | Joel, who can say who grants access to the account |
+| AWS credentials for evaluation runs | The Cloud Centre of Excellence (CCOE), who run the account |
 | Whether a pen test or IT Health Check is needed | The delivery group's security rep |
 | The toolkit's content | The AI digital toolkit team, through the team mailbox |
 | Tickets | Jira project CAIT |
