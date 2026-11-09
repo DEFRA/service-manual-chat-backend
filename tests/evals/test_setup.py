@@ -7,8 +7,10 @@ from evals import setup
 
 @pytest.fixture
 def home(tmp_path, monkeypatch):
-    monkeypatch.delenv("AWS_PROFILE", raising=False)
-    monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
+    # The publish runner has AWS credentials in its environment; a test must
+    # see none, whatever the machine has.
+    for name in ("AWS_PROFILE", *setup.AWS_KEYS, "AWS_BEARER_TOKEN_BEDROCK"):
+        monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(setup, "CREDENTIALS", tmp_path / "credentials")
     monkeypatch.setattr(setup, "SECRETS", tmp_path / "secrets.env")
     return tmp_path
@@ -59,8 +61,7 @@ def test_secrets_env_fills_the_environment_without_overriding(home, monkeypatch)
     assert setup.os.environ["AWS_SESSION_TOKEN"] == "shell"  # noqa: S105
 
 
-def test_the_credentials_file_beats_an_export_in_secrets_env(home, monkeypatch):
-    monkeypatch.delenv("AWS_SECRET_ACCESS_KEY", raising=False)
+def test_the_credentials_file_beats_an_export_in_secrets_env(home):
     (home / "credentials").write_text("[one]\n")
     (home / "secrets.env").write_text(
         "AWS_ACCESS_KEY_ID=stale\nAWS_SECRET_ACCESS_KEY=stale\nOTHER=kept\n"
@@ -72,12 +73,6 @@ def test_the_credentials_file_beats_an_export_in_secrets_env(home, monkeypatch):
 
 
 def test_no_credentials_anywhere_stops_with_the_fix(home, monkeypatch):
-    for name in (
-        "AWS_SECRET_ACCESS_KEY",
-        "AWS_SESSION_TOKEN",
-        "AWS_BEARER_TOKEN_BEDROCK",
-    ):
-        monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("AWS_SHARED_CREDENTIALS_FILE", str(home / "credentials"))
     monkeypatch.setenv("AWS_CONFIG_FILE", str(home / "config"))
     # Without these boto3 would go on to ask the instance metadata service.
