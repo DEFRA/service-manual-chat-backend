@@ -1,7 +1,7 @@
 """Answers from Amazon Bedrock through Pydantic AI.
 
-Locally the sandbox is reached with `AWS_BEARER_TOKEN_BEDROCK`, which boto3
-picks up on its own, and a plain model id. On CDP the same code is pointed at
+Locally Bedrock is reached with your own AWS credentials, which boto3 finds on
+its own, and a plain model id. On CDP the same code is pointed at
 an inference profile and given a guardrail. Nothing about the prompt or the
 output shape changes between the two.
 """
