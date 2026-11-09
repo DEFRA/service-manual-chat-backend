@@ -16,10 +16,10 @@ def home(tmp_path, monkeypatch):
 
 def test_the_one_profile_in_the_credentials_file_is_used(home):
     (home / "credentials").write_text(
-        "[314146300665_aip_developers_permissions]\naws_access_key_id = x\n"
+        "[123456789012_example_permissions]\naws_access_key_id = x\n"
     )
-    assert setup.aws_profile() == "314146300665_aip_developers_permissions"
-    assert setup.os.environ["AWS_PROFILE"] == "314146300665_aip_developers_permissions"
+    assert setup.aws_profile() == "123456789012_example_permissions"
+    assert setup.os.environ["AWS_PROFILE"] == "123456789012_example_permissions"
 
 
 def test_a_default_profile_is_left_to_boto3(home):
@@ -57,6 +57,18 @@ def test_secrets_env_fills_the_environment_without_overriding(home, monkeypatch)
     assert setup.os.environ["AWS_ACCESS_KEY_ID"] == "key"
     assert "AWS_SECRET_ACCESS_KEY" not in setup.os.environ
     assert setup.os.environ["AWS_SESSION_TOKEN"] == "shell"  # noqa: S105
+
+
+def test_the_credentials_file_beats_an_export_in_secrets_env(home, monkeypatch):
+    monkeypatch.delenv("AWS_SECRET_ACCESS_KEY", raising=False)
+    (home / "credentials").write_text("[one]\n")
+    (home / "secrets.env").write_text(
+        "AWS_ACCESS_KEY_ID=stale\nAWS_SECRET_ACCESS_KEY=stale\nOTHER=kept\n"
+    )
+    setup.load_env_file()
+    assert "AWS_ACCESS_KEY_ID" not in setup.os.environ
+    assert "AWS_SECRET_ACCESS_KEY" not in setup.os.environ
+    assert setup.os.environ["OTHER"] == "kept"
 
 
 def test_no_credentials_anywhere_stops_with_the_fix(home, monkeypatch):

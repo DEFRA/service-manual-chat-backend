@@ -83,15 +83,26 @@ def prompt_version() -> str:
     return f"{sha} on {commit}{' with uncommitted edits' if edited else ''}"
 
 
+AWS_KEYS = frozenset(
+    {"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"}
+)
+
+
 def load_env_file() -> None:
     """compose/secrets.env, if there is one: KEY=VALUE lines, the shell's own
-    values kept, empty values skipped. Compose reads the same file."""
+    values kept, empty values skipped. Compose reads the same file.
+
+    The AWS keys in it are skipped when ~/.aws/credentials exists. They are
+    an export of that file for compose, and an environment variable beats a
+    profile in boto3, so a stale export would win over fresh credentials.
+    """
     if not SECRETS.exists():
         return
+    skip = AWS_KEYS if CREDENTIALS.exists() else frozenset()
     for line in SECRETS.read_text(encoding="utf-8").splitlines():
         key, sep, value = line.partition("=")
         key, value = key.strip(), value.strip()
-        if sep and key and not key.startswith("#") and value:
+        if sep and key and not key.startswith("#") and value and key not in skip:
             os.environ.setdefault(key, value)
 
 

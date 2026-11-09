@@ -21,8 +21,8 @@ most of it image builds. No Python or Node needed on the host.
 - Docker Desktop, running.
 - Git access to this repo and to
   [DEFRA/service-manual-ui](https://github.com/DEFRA/service-manual-ui).
-- AWS credentials that can call Bedrock, from the AWS access portal. Ask Joel
-  if you do not have access.
+- AWS credentials that can call Bedrock, from the AWS access portal. Ask the
+  team if you do not have access.
 
 ### Set up
 
@@ -45,7 +45,9 @@ most of it image builds. No Python or Node needed on the host.
    ```
 
    The credentials are temporary. Paste and export again when Bedrock
-   answers 403. Nothing else needs a personal value.
+   answers 403. The evaluation ignores the AWS keys in `compose/secrets.env`
+   while `~/.aws/credentials` exists, so a stale export cannot hide fresh
+   credentials. Nothing else needs a personal value.
 
 3. Start everything:
 
