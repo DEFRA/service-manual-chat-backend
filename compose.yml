@@ -56,8 +56,9 @@ services:
       AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL:-http://localstack:4566}
       MONGO_URI: ${MONGO_URI:-mongodb://mongodb:27017/}
       HOST: ${HOST:-0.0.0.0}
-      # stub answers with no key; bedrock needs AWS_BEARER_TOKEN_BEDROCK in
-      # compose/secrets.env (gitignored) and reaches the London sandbox.
+      # stub answers with no credentials; bedrock needs your AWS credentials
+      # in compose/secrets.env (gitignored), which override aws.env's
+      # localstack placeholders, and reaches Bedrock in London.
       ASK_ENGINE: ${ASK_ENGINE:-stub}
       # AWS_ENDPOINT_URL above sends every AWS call to localstack. Bedrock is
       # the one service that must reach AWS itself, and this service-specific

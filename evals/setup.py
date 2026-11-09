@@ -1,4 +1,4 @@
-"""Where the evaluation finds the prompt, the pages and the Bedrock key.
+"""Where the evaluation finds the prompt, the pages and the AWS credentials.
 
 Call `prepare()` before importing anything from `app`: app.config reads the
 environment once, at import.
@@ -16,6 +16,7 @@ EVALS = REPO / "evals"
 RESULTS = EVALS / "results"
 PROMPT = REPO / "prompts/system.md"
 SECRETS = REPO / "compose/secrets.env"
+CREDENTIALS = Path.home() / ".aws" / "credentials"
 REGION = "eu-west-2"
 
 
@@ -82,23 +83,62 @@ def prompt_version() -> str:
     return f"{sha} on {commit}{' with uncommitted edits' if edited else ''}"
 
 
-def load_secrets() -> None:
-    """Put the Bedrock key in the environment without printing it."""
-    if os.environ.get("AWS_BEARER_TOKEN_BEDROCK"):
+def load_env_file() -> None:
+    """compose/secrets.env, if there is one: KEY=VALUE lines, the shell's own
+    values kept, empty values skipped. Compose reads the same file."""
+    if not SECRETS.exists():
         return
-    if SECRETS.exists():
-        for line in SECRETS.read_text(encoding="utf-8").splitlines():
-            key, sep, value = line.partition("=")
-            if sep and key.strip() == "AWS_BEARER_TOKEN_BEDROCK" and value.strip():
-                os.environ["AWS_BEARER_TOKEN_BEDROCK"] = value.strip()
-                return
-    message = f"Set AWS_BEARER_TOKEN_BEDROCK, or put it in {SECRETS.relative_to(REPO)}"
+    for line in SECRETS.read_text(encoding="utf-8").splitlines():
+        key, sep, value = line.partition("=")
+        key, value = key.strip(), value.strip()
+        if sep and key and not key.startswith("#") and value:
+            os.environ.setdefault(key, value)
+
+
+def aws_profile() -> str | None:
+    """The profile boto3 will use, chosen from ~/.aws/credentials when
+    AWS_PROFILE does not say. One profile and no [default]: that one.
+    A [default]: left to boto3. Several and no default: ask."""
+    if os.environ.get("AWS_PROFILE"):
+        return os.environ["AWS_PROFILE"]
+    if not CREDENTIALS.exists():
+        return None
+    names = re.findall(
+        r"^\[(.+?)\]", CREDENTIALS.read_text(encoding="utf-8"), re.MULTILINE
+    )
+    if "default" in names or not names:
+        return None
+    if len(names) == 1:
+        os.environ["AWS_PROFILE"] = names[0]
+        return names[0]
+    message = (
+        f"{CREDENTIALS} has {len(names)} profiles and no [default]. "
+        f"Set AWS_PROFILE to one of: {', '.join(names)}"
+    )
     raise SystemExit(message)
+
+
+NO_CREDENTIALS = (
+    "No AWS credentials found. Paste a profile from the AWS access portal into "
+    "~/.aws/credentials (or run `aws configure`). With more than one profile and "
+    "no [default], set AWS_PROFILE. Temporary credentials expire: paste them "
+    "again if Bedrock answers 403."
+)
+
+
+def check_credentials() -> None:
+    """Stop before the first model call if boto3 would find no credentials."""
+    load_env_file()
+    aws_profile()
+    import boto3
+
+    if boto3.Session().get_credentials() is None:
+        raise SystemExit(NO_CREDENTIALS)
 
 
 def prepare(content_dir: Path, *, needs_bedrock: bool) -> None:
     if needs_bedrock:
-        load_secrets()
+        check_credentials()
     os.environ.setdefault("AWS_REGION", REGION)
     os.environ.setdefault("AWS_DEFAULT_REGION", REGION)
     os.environ["CONTENT_DIR"] = str(content_dir)

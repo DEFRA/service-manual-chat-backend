@@ -204,8 +204,9 @@ async def answer(
             first = next(iter(records or unscored), None)
             if first and not first["ok"] and "403" in first["error"]:
                 message = (
-                    "Bedrock refused the first question (403). The key in "
-                    "compose/secrets.env has probably expired. "
+                    "Bedrock refused the first question (403). Your AWS "
+                    "credentials have probably expired: paste fresh ones into "
+                    "~/.aws/credentials from the access portal. "
                     f"{first['error'][:200]}"
                 )
                 raise SystemExit(message)

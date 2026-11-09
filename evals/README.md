@@ -6,8 +6,9 @@ across the three passes. Run it on every prompt or content change.
 
 ## Run it
 
-You need a Bedrock sandbox key in `compose/secrets.env` (see the main README),
-or `AWS_BEARER_TOKEN_BEDROCK` in your environment.
+You need AWS credentials that can call Bedrock in `~/.aws/credentials` (see the
+main README). With one profile there, the run picks it; otherwise set
+`AWS_PROFILE`.
 
 ```bash
 uv sync
