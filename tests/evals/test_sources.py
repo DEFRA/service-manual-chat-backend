@@ -101,8 +101,9 @@ def test_empty_groups_have_no_percentage() -> None:
 def test_unknown_turn_ids_are_not_silently_counted_as_first_questions(
     question_id: str,
 ) -> None:
+    records = [record(question_id)]
     with pytest.raises(ValueError, match="Unrecognised evaluation question ID"):
-        sources.count([record(question_id)])
+        sources.count(records)
 
 
 def test_missing_verified_data_is_not_counted_as_an_empty_list() -> None:
