@@ -48,31 +48,10 @@ Useful options:
 
 ```bash
 uv run python -m evals score evals/results/<run>             # no model calls
-uv run python -m evals sources evals/results/<run>           # saved source counts only
 uv run python -m evals score evals/results/<a> evals/results/<b>
 uv run python -m evals judge evals/results/<run> --questions Q --only right_rule
 uv run python -m evals agree evals/results/<a> evals/results/<b>   # two judges' verdicts
 ```
-
-`sources` prints JSON for each named run separately, without model calls,
-credentials, content downloads, re-verification or changes to the saved run.
-It counts successful replies whose saved `verified.status` is `answered`,
-split into first questions and follow-ups by question/turn ID, not by whether
-history is present. For each group it reports the answered denominator,
-empty source count, percentage (null if no answered replies), and affected
-question IDs, model keys and passes. It separately counts retained quoted
-rules whose page is absent from the source list; that count can overlap the
-empty-list count. A nonempty list is not evidence that the pages are correct.
-For imported runs without a recorded question selection, `questions` is null,
-not assumed to be a full run.
-
-Conversation setup turns are not persisted as full answers by the current
-writer. Their later history has no sources, so they cannot be included in
-the first-question source count. `unscored_turns_not_persisted` reports the
-run's recorded number of setup calls, or null if its metadata has no count.
-Missing verified data or unrecognised answered turn IDs fail explicitly
-rather than being counted as empty lists. Keep old baselines, full runs and
-targeted subsets separate when interpreting the output.
 
 `score` fetches the pages at the run's own content ref, so an old run is scored
 against the pages it answered from. It scores against the current golden set and
@@ -86,7 +65,6 @@ warns if the run used a different version; pass `--set` with that version's
 | `golden-set.md` | The golden set, synced from the team's Confluence page. Never edited here |
 | `golden-set.json` | Generated from it by `python -m evals golden`. Never edited by hand |
 | `answer.py` | Asks the questions through the backend's own agent, `app.ask.bedrock` |
-| `sources.py` | Counts empty source lists and omitted quoted pages in saved answers, offline |
 | `judge.py` | The judge's instructions and the definitions it applies, quoted from the set |
 | `score.py` | The code-checked measures and the six bars |
 | `writing.py` | The writing counts |

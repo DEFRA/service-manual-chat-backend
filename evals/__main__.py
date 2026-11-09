@@ -2,7 +2,6 @@
 
 uv run python -m evals run --label cait-288-step-2     # ask x3, judge, score
 uv run python -m evals score evals/results/<run>       # re-score, no model calls
-uv run python -m evals sources evals/results/<run>     # count missing sources, offline
 uv run python -m evals judge evals/results/<run> [--judge ID] [--questions Q --only right_rule]
 uv run python -m evals golden                          # golden-set.md -> golden-set.json
 uv run python -m evals agree <run> <run>               # two judges' verdicts side by side
@@ -354,15 +353,6 @@ def parser() -> argparse.ArgumentParser:
         "--set", type=resolved, help="a golden-set.json other than the current one"
     )
     score_cmd.add_argument("--content-dir", type=resolved)
-
-    sources_cmd = commands.add_parser(
-        "sources",
-        help="count missing sources in saved answers, no model calls or fetches",
-    )
-    from evals import sources
-
-    sources_cmd.set_defaults(handler=sources.command)
-    sources_cmd.add_argument("runs", nargs="+", type=resolved)
 
     judge_cmd = commands.add_parser("judge", help="judge, or re-judge, a run's answers")
     judge_cmd.set_defaults(handler=lambda args: asyncio.run(judge_again(args)))
