@@ -84,6 +84,286 @@ def test_verify_keeps_a_quote_that_appears_despite_line_wrapping(
     ).rule_verbatim == rule(quoted)
 
 
+@pytest.mark.parametrize("answer_type", [schemas.Answer, schemas.ModelAnswer])
+@pytest.mark.parametrize("has_other_source", [False, True])
+def test_verify_adds_the_verified_quotes_page_with_its_own_title[
+    AnswerT: (schemas.Answer, schemas.ModelAnswer)
+](
+    content_dir: Path,
+    answer_type: type[AnswerT],
+    has_other_source: bool,
+) -> None:
+    corpus = corpus_module.load_corpus(content_dir)
+    quoted = rule(" ".join(PAGE.split("\n\n")[-1].split()))
+    sources: list[schemas.Source] = (
+        [corpus_module.source_for(corpus["/ai-toolkit"])] if has_other_source else []
+    )
+    answer = answer_type(
+        status="answered", message="m", rule_verbatim=quoted, sources=sources
+    )
+
+    verified = corpus_module.verify(answer, corpus)
+
+    assert type(verified) is answer_type
+    assert verified.rule_verbatim == quoted
+    assert verified.sources == [
+        *sources,
+        schemas.Source(title="Using data with AI", url=quoted.source.url),
+    ]
+    assert answer.sources == sources
+    assert corpus_module.verify(verified, corpus) == verified
+
+
+@pytest.mark.parametrize("answer_type", [schemas.Answer, schemas.ModelAnswer])
+def test_verify_does_not_duplicate_the_quotes_page[
+    AnswerT: (schemas.Answer, schemas.ModelAnswer)
+](
+    content_dir: Path,
+    answer_type: type[AnswerT],
+) -> None:
+    quoted = rule(" ".join(PAGE.split("\n\n")[-1].split()))
+    source = schemas.Source(
+        title="Already listed", url=quoted.source.url, section="Rule"
+    )
+    answer = answer_type(
+        status="answered", message="m", rule_verbatim=quoted, sources=[source]
+    )
+
+    verified = corpus_module.verify(answer, corpus_module.load_corpus(content_dir))
+
+    assert verified.sources == [source]
+    assert verified.rule_verbatim == quoted
+
+
+@pytest.mark.parametrize("answer_type", [schemas.Answer, schemas.ModelAnswer])
+@pytest.mark.parametrize(
+    "quoted",
+    [
+        rule("Remove personal data before pasting it in."),
+        rule("The DPIA route is for a service you are building"),
+        rule("Home", "/nope"),
+    ],
+)
+@pytest.mark.parametrize("has_existing_source", [False, True])
+def test_verify_rejected_quotes_add_no_source[
+    AnswerT: (schemas.Answer, schemas.ModelAnswer)
+](
+    content_dir: Path,
+    answer_type: type[AnswerT],
+    quoted: schemas.RuleVerbatim,
+    has_existing_source: bool,
+) -> None:
+    existing_url = quoted.source.url if quoted.source.url != "/nope" else "/ai-toolkit"
+    sources = (
+        [schemas.Source(title="Existing", url=existing_url)]
+        if has_existing_source
+        else []
+    )
+    answer = answer_type(
+        status="answered", message="m", rule_verbatim=quoted, sources=sources
+    )
+
+    verified = corpus_module.verify(answer, corpus_module.load_corpus(content_dir))
+
+    assert verified.rule_verbatim is None
+    assert verified.sources == sources
+
+
+@pytest.mark.parametrize("answer_type", [schemas.Answer, schemas.ModelAnswer])
+def test_verify_deduplicates_sources_by_url_preserving_first_entry_and_order[
+    AnswerT: (schemas.Answer, schemas.ModelAnswer)
+](
+    content_dir: Path,
+    answer_type: type[AnswerT],
+) -> None:
+    first = schemas.Source(title="First", url="/ai-toolkit")
+    second = schemas.Source(title="Data", url="/ai-toolkit/guidance/using-data-with-ai")
+    answer = answer_type(
+        status="answered",
+        message="m",
+        sources=[
+            first,
+            second,
+            schemas.Source(title="Different title", url=first.url, section="Section"),
+        ],
+    )
+
+    verified = corpus_module.verify(answer, corpus_module.load_corpus(content_dir))
+
+    assert verified.sources == [first, second]
+
+
+@pytest.mark.parametrize("answer_type", [schemas.Answer, schemas.ModelAnswer])
+def test_verify_repairs_an_invalid_source_url_using_a_unique_exact_title[
+    AnswerT: (schemas.Answer, schemas.ModelAnswer)
+](
+    content_dir: Path,
+    answer_type: type[AnswerT],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    corpus = corpus_module.load_corpus(content_dir)
+    source = schemas.Source(
+        title="Using data with AI",
+        url="/ai-toolkit/guidance/using data with ai?private=secret",
+        section="Unverified section",
+    )
+    answer = answer_type(status="answered", message="m", sources=[source])
+
+    with caplog.at_level("INFO", logger=corpus_module.__name__):
+        verified = corpus_module.verify(answer, corpus)
+
+    assert verified.sources == [
+        schemas.Source(
+            title="Using data with AI", url="/ai-toolkit/guidance/using-data-with-ai"
+        )
+    ]
+    assert answer.sources == [source]
+    assert corpus_module.verify(verified, corpus) == verified
+    assert "Repaired a source" in caplog.text
+    assert "secret" not in caplog.text
+    assert "Unverified section" not in caplog.text
+
+
+@pytest.mark.parametrize("answer_type", [schemas.Answer, schemas.ModelAnswer])
+@pytest.mark.parametrize(
+    "title",
+    ["Unknown private title", "using data with ai", "Using data with AI ", ""],
+)
+def test_verify_drops_invalid_urls_without_an_exact_title_match[
+    AnswerT: (schemas.Answer, schemas.ModelAnswer)
+](
+    content_dir: Path,
+    answer_type: type[AnswerT],
+    title: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    answer = answer_type(
+        status="answered",
+        message="m",
+        sources=[schemas.Source(title=title, url="/private-input")],
+    )
+
+    verified = corpus_module.verify(answer, corpus_module.load_corpus(content_dir))
+
+    assert verified.sources == []
+    assert "outcome=no_title_match" in caplog.text
+    assert "private" not in caplog.text
+
+
+@pytest.mark.parametrize("answer_type", [schemas.Answer, schemas.ModelAnswer])
+def test_verify_drops_invalid_urls_with_ambiguous_titles_but_keeps_valid_urls[
+    AnswerT: (schemas.Answer, schemas.ModelAnswer)
+](
+    content_dir: Path,
+    answer_type: type[AnswerT],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    corpus = corpus_module.load_corpus(content_dir)
+    original = corpus["/ai-toolkit/guidance/using-data-with-ai"]
+    duplicate = corpus_module.Page(
+        "/ai-toolkit/duplicate", original.title, original.body
+    )
+    corpus[duplicate.url] = duplicate
+    valid = schemas.Source(title="Model title", url=original.url, section="Existing")
+    answer = answer_type(
+        status="answered",
+        message="m",
+        sources=[
+            schemas.Source(title=original.title, url="/invalid-private-input"),
+            valid,
+        ],
+    )
+
+    verified = corpus_module.verify(answer, corpus)
+
+    assert verified.sources == [valid]
+    assert "outcome=ambiguous_title" in caplog.text
+    assert "private" not in caplog.text
+
+
+@pytest.mark.parametrize("answer_type", [schemas.Answer, schemas.ModelAnswer])
+@pytest.mark.parametrize("repair_first", [False, True])
+def test_verify_deduplicates_after_url_repair[
+    AnswerT: (schemas.Answer, schemas.ModelAnswer)
+](
+    content_dir: Path,
+    answer_type: type[AnswerT],
+    repair_first: bool,
+) -> None:
+    corpus = corpus_module.load_corpus(content_dir)
+    page = corpus["/ai-toolkit/guidance/using-data-with-ai"]
+    valid = schemas.Source(title="Existing", url=page.url, section="Section")
+    invalid = schemas.Source(title=page.title, url="/invalid")
+    other = schemas.Source(title="Toolkit", url="/ai-toolkit")
+    sources = (
+        [invalid, other, valid, invalid]
+        if repair_first
+        else [valid, other, invalid, invalid]
+    )
+    answer = answer_type(status="answered", message="m", sources=sources)
+
+    verified = corpus_module.verify(answer, corpus)
+
+    expected = corpus_module.source_for(page) if repair_first else valid
+    assert verified.sources == [expected, other]
+
+
+@pytest.mark.parametrize("answer_type", [schemas.Answer, schemas.ModelAnswer])
+def test_verify_keeps_a_valid_url_even_when_its_title_names_a_different_page[
+    AnswerT: (schemas.Answer, schemas.ModelAnswer)
+](
+    content_dir: Path,
+    answer_type: type[AnswerT],
+) -> None:
+    source = schemas.Source(
+        title="Using data with AI", url="/ai-toolkit", section="Existing"
+    )
+    answer = answer_type(status="answered", message="m", sources=[source])
+
+    verified = corpus_module.verify(answer, corpus_module.load_corpus(content_dir))
+
+    assert verified.sources == [source]
+
+
+@pytest.mark.parametrize("answer_type", [schemas.Answer, schemas.ModelAnswer])
+@pytest.mark.parametrize("has_listed_source", [False, True])
+def test_source_url_repair_does_not_repair_a_quoted_rules_citation[
+    AnswerT: (schemas.Answer, schemas.ModelAnswer)
+](
+    content_dir: Path,
+    answer_type: type[AnswerT],
+    caplog: pytest.LogCaptureFixture,
+    has_listed_source: bool,
+) -> None:
+    source = schemas.Source(title="Using data with AI", url="/invalid")
+    quote = schemas.RuleVerbatim(
+        text=" ".join(PAGE.split("\n\n")[-1].split()), source=source
+    )
+    answer = answer_type(
+        status="answered",
+        message="m",
+        sources=[source] if has_listed_source else [],
+        rule_verbatim=quote,
+    )
+
+    verified = corpus_module.verify(answer, corpus_module.load_corpus(content_dir))
+
+    expected = (
+        [
+            schemas.Source(
+                title="Using data with AI",
+                url="/ai-toolkit/guidance/using-data-with-ai",
+            )
+        ]
+        if has_listed_source
+        else []
+    )
+    assert verified.sources == expected
+    assert verified.rule_verbatim is None
+    assert answer.rule_verbatim == quote
+    assert "outcome=no_page" in caplog.text
+
+
 def test_verify_drops_a_reworded_quote(
     content_dir: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
