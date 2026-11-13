@@ -1,5 +1,6 @@
 import contextvars
 from logging import getLogger
+from time import perf_counter
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -30,6 +31,12 @@ class TraceIdMiddleware(BaseHTTPMiddleware):
 
         ctx_request.set({"url": str(request.url), "method": request.method})
 
+        start = perf_counter()
         response = await call_next(request)
-        ctx_response.set({"status_code": response.status_code})
+        # CDP's Average Response Time alert reads http.response.response_time
+        # in milliseconds from the access line.
+        response_time = round((perf_counter() - start) * 1000)
+        ctx_response.set(
+            {"status_code": response.status_code, "response_time": response_time}
+        )
         return response
