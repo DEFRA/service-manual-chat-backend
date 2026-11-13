@@ -1,7 +1,7 @@
 """Answers from Amazon Bedrock through Pydantic AI.
 
-Locally the sandbox is reached with `AWS_BEARER_TOKEN_BEDROCK`, which boto3
-picks up on its own, and a plain model id. On CDP the same code is pointed at
+Locally Bedrock is reached with your own AWS credentials, which boto3 finds on
+its own, and a plain model id. On CDP the same code is pointed at
 an inference profile and given a guardrail. Nothing about the prompt or the
 output shape changes between the two.
 """
@@ -15,7 +15,9 @@ from pathlib import Path
 
 import boto3
 from botocore.config import Config
+from botocore.exceptions import ConnectionError as BotocoreConnectionError
 from pydantic_ai import Agent
+from pydantic_ai.exceptions import ModelAPIError
 from pydantic_ai.messages import ModelMessage, ModelResponse
 from pydantic_ai.models import ModelRequestParameters
 from pydantic_ai.models.bedrock import BedrockConverseModel, BedrockModelSettings
@@ -207,6 +209,61 @@ class CountingModel(WrapperModel):
         return await super().request(messages, model_settings, model_request_parameters)
 
 
+_PAUSE_BEFORE_RECONNECT_SECONDS = 1
+
+
+def failed_to_connect(error: Exception) -> BotocoreConnectionError | None:
+    """botocore's error, if the request never got as far as Bedrock.
+
+    The proxy or the endpoint could not be reached, or did not answer the
+    connection in time. Not a read timeout or a connection closed mid-reply:
+    those are `HTTPClientError`, and the model may already have run.
+    """
+    if isinstance(error, ModelAPIError) and isinstance(
+        error.__cause__, BotocoreConnectionError
+    ):
+        return error.__cause__
+    return None
+
+
+class RetriesOnConnect(WrapperModel):
+    """Asks once more when the connection to the proxy or to Bedrock failed.
+
+    The first attempt never reached the model, so the second costs nothing and
+    cannot answer twice. Not done with the client's `total_max_attempts`: its
+    retry modes also retry a read timeout.
+
+    Sits inside `CountingModel`, so a retried question counts once towards
+    the day's ceiling.
+    """
+
+    async def request(
+        self,
+        messages: list[ModelMessage],
+        model_settings: ModelSettings | None,
+        model_request_parameters: ModelRequestParameters,
+    ) -> ModelResponse:
+        try:
+            return await super().request(
+                messages, model_settings, model_request_parameters
+            )
+        except ModelAPIError as error:
+            cause = failed_to_connect(error)
+            if cause is None:
+                raise
+            # The kind of failure and botocore's message, which names the
+            # proxy or endpoint URL: never the question.
+            logger.warning(
+                "bedrock could not connect, trying once more model=%s "
+                "error=%s reason=%s",
+                config.config.bedrock_model_id,
+                type(cause).__name__,
+                cause,
+            )
+        await asyncio.sleep(_PAUSE_BEFORE_RECONNECT_SECONDS)
+        return await super().request(messages, model_settings, model_request_parameters)
+
+
 # Where each guardrail policy lists what it checked, and the field that names
 # the check. The names are the guardrail's own, set by whoever configured it.
 # A trace also carries `match`, the words that set a filter off, which can be
@@ -306,12 +363,24 @@ class StopsAtABlock(WrapperModel):
         return response
 
 
+_CONNECT_TIMEOUT_SECONDS = 5
+_READ_TIMEOUT_SECONDS = 25
+
+
 @lru_cache(maxsize=2)
 def agent_for(instructions_text: str) -> Agent[None, schemas.ModelAnswer]:
     client = boto3.client(
         "bedrock-runtime",
         region_name=config.config.bedrock_region,
-        config=Config(retries={"total_max_attempts": 1}),
+        # botocore waits 60 seconds by default for both, and the site gives
+        # up at 30. Give up first, so the reader gets our error answer and
+        # the log says why. The read timeout is for the whole reply: Converse
+        # does not stream.
+        config=Config(
+            retries={"total_max_attempts": 1},
+            connect_timeout=_CONNECT_TIMEOUT_SECONDS,
+            read_timeout=_READ_TIMEOUT_SECONDS,
+        ),
     )
     # The instructions go in as a string, not a function. Pydantic AI only
     # places the Bedrock cache point after static instructions, so a function
@@ -451,7 +520,7 @@ async def bedrock_engine(question: str, history: list[schemas.Turn]) -> schemas.
         # test_bedrock.py will fail with an AttributeError, surfacing the
         # break immediately.
         live_model = the_agent._get_model_outside_run()
-        with the_agent.override(model=CountingModel(live_model)):
+        with the_agent.override(model=CountingModel(RetriesOnConnect(live_model))):
             result = await the_agent.run(user_prompt(question, history))
     except CeilingReachedError as ceiling:
         logger.warning(
@@ -480,9 +549,9 @@ async def bedrock_engine(question: str, history: list[schemas.Turn]) -> schemas.
         return BLOCKED_ANSWER
     except Exception:
         # Whatever went wrong between here and the model: timeout, throttling,
-        # an output that never validated. The reader gets the error outcome
-        # with their question kept; the cause goes to the logs, never the
-        # question.
+        # an output that never validated, a connection that failed twice. The
+        # reader gets the error outcome with their question kept; the cause
+        # goes to the logs, never the question.
         logger.exception(
             "bedrock gave no answer model=%s", config.config.bedrock_model_id
         )

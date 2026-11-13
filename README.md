@@ -5,6 +5,9 @@ Answers questions about the Defra AI digital toolkit for the
 toolkit page. `POST /ask` takes a question and returns an answer with its
 sources and, where a rule applies, the rule quoted word for word.
 
+Running it: [the runbook](docs/runbook.md) covers how it fits together,
+alerts, known issues and who to ask.
+
 This is work-in-progress. See [To Do List](./TODO.md)
 
 ## Try Ask the toolkit locally
@@ -18,7 +21,8 @@ most of it image builds. No Python or Node needed on the host.
 - Docker Desktop, running.
 - Git access to this repo and to
   [DEFRA/service-manual-ui](https://github.com/DEFRA/service-manual-ui).
-- Your own Bedrock sandbox API key. Ask Joel if you do not have one.
+- AWS credentials that can call Bedrock, from the AWS access portal. Ask the
+  team if you do not have access.
 
 ### Set up
 
@@ -31,13 +35,19 @@ most of it image builds. No Python or Node needed on the host.
    cd service-manual-chat-backend
    ```
 
-2. Create `compose/secrets.env` from the example and paste your key in:
+2. Put your AWS credentials in `~/.aws/credentials`: paste the profile from
+   the AWS access portal ("Command line or programmatic access"). The
+   evaluation reads that file directly. Compose cannot, so export the
+   profile into `compose/secrets.env` (gitignored):
 
    ```bash
-   cp compose/secrets.env.example compose/secrets.env
+   aws configure export-credentials --profile <your profile> --format env-no-export > compose/secrets.env
    ```
 
-   The file is gitignored. Nothing else needs a personal value.
+   The credentials are temporary. Paste and export again when Bedrock
+   answers 403. The evaluation ignores the AWS keys in `compose/secrets.env`
+   while `~/.aws/credentials` exists, so a stale export cannot hide fresh
+   credentials. Nothing else needs a personal value.
 
 3. Start everything:
 
@@ -88,11 +98,12 @@ marked so; the rest are optional.
 | Variable | Default | What it does |
 | :-- | :-- | :-- |
 | `ASK_ENGINE` | `stub` | `stub` answers from canned fixtures with no key. `bedrock` calls Amazon Bedrock. |
-| `AWS_BEARER_TOKEN_BEDROCK` | none | Your sandbox API key, in `compose/secrets.env`. Read by boto3 directly. Not needed on CDP, where the task role signs requests. |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` | none | Your own AWS credentials, exported into `compose/secrets.env` for compose; the evaluation reads `~/.aws/credentials` instead (`AWS_PROFILE` picks the profile). Read by boto3 directly. Not needed on CDP, where the task role signs requests. |
 | `BEDROCK_MODEL_ID` | `anthropic.claude-sonnet-4-6` | Plain model id locally; an inference profile id or ARN on CDP. |
 | `BEDROCK_REGION` | `eu-west-2` | London. No cross-region inference. |
 | `BEDROCK_MODELS_WITHOUT_PROMPT_CACHING` | `anthropic.claude-3-haiku` | Comma separated. A model id containing any of these is sent no cache point. |
 | `BEDROCK_GUARDRAIL_ID`, `BEDROCK_GUARDRAIL_VERSION` | none | Empty locally. On CDP the platform gives one guardrail per profile. |
+| `ASK_DAILY_CEILING` | `600` | Bedrock calls allowed per UTC day, across everyone, counted in MongoDB. Past it every question gets the `error` status with `reason` `daily_limit` and no model is called. `0` turns answering off: the first off switch in the site's runbook. Only the `bedrock` engine counts. |
 | `CONTENT_DIR` | `content` | The toolkit markdown pages the model answers from. Compose mounts `../service-manual-ui/src/content` here (override the host path with `CONTENT_DIR=... docker compose ...`). The image carries its own copy, see [Toolkit pages in the image](#toolkit-pages-in-the-image). |
 | `SYSTEM_PROMPT_PATH` | `prompts/system.md` | The prompt. Compose mounts `./prompts`. |
 | `AWS_ENDPOINT_URL_BEDROCK_RUNTIME` | set by compose | Points Bedrock at real AWS while `AWS_ENDPOINT_URL` sends everything else to localstack. Needed wherever both are set. |
@@ -104,10 +115,11 @@ marked so; the rest are optional.
   logs.** The Bedrock call went to localstack. Check
   `AWS_ENDPOINT_URL_BEDROCK_RUNTIME` is set (compose sets it; the dev
   script sets it too).
-- **`UnrecognizedClientException` or `403` from Bedrock.** The key is
-  missing, mistyped or expired. Check `compose/secrets.env` has one line,
-  no quotes, no spaces, then `docker compose --profile service up` again so
-  the container re-reads it.
+- **`UnrecognizedClientException`, `ExpiredTokenException` or `403` from
+  Bedrock.** The credentials are missing or have expired. Paste fresh ones
+  into `~/.aws/credentials`, export them into `compose/secrets.env` again,
+  then `docker compose --profile service up` again so the container re-reads
+  the file.
 - **`ValidationException` naming the model.** That model id is not enabled
   in the sandbox. Try the default.
 - **`403` saying "your request did not allow prompt caching".** That model
@@ -120,9 +132,14 @@ marked so; the rest are optional.
   than the `AI_TOOLKIT_ASK_API_URL` change.
 - **Port 3000 or 8085 already in use.** Stop whatever holds it; the site
   must be on 3000 for its links to work.
-- **Startup fails on Mongo.** The template pings Mongo at boot even though
-  `/ask` never uses it. Run through compose, which starts Mongo, rather than
+- **Startup fails on Mongo.** The service pings Mongo at boot, and with
+  `ASK_ENGINE=bedrock` every call is counted there against
+  `ASK_DAILY_CEILING`. Run through compose, which starts Mongo, rather than
   `python -m app.entrypoints.fastapi` alone.
+- **Every question gets the error answer after about 3 seconds.** MongoDB
+  cannot be reached, so the daily count cannot be kept and the service
+  refuses rather than answer without a limit. The log says `ask daily usage
+  counter unavailable, refusing the call`.
 
 The sandbox has no guardrails. Local use only, toolkit content only, and
 never paste real correspondence in.
@@ -280,7 +297,7 @@ Follow the convention below for environment variables and secrets in local devel
 
 **Environment variables:** `compose/aws.env`.
 
-**Secrets:** `compose/secrets.env`. You need to create this, as it's excluded from version control.
+**Secrets:** `compose/secrets.env`, your AWS credentials exported from `~/.aws/credentials` as in [Run it locally](#run-it-locally). Excluded from version control.
 
 **Libraries:** Ensure the python virtual environment is configured and libraries are installed using `uv sync`, [as above](#python)
 
@@ -341,7 +358,7 @@ command asks them all three times and prints the six bars:
 uv run python -m evals run --label what-this-run-tests
 ```
 
-About £9 with a Bedrock sandbox key. See [evals/README.md](./evals/README.md).
+About £9, on your own AWS credentials. See [evals/README.md](./evals/README.md).
 
 ## API endpoints
 

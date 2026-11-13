@@ -78,6 +78,28 @@ def load_corpus(content_dir: Path, prefix: str = "ai-toolkit") -> dict[str, Page
     return pages
 
 
+def _verify_sources(
+    sources: list[schemas.Source], corpus: dict[str, Page]
+) -> list[schemas.Source]:
+    verified: list[schemas.Source] = []
+    seen_urls: set[str] = set()
+    for source in sources:
+        if source.url not in corpus:
+            matches = [page for page in corpus.values() if page.title == source.title]
+            if len(matches) != 1:
+                logger.warning(
+                    "Dropped a source not in the corpus outcome=%s",
+                    "no_title_match" if not matches else "ambiguous_title",
+                )
+                continue
+            source = source_for(matches[0])
+            logger.info("Repaired a source using its exact title url=%s", source.url)
+        if source.url not in seen_urls:
+            verified.append(source)
+            seen_urls.add(source.url)
+    return verified
+
+
 def verify[AnswerT: (schemas.Answer, schemas.ModelAnswer)](
     answer: AnswerT, corpus: dict[str, Page]
 ) -> AnswerT:
@@ -88,22 +110,25 @@ def verify[AnswerT: (schemas.Answer, schemas.ModelAnswer)](
     evals, which call this on the model's output directly). Either way,
     returns the same type it was given.
 
-    A source is kept only if it names a page we hold. A quoted rule is kept
-    only if its words really appear on the page it cites, whole and in order:
+    A source is kept only if it names a page we hold, once per page URL.
+    An unknown source URL is repaired only when its title exactly matches
+    one unique corpus page, using that page's URL and title. Otherwise it is
+    dropped and logged. Valid URLs and their metadata are left unchanged.
+    A quoted rule is kept only if its words really appear on the page it cites,
+    whole and in order:
     a quote that starts or stops part way through a sentence is dropped too,
     and logged as its own failure, because a rule quoted selectively can say
     the opposite of the rule. The front end does the same check, but the API
     should be trustworthy on its own: a wrong answer about a rule is the
-    failure that matters most.
+    failure that matters most. A verified quote's page is added to the sources
+    if missing, using the page's own title.
 
     Last, a long message is put on separate lines, with no word changed. The
     quoted rule is left exactly as it is, and so is a `blocked` message, whose
     wording is fixed.
     """
-    sources = [s for s in answer.sources if s.url in corpus]
-    dropped = len(answer.sources) - len(sources)
-    if dropped:
-        logger.warning("Dropped %d sources not in the corpus", dropped)
+    sources = _verify_sources(answer.sources, corpus)
+    seen_urls = {source.url for source in sources}
 
     rule = answer.rule_verbatim
     if rule is not None:
@@ -122,6 +147,8 @@ def verify[AnswerT: (schemas.Answer, schemas.ModelAnswer)](
                 len(rule.text),
             )
             rule = None
+        elif page is not None and page.url not in seen_urls:
+            sources.append(source_for(page))
 
     message = answer.message
     if answer.status != "blocked":

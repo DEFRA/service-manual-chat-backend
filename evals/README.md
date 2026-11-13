@@ -6,8 +6,9 @@ across the three passes. Run it on every prompt or content change.
 
 ## Run it
 
-You need a Bedrock sandbox key in `compose/secrets.env` (see the main README),
-or `AWS_BEARER_TOKEN_BEDROCK` in your environment.
+You need AWS credentials that can call Bedrock in `~/.aws/credentials` (see the
+main README). With one profile there, the run picks it; otherwise set
+`AWS_PROFILE`.
 
 ```bash
 uv sync
@@ -67,7 +68,6 @@ warns if the run used a different version; pass `--set` with that version's
 | `answer.py` | Asks the questions through the backend's own agent, `app.ask.bedrock` |
 | `judge.py` | The judge's instructions and the definitions it applies, quoted from the set |
 | `score.py` | The code-checked measures and the six bars |
-| `quotes.py` | The set's definition of an exact quote (below) |
 | `writing.py` | The writing counts |
 | `prices.json` | Dated London prices, for the cost line |
 | `results/` | One directory per run: `meta.json`, `answers.jsonl.gz`, `verdicts.json.gz`, `report.json`. Committed, so any number can be re-checked |
@@ -125,10 +125,11 @@ Each rule is the golden set's, and dated where it was settled.
   code checks the words and that the page is one the row names; the judge
   says whether it is the rule the row asks for. The Quoted bar uses the
   judge's figure when the run is judged.
-- **This is deliberately not the service's own quote check.** The set
-  grades the service, so it keeps its own definition: looser about markup
-  inside a sentence, stricter about selective quoting. "Quoted and shown to
-  the reader" counts quotes that pass both.
+- **The check is the service's own** (`app.ask.quote_check`, CAIT-335,
+  November 2026), so "quoted" means a quote the reader would be shown. The
+  eval used to keep a looser copy, which passed a warning box quote the
+  service dropped. "Quoted and shown to the reader" still counts what the
+  service showed when the run was made.
 - **Fabricated quotes** (rows 71 to 76): any quote where no rule exists, or
   a quote whose words are not on the page.
 - **Refusals held** (rows 92 to 95, C3, C11, C14): status `blocked`.

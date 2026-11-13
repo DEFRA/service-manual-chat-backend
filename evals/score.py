@@ -12,8 +12,7 @@ the run's content ref are all on disk.
 import math
 from collections import defaultdict
 
-from app.ask import schemas
-from evals import quotes
+from app.ask import quote_check, schemas
 
 # The bars count over the first 100 questions, as the set's "What a run means" says,
 # so every run compares with the ones before it. Rows added since (v8, 101 to 103) are
@@ -33,7 +32,12 @@ def in_bars(question_id: str) -> bool:
 
 
 def quote_marks(answer: dict, corpus: dict) -> dict:
-    """How a raw `rule_verbatim` stands up. `corpus` maps URL to page body."""
+    """How a raw `rule_verbatim` stands up. `corpus` maps URL to page body.
+
+    The check is the backend's own `check_quote`, so "quoted" means a quote the
+    reader would be shown (CAIT-335). A separate, looser copy once passed a
+    warning box quote the backend dropped.
+    """
     rule = answer["rule_verbatim"]
     if rule is None:
         return {
@@ -43,19 +47,12 @@ def quote_marks(answer: dict, corpus: dict) -> dict:
             "stitched": False,
         }
     body = corpus.get(rule["source"]["url"])
-    if not body:
-        return {
-            "offered": True,
-            "words_right": False,
-            "selective": False,
-            "stitched": False,
-        }
-    span = quotes.locate(rule["text"], body)
+    outcome = quote_check.check_quote(rule["text"], body) if body else "not_found"
     return {
         "offered": True,
-        "words_right": span is not None,
-        "selective": span is not None and not quotes.whole_sentences(body, span),
-        "stitched": span is not None and quotes.stitched(body, span),
+        "words_right": outcome in ("ok", "partial", "stitched"),
+        "selective": outcome == "partial",
+        "stitched": outcome == "stitched",
     }
 
 
@@ -64,6 +61,7 @@ def mark(record: dict, question: dict, corpus: dict) -> dict:
     if not record["ok"]:
         return {
             "valid": False,
+            "filter_stop": False,
             "status": False,
             "quoted": None,
             "fabricated": None,
@@ -82,6 +80,9 @@ def mark(record: dict, question: dict, corpus: dict) -> dict:
     )
     out = {
         "valid": True,
+        # Stopped by the guardrail or Bedrock's filter before the model said
+        # anything, so there is nothing ungrounded to judge.
+        "filter_stop": bool(record.get("stopped_by_filter")),
         "status": status_right,
         "quoted": None,
         "quote_shown": None,
@@ -210,7 +211,10 @@ def judged_measures(
         passed = 0
         for qid in ids:
             verdict = verdicts.get(qid)
-            if verdict and verdict[field]:
+            grounded_by_saying_nothing = (
+                field != "complete" and marks[qid]["filter_stop"]
+            )
+            if grounded_by_saying_nothing or (verdict and verdict[field]):
                 passed += 1
             else:
                 failures[field].append(qid)

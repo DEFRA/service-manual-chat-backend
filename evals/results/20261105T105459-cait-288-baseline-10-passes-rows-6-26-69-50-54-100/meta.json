@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-05T10:54:59+00:00",
+  "label": "cait-288-baseline-10-passes-rows-6-26-69-50-54-100",
+  "golden_set": "v19",
+  "golden_set_sha": "7036ca374122",
+  "questions": "G006,G026,G069,G050,G054,G100",
+  "prompt": "01a6d709ac40 on 9ee990b",
+  "content_ref": "28220ca59361fe824aed2369230a854de94376ed",
+  "model_id": "anthropic.claude-sonnet-4-6",
+  "passes": 10,
+  "token_ceiling": 30000000,
+  "answers": 60,
+  "failed_calls": 0,
+  "median_seconds": 3.32,
+  "unscored_turns": 0,
+  "answer_tokens": {
+    "input_tokens": 1545410,
+    "cache_read_tokens": 1494411,
+    "cache_write_tokens": 25329,
+    "output_tokens": 17679
+  },
+  "stopped_at_ceiling": false,
+  "judge": "anthropic.claude-opus-4-6-v1",
+  "judged": 60,
+  "of": 60,
+  "judge_tokens": {
+    "input_tokens": 1461097,
+    "cache_read_tokens": 1388447,
+    "cache_write_tokens": 23533,
+    "output_tokens": 17706
+  },
+  "tokens_spent": 3041892
+}

@@ -165,3 +165,14 @@ def test_the_judge_is_told_both_statuses_when_the_set_accepts_two() -> None:
     shown = judge.shown_to_judge(turn_record(), question, TITLES)
 
     assert "Expected status: answered or cannot_answer" in shown
+
+
+def test_a_filter_stop_is_not_sent_to_the_judge() -> None:
+    records = [
+        {"ok": True, "question_id": "G001"},
+        {"ok": True, "question_id": "G114", "stopped_by_filter": "blocked"},
+        {"ok": False, "question_id": "G002"},
+    ]
+
+    assert [r["question_id"] for r in judge.to_judge(records, None)] == ["G001"]
+    assert judge.to_judge(records, {"G114"}) == []

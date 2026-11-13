@@ -17,8 +17,8 @@ class AppConfig(BaseSettings):
     http_proxy: HttpUrl | None = None
     enable_metrics: bool = False
     tracing_header: str = "x-cdp-request-id"
-    # What answers /ask. stub needs no key; bedrock needs AWS_BEARER_TOKEN_BEDROCK
-    # locally or an inference profile on CDP.
+    # What answers /ask. stub needs no credentials; bedrock needs your AWS
+    # credentials locally or the task role and an inference profile on CDP.
     ask_engine: Literal["stub", "bedrock"] = "stub"
     # Model id locally (the sandbox takes plain ids); an inference profile id
     # or ARN on CDP. eu-west-2 is London; no cross-region inference.

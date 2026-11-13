@@ -1,7 +1,7 @@
 """Which thing answers a question.
 
 `stub` needs nothing and is the default, so `docker compose up` works with no
-key. `bedrock` talks to Amazon Bedrock: the sandbox with a bearer token
+credentials. `bedrock` talks to Amazon Bedrock: your own AWS credentials
 locally, an inference profile and guardrail on CDP.
 """
 

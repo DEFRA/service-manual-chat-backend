@@ -1,10 +1,10 @@
 # Set default values for build arguments
-ARG PARENT_VERSION=2.2.1-python3.14.3
+ARG PARENT_VERSION=2.9.0-python3.14.8
 ARG PORT=8085
 ARG PORT_DEBUG=8086
 # The service-manual-ui commit whose toolkit pages are baked into the image.
 # Bump it to ship new content; compose bind-mounts a checkout over it locally.
-ARG CONTENT_REF=9ec6d01a78a66a685471e60d18b72e60201277b6
+ARG CONTENT_REF=28220ca59361fe824aed2369230a854de94376ed
 
 FROM defradigital/python-development:${PARENT_VERSION} AS development
 

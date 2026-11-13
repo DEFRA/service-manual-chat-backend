@@ -34,7 +34,7 @@ jobs:
           python-version: 3.12
           cache: 'pip'
       - run: |
-          pipx install uv
+          pipx install uv==0.13.5
           uv sync --frozen
           uv run ruff check
           uv run mypy app evals scripts
