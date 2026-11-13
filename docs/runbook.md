@@ -112,6 +112,19 @@ The backend never logs a question or an answer. Per question it logs:
 A warm question costs about 1p and a cold one about 8p: see "What a question
 costs" in the README.
 
+### Following a question from the site to the backend
+
+The site passes the reader's request ID (`x-cdp-request-id`) on to the
+backend, so a question's lines in both services carry the same `trace.id`.
+
+1. In OpenSearch, find the site's `[response] post /ai-toolkit/ask` line for
+   the question and copy its `trace.id`.
+2. Search the backend's logs for `trace.id:"<that ID>"`.
+
+Every backend line for that question has the ID: `ask question_length=…`,
+`bedrock answered …` (or the line saying why there was no answer) and the
+`POST /ask` access line.
+
 ## Known issues
 
 - **The guardrail can block a fair question.** The platform's shared
@@ -148,8 +161,6 @@ costs" in the README.
   answers with its standard 403 and no custom response body, so the reader
   gets no GOV.UK page and no way to contact us. A reader who reports a
   bare 403 was probably stopped there, before the site; ask CDP.
-- **The site and backend logs cannot yet be joined by request ID.** The site
-  does not pass `x-cdp-request-id` on to the backend. Match on time instead.
 - **Some answers assume the reader works at Defra.** For example, an answer
   about an incident can point to a route only Defra staff can use. Found in
   user research; cases are being added to the golden set.
