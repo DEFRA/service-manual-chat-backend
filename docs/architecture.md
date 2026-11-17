@@ -3,10 +3,20 @@
 How Ask the toolkit fits together on CDP, as released. As of 17 November 2026.
 For what to do when something goes wrong, see [the runbook](runbook.md).
 
-![Ask the toolkit architecture on prod](architecture.png)
+![Ask the toolkit on prod: reader, WAF, service-manual-ui, service-manual-chat-backend, outbound proxy, Amazon Bedrock, with Redis, MongoDB, logs and GOV.UK Notify alongside. Described in words below.](architecture.png)
 
-Solid lines are a reader's question; dashed lines are the build, email, logs and
-metrics. The source is [`architecture.drawio`](architecture.drawio): edit it in
+In words: a reader's question goes over HTTPS through CDP's public web
+application firewall (WAF) to service-manual-ui. The site posts it, with the last
+4 turns, to the backend's `POST /ask`. The backend counts the call in MongoDB,
+then calls Claude on Amazon Bedrock through CDP's outbound proxy, with the
+service's own inference profile and guardrail. The typed answer goes back the
+same way. Off the question's path: the toolkit pages are fetched from
+service-manual-ui into the backend image at build; both services send logs to
+OpenSearch; Bedrock writes its own invocation logs; and a problem report goes
+from the site through GOV.UK Notify to the team's shared mailbox.
+
+In the diagram, solid lines are a reader's question; dashed lines are the build,
+email, logs and metrics. The source is [`architecture.drawio`](architecture.drawio): edit it in
 draw.io and export a PNG with the same name, at scale 2.
 
 ## The parts
@@ -17,17 +27,33 @@ draw.io and export a PNG with the same name, at scale 2.
 | service-manual-chat-backend | This repo (Python, FastAPI). One endpoint, `POST /ask`: takes a question and the last 4 turns, and returns a typed answer. Not reachable from the internet. |
 | Amazon Bedrock | Claude Sonnet 4.6, through the service's own inference profile and guardrail in each environment. The backend's task role signs the calls; there is no key. |
 | MongoDB | The day's count of model calls, for the daily ceiling. Nothing else. |
-| Redis | The site's session: the conversation, for 4 hours. |
+| Redis | The site's session: the conversation, for 4 hours, and a claim that stops a second report on the same answer. |
+| GOV.UK Notify | Sends a reader's problem report to the team's shared mailbox. |
 | CDP outbound proxy | Every call to Bedrock goes through it. |
 
 ## What is kept, and where
 
-- **The question and answer text** is kept in the site's Redis session for 4
-  hours, and in Bedrock's invocation logs for 30 days. The platform runs those
-  logs in a restricted S3 bucket; we cannot change them.
-- **The backend keeps nothing a reader typed.** Its logs give lengths,
-  statuses, token counts and the `trace.id`, never the question or answer.
-- **MongoDB** holds one count per day, kept for 90 days.
+Ask has no sign-in, so it holds no reader's name or email address. A reader can
+still type personal data into a question, so the question and answer text is
+treated as personal data wherever it is kept.
+
+- **The site's Redis session:** the conversation, for 4 hours.
+- **Bedrock's invocation logs:** every question and answer, for 30 days, in a
+  restricted S3 bucket. The platform runs them; we cannot change them.
+- **A problem report:** the question, the answer and what the reader said was
+  wrong. It goes through GOV.UK Notify, which keeps sent emails for a limited
+  time (7 days by default; the setting is in the service's Notify account), to
+  the team's shared mailbox, where it stays until the team deletes it. If a
+  reader typed personal data, the runbook says to report an AI incident and
+  delete the email.
+- **Logs:** neither service logs a question or answer. The site logs failures
+  by type; the backend logs lengths, statuses, token counts and the
+  `trace.id`.
+- **MongoDB:** one count per day, kept for 90 days. Nothing a reader typed.
+
+The site has other journeys that are not part of Ask, such as the AI use case
+triage form. That form has its own email sign-in code and confirmation emails,
+sent through the same Notify account; they are not covered here.
 
 ## Design choices
 

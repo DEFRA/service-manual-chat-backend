@@ -1,6 +1,6 @@
 <mxfile host="drawio">
   <diagram id="ask-arch" name="Ask the toolkit">
-    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0" adaptiveColors="auto">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="900" math="0" shadow="0" adaptiveColors="auto">
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
@@ -37,13 +37,13 @@
         <mxCell id="s3" value="&lt;b&gt;Invocation logs (S3)&lt;/b&gt;&lt;br&gt;every question and answer,&lt;br&gt;30 days, restricted.&lt;br&gt;Set by the platform" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
           <mxGeometry x="1300" y="470" width="170" height="90" as="geometry"/>
         </mxCell>
-        <mxCell id="obs" value="&lt;b&gt;OpenSearch and Grafana&lt;/b&gt;&lt;br&gt;logs and metrics for both services.&lt;br&gt;No question text in the backend's logs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+        <mxCell id="obs" value="&lt;b&gt;OpenSearch and Grafana&lt;/b&gt;&lt;br&gt;logs and metrics for both services.&lt;br&gt;No question or answer text&lt;br&gt;in either service's Ask logs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
           <mxGeometry x="560" y="620" width="270" height="70" as="geometry"/>
         </mxCell>
         <mxCell id="notify" value="&lt;b&gt;GOV.UK Notify&lt;/b&gt;&lt;br&gt;live key; 250,000 emails a day" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
           <mxGeometry x="320" y="760" width="190" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="mailbox" value="&lt;b&gt;AICE shared mailbox&lt;/b&gt;&lt;br&gt;reports (one per answer at&lt;br&gt;most) and triage; read by&lt;br&gt;the team. Codes and&lt;br&gt;confirmations go to readers" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+        <mxCell id="mailbox" value="&lt;b&gt;AICE shared mailbox&lt;/b&gt;&lt;br&gt;Ask problem reports, one&lt;br&gt;per answer at most;&lt;br&gt;read by the team" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
           <mxGeometry x="20" y="745" width="200" height="90" as="geometry"/>
         </mxCell>
         <mxCell id="github" value="&lt;b&gt;GitHub: service-manual-ui&lt;/b&gt;&lt;br&gt;toolkit pages, pinned commit (CONTENT_REF)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
@@ -73,7 +73,7 @@
         <mxCell id="e8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;dashed=1;" edge="1" parent="1" source="bedrock" target="s3">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e9" value="report, triage,&lt;br&gt;confirmation,&lt;br&gt;sign-in code" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;dashed=1;labelBackgroundColor=default;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="site" target="notify">
+        <mxCell id="e9" value="problem report:&lt;br&gt;question, answer,&lt;br&gt;what was wrong" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;dashed=1;labelBackgroundColor=default;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="site" target="notify">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
               <mxPoint x="400" y="363"/>
@@ -88,7 +88,7 @@
         <mxCell id="e11" value="pages fetched at build" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;dashed=1;labelBackgroundColor=default;" edge="1" parent="1" source="github" target="backend">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-      </root>
+      <mxCell id="e12" value="logs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;dashed=1;labelBackgroundColor=default;exitX=1;exitY=0.85;exitDx=0;exitDy=0;entryX=0.39;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="site" target="obs"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e13" value="logs, metrics" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;dashed=1;labelBackgroundColor=default;exitX=0;exitY=0.85;exitDx=0;exitDy=0;entryX=0.79;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="backend" target="obs"><mxGeometry relative="1" as="geometry"/></mxCell></root>
     </mxGraphModel>
   </diagram>
 </mxfile>
