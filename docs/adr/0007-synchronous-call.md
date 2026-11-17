@@ -20,11 +20,14 @@ whole typed answer. No polling or streaming.
 - Streaming was not an option anyway: CDP's task role does not allow
   `InvokeModelWithResponseStream`.
 - The backend allows Bedrock 25 seconds per call, and asks once more when an
-  answer comes back in the wrong shape. In the rare worst case that takes
-  about 50 seconds, so the site gives up first (CAIT-327).
-- The site calls the backend without a token. Only services inside the
-  platform can reach the backend, and the daily ceiling caps the cost. This
-  was accepted for launch; adding authentication is CAIT-325.
+  answer comes back in the wrong shape. In the worst case that takes about 50
+  seconds, so the site gives up first and the reader sees an error (CAIT-327).
+  The second call was needed on 1 of 532 evaluation answers in October 2026.
+- When the site gives up, the backend does not stop. Its calls still run, are
+  paid for, and count against the daily ceiling, which counts every request
+  to Bedrock, not every question. A reader who asks again adds more. The
+  ceiling still caps the day's total.
+- The call carries no token: see decision 8.
 
 ## Revisit when
 

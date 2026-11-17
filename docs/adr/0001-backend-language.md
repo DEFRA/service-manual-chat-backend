@@ -30,3 +30,8 @@ GOV.UK Frontend).
 - The Pydantic AI agent is kept apart from the FastAPI plumbing, so a move to
   the paved-road platform should be a re-host, not a rewrite.
 - Evaluation tools come from the Python ecosystem (`evals/`).
+
+## Revisit when
+
+- Defra's paved-road AI platform is ready to host the service, or
+- CDP stops supporting the Python backend template.

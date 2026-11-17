@@ -12,12 +12,17 @@ lets advice be paraphrased; a rule must not be.
 
 The model explains around a rule and never rewrites it. A rule goes in the
 answer's `rule_verbatim` field, with the page it comes from. The backend checks
-the quote's words are on that page and drops it if not; the site checks again
-before showing it. A source that is not a toolkit page is dropped too.
+that the quote appears on that page as one unbroken run of words, in the same
+order, from the start of a sentence to its end; spacing, line breaks and
+punctuation aside. It drops the quote if not. The site runs the same check
+again before showing it. A quote that leaves out a condition is reported
+separately, as the most harmful failure. A source that is not a toolkit page is
+dropped too.
 
 ## Consequences
 
-- A made-up or reworded rule never reaches the reader.
+- A quote that is not on the page it names never reaches the reader, so a
+  made-up or reworded rule is stopped.
 - A real rule credited to the wrong page can still get through: the check
   proves the words are on the page named, not that it is the right rule.
 - The check compares words, not characters, and does not join words across

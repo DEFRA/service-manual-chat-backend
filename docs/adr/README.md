@@ -12,3 +12,4 @@ decision; to reverse one, add a record that replaces it and mark the old one
 5. [Keep the conversation in the site, not the backend](0005-stateless-backend.md)
 6. [Quote rules word for word, and check every quote](0006-rules-quoted-word-for-word.md)
 7. [The site waits for the answer in one call](0007-synchronous-call.md)
+8. [The site calls the backend without a token, for launch](0008-no-token-on-the-call-for-launch.md)

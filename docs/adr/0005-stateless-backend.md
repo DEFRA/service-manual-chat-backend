@@ -15,8 +15,11 @@ its session (Redis on CDP, 4 hours) and sends the last 4 turns with each
 question.
 
 At first only the previous question was sent. User research found readers
-referring further back, so it became the last 4 turns: 4, not 3, because a
-golden set case asks "What was my second question?" after four questions.
+referring further back, so it became the last 4 turns. 4, not 3, because of a
+golden set case that asks "What was my second question?" after four questions.
+With 3 turns the model would see questions 2, 3 and 4 with nothing to say an
+earlier one existed, so it would take question 3 for the second. With 4 it sees
+the conversation from the start.
 
 ## Consequences
 

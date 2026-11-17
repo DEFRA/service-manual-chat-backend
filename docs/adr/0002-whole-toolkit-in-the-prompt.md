@@ -9,8 +9,11 @@ retrieval: split the pages into chunks, embed them, store them in a vector
 store and send only the closest chunks with each question. The early design
 planned Titan embeddings with k-NN search, then PostgreSQL with pgvector.
 
-At launch the toolkit was 43 pages, about 140,000 characters: about 26,000
-tokens, against a context window of 1,000,000.
+The toolkit is about 42 pages. Bedrock's own usage figures put a first
+question, with the prompt and every page, at about 26,000 input tokens (25,866
+on dev on 16 October 2026). This record assumes a context window of 200,000
+tokens. The model may allow more, but whether CDP's inference profile does has
+not been checked.
 
 ## Decision
 
@@ -32,6 +35,7 @@ embeddings or store. The pages are baked into the image at the commit in
 
 ## Revisit when
 
-- the toolkit outgrows the context window, or
+- the toolkit plus the prompt passes about half of the 200,000-token window,
+  leaving too little room for the conversation and the answer, or
 - a comparison on the golden set shows retrieval answers better, or
 - cost per question is too high at real volume.

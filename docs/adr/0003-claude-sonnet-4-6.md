@@ -10,8 +10,8 @@ enabled Bedrock models.
 
 We compared Claude Sonnet 4.6, Claude 3 Haiku, Amazon Nova Pro, Nova Lite and
 GPT-OSS 120B, with Claude Opus 4.6 as a yardstick. Llama 3 70B could not run:
-its window is too small and it has no tool use. The same day, the golden set
-(100 questions) was run on the models that could be deployed.
+its window is too small and it has no tool use. On 17 September 2026 the golden
+set (100 questions) was also run on the models that could be deployed.
 
 | | Sonnet 4.6 | Others |
 | :-- | :-- | :-- |
@@ -28,16 +28,21 @@ each environment. A model that rewords a rule is ruled out whatever it costs.
 
 ## Consequences
 
-- About 8p a question without the prompt cache; about 1p for a cached
-  follow-up if CAIT-317 is fixed.
+- About 1p for a follow-up within five minutes, with the prompt cached, and
+  about 8p otherwise.
 - Median answer time was about 3.6 seconds.
-- Claude Sonnet 5 was tried in October 2026: about 14% cheaper per question,
-  but more literal on a prompt written for 4.6. Moving needs a prompt round
-  and a full golden set run first. Whether it is on CDP's enabled list was not
-  checked.
 
 ## Revisit when
 
 - Sonnet 4.6 is announced for deprecation on Bedrock, or
 - cost per question needs cutting, and the golden set shows a cheaper model
   or route does not hurt answers.
+
+## Updates
+
+- **12 October 2026.** Claude Sonnet 5 was tried in small runs: about 14%
+  cheaper per question, but more literal on a prompt written for 4.6. Moving
+  needs a prompt round and a full golden set run first. Whether it is on
+  CDP's enabled list was not checked.
+- **17 November 2026.** On CDP nothing is written to the prompt cache
+  (CAIT-317), so every question costs about 8p.
