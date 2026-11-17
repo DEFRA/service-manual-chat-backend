@@ -34,7 +34,9 @@ draw.io and export a PNG with the same name, at scale 2.
 These are the choices a maintainer is most likely to question.
 
 - **The whole toolkit goes in the prompt.** Every page is sent with every
-  question, and the prompt is cached so repeat calls are cheaper. There is no
+  question. The backend asks Bedrock to cache it, which would make a repeat
+  call within five minutes far cheaper, but on CDP nothing is written to the
+  cache, so every question pays full price (CAIT-317). There is no
   search index or vector store: the toolkit is small enough to send whole, so
   no search step can miss the page that holds the answer.
 - **The toolkit pages are baked into the image** from service-manual-ui at the
