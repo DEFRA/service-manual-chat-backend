@@ -2,7 +2,9 @@
 
 Asks every golden set question three times, exactly as the service would, has a
 judge model mark Grounded and Complete, and prints the set's six bars as ranges
-across the three passes. Run it on every prompt or content change.
+across the three passes. When to run it, what it costs, who approves the
+spend and the release baseline are in
+[`docs/evaluation.md`](../docs/evaluation.md).
 
 ## Run it
 
@@ -15,7 +17,8 @@ uv sync
 uv run python -m evals run --label what-this-run-tests
 ```
 
-Up to 40 minutes and about £9: £3.50 of answers and £5.50 of judge. It stops
+Up to 40 minutes and about £13.50: about £5.40 of answers and £8.10 of judge.
+A paid run needs the technical lead's go-ahead first. It stops
 itself at 30 million tokens (`--max-tokens` to change). The output ends with the
 six bars, pass or fail, and the run as a whole:
 
@@ -36,7 +39,7 @@ and the rows that failed each bar.
 
 Useful options:
 
-- `--no-judge` skips the judge, for about £3.50. Grounded and Complete
+- `--no-judge` skips the judge, for about £5.40. Grounded and Complete
   show as "not judged". Use it for a step that changes only the writing,
   then judge the last step.
 - `--questions G041,G065` or `--questions Q` (the quote rows) for a quick

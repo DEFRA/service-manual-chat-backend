@@ -6,7 +6,9 @@ toolkit page. `POST /ask` takes a question and returns an answer with its
 sources and, where a rule applies, the rule quoted word for word.
 
 Running it: [the runbook](docs/runbook.md) covers how it fits together,
-alerts, known issues and who to ask.
+alerts, known issues and who to ask. Changing the prompt, the model or the
+toolkit pages: [evaluating Ask the toolkit](docs/evaluation.md) says what to
+run and what it costs.
 
 This is work-in-progress. See [To Do List](./TODO.md)
 
