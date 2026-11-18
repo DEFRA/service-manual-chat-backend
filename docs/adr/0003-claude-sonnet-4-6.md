@@ -29,7 +29,9 @@ each environment. A model that rewords a rule is ruled out whatever it costs.
 ## Consequences
 
 - About 1p for a follow-up within five minutes, with the prompt cached, and
-  about 8p otherwise.
+  about 8p otherwise. *Superseded on 17 November 2026: on CDP every question
+  costs about 8p, because nothing is written to the prompt cache. See
+  Updates.*
 - Median answer time was about 3.6 seconds.
 
 ## Revisit when
