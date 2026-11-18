@@ -79,7 +79,10 @@ Two misses on run 3:
 - **Fabricated quotes, 1 on one pass of 9.** On row 75, a false premise, the
   model quoted three table cells stitched together. The service's quote
   check dropped it, so a reader would not have seen it, and the answer was
-  right. This miss wasn't recorded in the PR 90 review.
+  right. A 10-pass check on row 75 alone, with the same inputs, quoted
+  nothing in all 10 (`20261118T170400-cait-358-g075-10-passes`, 45p). The
+  content designer accepted the miss as noise on that basis, in the PR 109
+  review.
 
 ## When to run it
 
@@ -114,8 +117,11 @@ Choosing which rows moved is done by hand until CAIT-331 automates it.
 
 Noisy rows, which pass and fail on the same inputs:
 
-- **G006**, personal data with Microsoft 365 Copilot: 4 of 10 on both the
-  old and the CAIT-288 prompt.
+- **G006**, personal data with Microsoft 365 Copilot: Quoted failed 4 of 10
+  on both the old and the CAIT-288 prompt.
+- **G075**, a false premise about Defra-hosted tools: Complete failed 1 of 9
+  on the release baseline and 5 of 10 on the same inputs on 18 November
+  2026. When it fails, the answer leaves SECRET out of the list.
 
 Add a row to this list when the same inputs give both passes and fails. Check a
 noisy row with step 2 before calling it changed.
