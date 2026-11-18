@@ -49,6 +49,22 @@ at the commit in `CONTENT_REF` (`Dockerfile`). The prompt is
 | The day's count | MongoDB, the backend's only stored data |
 | Toolkit pages | service-manual-ui `src/content`, at `CONTENT_REF` |
 
+### Bedrock IDs per environment
+
+| Environment | Inference profile | Guardrail | Guardrail version |
+| :-- | :-- | :-- | :-- |
+| dev | `tjv6zhlmukpk` | `x9kgz3tc6b6s` | 3 |
+| test | `g4i3z8s4hcaw` | `bs52ou64vmq6` | 1 |
+| perf-test | `42fkg9oq7z2l` | `5np1zc4x0kku` | 1 |
+| prod | `57cek72753n2` | `kqhmofhgps6r` | 1 |
+
+As of 17 November 2026. cdp-app-config is the master copy: the profile is the
+last part of `BEDROCK_MODEL_ID`, whose full ARN there includes the account. The
+guardrails are set by CDP in cdp-tenant-config and have the same settings in
+every environment: the misconduct filter at LOW, the other content filters at
+HIGH, and denied topics for medical, legal and financial advice. Dev is on
+version 3 because its version 1 copied the platform's shared guardrail.
+
 ## Deploying
 
 Deploy from the CDP portal. Two things have caught us out:
@@ -127,27 +143,11 @@ Every backend line for that question has the ID: `ask question_length=…`,
 
 ## Known issues
 
-- **The guardrail can block a fair question.** The platform's shared
-  guardrail refused fair questions (such as "Can I use ChatGPT on my Defra
-  work?") as misconduct. The service's own guardrail fixes the known cases,
-  but any guardrail can still refuse something it should not. The reader
-  sees "This question cannot be answered here." To check, find the
-  `bedrock blocked the question` line and its `filters`, and raise it with
-  CDP in #cdp-support.
-- **The model sometimes refuses a fair question itself.** Separate from the
-  guardrail: the status is `blocked` on a `bedrock answered` line. Fix it in
-  the prompt, then run the golden set (see `evals/README.md`) before
-  releasing.
+- **A fair question is sometimes refused,** by the guardrail or by the model.
+  See [When a fair question is refused](#when-a-fair-question-is-refused).
 - **A rule is sometimes quoted from the wrong page.** The quote check stops a
   made-up quote but not a real rule credited to a different page. Seen on a
   few golden set rows on some runs, within the noise of the measure.
-- **"Can I bypass the approval steps?" gets a wrong answer.** Asked whether
-  a first draft lets them skip approvals, the model says "There is no
-  approval process to bypass". Approved tools can be used with public or
-  OFFICIAL information without further approval, but OFFICIAL-SENSITIVE and
-  personal data can go only into specific tools, with approvals, and some
-  tools, such as MCP, need written approval before any use. Golden set row
-  120. To be fixed in the first week after launch (CAIT-288).
 - **A brief outbound proxy failure.** Before 0.37.0 one failed connection to
   CDP's proxy gave the reader an error. The backend now tries once more, and
   that attempt counts once against the ceiling. If `bedrock could not
@@ -167,12 +167,29 @@ Every backend line for that question has the ID: `ask question_length=…`,
 - **The site calls the backend without a token.** Only services inside the
   platform can reach the backend, and the daily ceiling caps the cost.
   CAIT-325.
-- **The daily counter's documents never expire.** One is kept for each day.
-  CAIT-313 adds a 90 day expiry.
 - **The Ask journey test can fail on dev when the answer is fine.** Its
   "answer with a source link" check waits about 6 seconds for the click,
   and dev answers can take longer. Look at the answer before treating it as
   a fault.
+
+## When a fair question is refused
+
+The reader sees "This question cannot be answered here." There are three ways
+to get there. Find the question's lines in OpenSearch by `trace.id` (see
+[Reading the logs](#reading-the-logs)) to tell which.
+
+| What the log shows | What refused it | What to do |
+| :-- | :-- | :-- |
+| `bedrock blocked the question` with `filters=input:...`, about a second after the question | The guardrail, on what was sent | Raise it with CDP in #cdp-support, giving the filter names and the `trace.id`. We cannot change the guardrail ourselves. |
+| `bedrock blocked the question` with `filters=output:...`, after several seconds | The guardrail, on the model's reply | As above. |
+| `bedrock answered` with `status=blocked` | The model, following the prompt | Change the prompt, then run the golden set (see `evals/README.md`) before releasing. |
+
+The filter names, such as `input:topic:Legal advice` or
+`output:pii:NAME`, say which guardrail policy fired; the log never holds the
+words that matched. A content filter also gives `[confidence=… strength=…]`;
+a block at LOW confidence is the strongest case to take to CDP. If the toolkit should answer the question, ask the content
+designer to add it to the golden set, so the next prompt change is checked
+against it.
 
 ## Changing the prompt or the model
 
