@@ -82,12 +82,14 @@ containers.
 ### What a question costs
 
 The whole toolkit goes to the model as instructions, about 26,000 tokens,
-with a Bedrock cache point after it. The cache lives for 5 minutes and a
-cached read costs a tenth of a fresh token, so a warm question on Claude
-Sonnet 4.6 is about 1p and a cold one about 8p. Every answer logs
+with a Bedrock cache point after it. On CDP nothing is written to the cache
+(CAIT-317), so every question on Claude Sonnet 4.6 costs about 8p. If the
+cache worked, a follow-up within 5 minutes would cost about 1p, because a
+cached read costs a tenth of a fresh token. Every answer logs
 `input_tokens`, `output_tokens`, `cache_read_tokens` and
-`cache_write_tokens`. Two questions inside 5 minutes should show
-`cache_read_tokens` above 20,000 on the second. Nothing that changes per
+`cache_write_tokens`. With a working cache, two questions inside 5 minutes
+show `cache_read_tokens` above 20,000 on the second; on CDP it stays at 0.
+Nothing that changes per
 request may go into the instructions: the cache key is the exact text.
 
 ### Settings

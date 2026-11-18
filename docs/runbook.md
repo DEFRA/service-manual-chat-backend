@@ -125,8 +125,8 @@ The backend never logs a question or an answer. Per question it logs:
 | `ask daily usage counter unavailable, refusing the call` | MongoDB cannot be reached, so every question is refused |
 | `Dropped N sources not in the corpus` | The model named a source that is not a toolkit page; it was removed |
 
-A warm question costs about 1p and a cold one about 8p: see "What a question
-costs" in the README.
+Every question costs about 8p, because on CDP nothing is written to the
+prompt cache (CAIT-317): see "What a question costs" in the README.
 
 ### Following a question from the site to the backend
 
