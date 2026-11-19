@@ -33,7 +33,7 @@ dev = [
 ]
 
 # Upper bound must stay compatible with the `uv` version baked into the
-# Dockerfile's PARENT_VERSION base image - check both when bumping either.
+# Dockerfile's FROM lines - check both when bumping either.
 [build-system]
 requires = ["uv_build>=0.10.4,<0.11"]
 build-backend = "uv_build"
