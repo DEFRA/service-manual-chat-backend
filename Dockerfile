@@ -3,7 +3,7 @@ ARG PORT=8085
 ARG PORT_DEBUG=8086
 # The service-manual-ui commit whose toolkit pages are baked into the image.
 # Bump it to ship new content; compose bind-mounts a checkout over it locally.
-ARG CONTENT_REF=244c93d714836516653015cd1a6d18fcd590f100
+ARG CONTENT_REF=334df9786d8e138e47740eb1cbd177c1939f207c
 
 FROM defradigital/python-development:2.9.0-python3.14.8 AS development
 

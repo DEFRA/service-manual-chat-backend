@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-23T10:58:07+00:00",
+  "label": "mcp-advice-update-v21",
+  "golden_set": "v21",
+  "golden_set_sha": "eff7d1e15c73",
+  "questions": "G026,G028,G054",
+  "prompt": "899b098994af on f9f32ab",
+  "content_ref": "334df9786d8e138e47740eb1cbd177c1939f207c",
+  "model_id": "anthropic.claude-sonnet-4-6",
+  "passes": 3,
+  "token_ceiling": 30000000,
+  "answers": 9,
+  "failed_calls": 0,
+  "median_seconds": 3.41,
+  "unscored_turns": 0,
+  "answer_tokens": {
+    "input_tokens": 252021,
+    "cache_read_tokens": 220616,
+    "cache_write_tokens": 27577,
+    "output_tokens": 2860
+  },
+  "stopped_at_ceiling": false,
+  "judge": "anthropic.claude-opus-4-6-v1",
+  "judged": 9,
+  "of": 9,
+  "judge_tokens": {
+    "input_tokens": 238555,
+    "cache_read_tokens": 204824,
+    "cache_write_tokens": 25603,
+    "output_tokens": 1870
+  },
+  "tokens_spent": 495306
+}

@@ -4,8 +4,8 @@
 |---|---|
 | **Status** | Draft v21, for review. Kept on Confluence by the design lead; this copy is what the evaluation reads and is synced from there, with names replaced by roles because this repo is public |
 | **Questions** | 120 single-turn, plus 23 conversations |
-| **Written against** | Toolkit content as at 17 September 2026. Rows 26, 28 and 54 follow the content at service-manual-ui `244c93d` (v21) |
-| **Last changed** | 20 November 2026. See Change log at the end |
+| **Written against** | Toolkit content as at 17 September 2026. Rows 26, 28 and 54 follow the content at service-manual-ui `334df97` (v21) |
+| **Last changed** | 23 November 2026. See Change log at the end |
 | **Related** | Ask the toolkit conversation spec |
 
 ## How to score it
@@ -108,9 +108,9 @@ The trap in this section is that the radar looks like a permission list and is n
 | 23 | Does a tool's radar status tell me whether I am allowed to use it? | `answered` **Q** | No. Status tells you how established a tool is at Defra, not whether you are allowed to use it. Quote that sentence. | Choosing a tool |
 | 24 | How do I choose a tool for my team? | `answered` | Four steps: check you need AI at all, check the radar, check what data you can use, turn privacy settings on. | Choosing a tool |
 | 25 | Is AI already in tools I use without me knowing? | `answered` | Yes. It is built into tools teams already have, so the data rules apply even when nobody chose to use AI. | Choosing a tool |
-| 26 | Is MCP approved for general use? | `answered` **Q** | Only for the approved low-risk servers. MCP is still being trialled, and only the approved MCP servers listed on Model Context Protocol may be used: the SonarQube and Playwright MCP servers. Either rule, word for word, from Model Context Protocol: the warning box, "Only use the approved MCP servers listed on this page.", or "Do not use any other MCP server." Whichever is quoted, the answer must name the approved servers or link the page that lists them, and must not say that any MCP server can be used. | Model Context Protocol |
+| 26 | Is MCP approved for general use? | `answered` **Q** | Only for the approved low-risk servers. MCP is still being trialled, and only the approved MCP servers listed on Model Context Protocol may be used: the SonarQube and Playwright MCP servers. Any one of these rules, word for word, from Model Context Protocol: the opening, "We are still trialling MCP. While the trial continues, you can use a small set of low-risk MCP servers that have been approved.", the warning box, "Only use the approved MCP servers listed on this page.", or "Do not use any other MCP server." Whichever is quoted, the answer must name the approved servers or link the page that lists them, and must not say that any MCP server can be used. | Model Context Protocol |
 | 27 | What is retrieval-augmented generation? | `answered` | Giving a model your own documents to answer from, rather than relying on what it was trained on. Status Exploring. | Retrieval-augmented generation |
-| 28 | Should we use MCP in production? | `answered` | Only the approved low-risk servers, SonarQube and Playwright. MCP is still being trialled and no other MCP server may be used. | Model Context Protocol |
+| 28 | Should we use MCP in production? | `answered` | Only the approved low-risk servers, SonarQube and Playwright. MCP is still being trialled and no other MCP server may be used. | Model Context Protocol, Working with AI agents |
 | 29 | Which is better, GitHub Copilot or Claude? | `cannot_answer` + `no_guidance_yet` or `outside_toolkit` | No page compares tools against each other. Links the Tools page, which the toolkit calls the tools radar. May also link the GitHub Copilot page, but not that page alone, because on its own it reads as a recommendation. The toolkit has no Claude page. | Tools, GitHub Copilot |
 | 30 | Can I use AWS Bedrock instead of Azure AI Foundry? | `answered` | Both are Trialling. Neither is a default, and status is not permission. | AWS Bedrock, Azure AI Foundry, Choosing a tool |
 
@@ -151,7 +151,7 @@ The trap in this section is that the radar looks like a permission list and is n
 | 51 | Did prompt compression work? | `answered` | Partly. It cut input tokens, but models produced longer responses when given compressed prompts, which offset some of the saving. Measure total tokens, not just input. | Token optimisation |
 | 52 | Which compression method was better? | `answered` | Caveman compression retained higher output quality than LLMLingua-2. LLMLingua-2 compressed slightly more. | Token optimisation |
 | 53 | What are agent swarms? | `answered` | The pattern of several agents working together, with the trade-offs the page sets out. | Agent swarms |
-| 54 | How do I work safely with AI agents? | `answered` | The guidance page sets the rules, and sends readers to Model Context Protocol for the rules on using MCP. | Working with AI agents |
+| 54 | How do I work safely with AI agents? | `answered` | The guidance page sets the rules, and may point to Model Context Protocol for the rules on using MCP. | Working with AI agents, Security, Using data with AI, Keeping data safe, Model Context Protocol |
 | 55 | What is green summarisation? | `answered` | The pattern for cutting the energy cost of summarising. | Green summarisation |
 | 56 | Should I build my own agent framework or use one? | `talk_to_a_person` | A decision about their own service. | Working with AI agents |
 | 57 | What is the best architecture for my service? | `talk_to_a_person` | Depends entirely on their service. Must not recommend one. | none |
@@ -374,15 +374,15 @@ No content change was needed. The pages were always right.
 
 Every change here is a correction to the set itself, not a response to how the service scored. Nothing was changed because the service failed it.
 
-### v21, 20 November 2026
+### v21, 23 November 2026
 
-Three expected answers changed because the content changed (PR 114, service-manual-ui `244c93d`). Every other row is unchanged.
+Three rows changed because the content changed (PR 114, and service-manual-ui PR 253 at `334df97`, which adds the approved-servers line to Working with AI agents). Every other row is unchanged.
 
 | What | Why |
 |---|---|
-| Row 26: expected answer is now "only for the approved low-risk servers", quoting "Only use the approved MCP servers listed on this page." or "Do not use any other MCP server." | Content changed. Model Context Protocol now approves a small set of low-risk servers (SonarQube and Playwright). The old warning box, "We are trialling it, so it is not approved for general use.", and the rule "Any use needs written approval from the relevant Project Architect and the AI Capability and Enablement team." are no longer on any page. |
-| Row 28: expected answer is now "only the approved low-risk servers", in place of "No" and written approval from two named parties | Content changed, as for row 26. |
-| Row 54: "the MCP rules apply to any project trialling it" replaced with "sends readers to Model Context Protocol for the rules on using MCP" | Content changed. The MCP rules now apply to anyone using an approved server, not to projects trialling MCP. Working with AI agents links to the page rather than restating its rules. |
+| Row 26: expected answer is now "only for the approved low-risk servers". Any one of the opening sentence of Model Context Protocol ("We are still trialling MCP. While the trial continues, you can use a small set of low-risk MCP servers that have been approved."), the warning box ("Only use the approved MCP servers listed on this page.") or "Do not use any other MCP server." passes Quoted. The answer must name the approved servers or link the page, and must not say any MCP server can be used | Content changed. Model Context Protocol now approves a small set of low-risk servers (SonarQube and Playwright). The old warning box, "We are trialling it, so it is not approved for general use.", and the rule "Any use needs written approval from the relevant Project Architect and the AI Capability and Enablement team." are no longer on any page. The opening sentence answers the question word for word, so it is accepted as well as the warning box. |
+| Row 28: expected answer is now "only the approved low-risk servers", in place of "No" and written approval from two named parties. Working with AI agents added to the row's pages | Content changed, as for row 26. The row was also too narrow: "Should we use MCP in production?" is partly an agent platform question, and Working with AI agents is where the toolkit introduces MCP as a way to connect an agent and says to talk to the AI Capability and Enablement team before committing to a platform. |
+| Row 54: "the MCP rules apply to any project trialling it" replaced with "may point to Model Context Protocol for the rules on using MCP". Security, Using data with AI, Keeping data safe and Model Context Protocol added to the row's pages | Content changed. The MCP rules now apply to anyone using an approved server, not to projects trialling MCP, and Working with AI agents links to the page rather than restating its rules. "How do I work safely with AI agents?" is a broad question, so a good answer can cover the page's rules without sending the reader to the MCP page. The row's pages are the guidance page plus every page it links to, taken from the content, so the row follows the page if its links change. An answer that gives detail from those pages is grounded in what the guidance sends readers to. |
 
 ### v20, 6 November 2026
 
