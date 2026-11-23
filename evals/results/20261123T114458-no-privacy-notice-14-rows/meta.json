@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-23T11:44:58+00:00",
+  "label": "no-privacy-notice-14-rows",
+  "golden_set": "v21",
+  "golden_set_sha": "eff7d1e15c73",
+  "questions": "G010,G011,G012,G013,G014,G015,G065,G066,G076,G097,G112,G113,G116,G119",
+  "prompt": "899b098994af on f616a49",
+  "content_ref": "334df9786d8e138e47740eb1cbd177c1939f207c",
+  "model_id": "anthropic.claude-sonnet-4-6",
+  "passes": 3,
+  "token_ceiling": 30000000,
+  "answers": 42,
+  "failed_calls": 0,
+  "median_seconds": 3.41,
+  "unscored_turns": 0,
+  "answer_tokens": {
+    "input_tokens": 1113111,
+    "cache_read_tokens": 1095024,
+    "cache_write_tokens": 0,
+    "output_tokens": 12477
+  },
+  "stopped_at_ceiling": false,
+  "judge": "anthropic.claude-opus-4-6-v1",
+  "judged": 42,
+  "of": 42,
+  "judge_tokens": {
+    "input_tokens": 1045869,
+    "cache_read_tokens": 1012116,
+    "cache_write_tokens": 0,
+    "output_tokens": 8348
+  },
+  "tokens_spent": 2179805
+}

@@ -19,6 +19,10 @@ from urllib.request import urlopen
 REPO = "DEFRA/service-manual-ui"
 SOURCE_PREFIX = "src/content/"
 PAGES = ("ai-toolkit.md", "ai-toolkit/")
+# Pages under the toolkit that are not guidance: Ask's own privacy notice is a
+# legal notice, and every page baked in goes into the model's instructions.
+# app/ask/corpus.py skips the same paths for a bind-mounted checkout.
+NOT_GUIDANCE = ("ai-toolkit/ask/",)
 REF_FILE = "REF"
 
 
@@ -32,9 +36,11 @@ def download(url: str) -> bytes:
 
 
 def is_page(relative: str) -> bool:
-    return any(
-        relative == page or relative.startswith(page) for page in PAGES
-    ) and relative.endswith(".md")
+    return (
+        any(relative == page or relative.startswith(page) for page in PAGES)
+        and not relative.startswith(NOT_GUIDANCE)
+        and relative.endswith(".md")
+    )
 
 
 def extract(archive: bytes, dest: Path) -> list[Path]:

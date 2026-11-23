@@ -26,6 +26,10 @@ def content_dir(tmp_path: Path) -> Path:
     )
     (tmp_path / "ai-toolkit" / "guidance" / "using-data-with-ai.md").write_text(PAGE)
     (tmp_path / "other.md").write_text("---\ntitle: Not toolkit\n---\nNo\n")
+    (tmp_path / "ai-toolkit" / "ask").mkdir()
+    (tmp_path / "ai-toolkit" / "ask" / "privacy-notice.md").write_text(
+        "---\ntitle: Privacy notice\n---\nA legal notice, not guidance\n"
+    )
     return tmp_path
 
 

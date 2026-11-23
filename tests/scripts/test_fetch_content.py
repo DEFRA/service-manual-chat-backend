@@ -22,6 +22,7 @@ SITE = {
     "src/content/ai-toolkit.md": "---\ntitle: AI toolkit\n---\nHello",
     "src/content/ai-toolkit/using-ai/index.md": "---\ntitle: Using AI\n---\nRules",
     "src/content/ai-toolkit/using-ai/diagram.png": "not a page",
+    "src/content/ai-toolkit/ask/privacy-notice.md": "a legal notice, not guidance",
     "src/content/ai-toolkit-triage.md": "a different section that shares the prefix",
     "src/content/accessibility.md": "not the toolkit",
     "README.md": "not content",
@@ -40,6 +41,7 @@ def test_extract_keeps_only_toolkit_markdown(tmp_path: Path) -> None:
     ]
     assert not (tmp_path / "accessibility.md").exists()
     assert not (tmp_path / "ai-toolkit-triage.md").exists()
+    assert not (tmp_path / "ai-toolkit/ask").exists()
 
 
 def test_extract_refuses_a_path_that_escapes_dest(tmp_path: Path) -> None:

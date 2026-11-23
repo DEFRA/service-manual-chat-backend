@@ -59,15 +59,26 @@ def content_ref(content_dir: Path) -> str | None:
     return ref_file.read_text(encoding="utf-8").strip() or None
 
 
+# Pages under the toolkit that are not guidance: Ask's own privacy notice is a
+# legal notice, and every page loaded goes into the model's instructions.
+# scripts/fetch_content.py leaves the same paths out of the image.
+NOT_GUIDANCE = ("ask",)
+
+
 def load_corpus(content_dir: Path, prefix: str = "ai-toolkit") -> dict[str, Page]:
-    """Every markdown page under the prefix, keyed by URL.
+    """Every markdown page under the prefix, keyed by URL, less NOT_GUIDANCE.
 
     `ai-toolkit.md` and `ai-toolkit/**.md` both belong to the toolkit.
     """
     pages: dict[str, Page] = {}
+    folder = content_dir / prefix
     candidates = [
         content_dir / f"{prefix}.md",
-        *sorted((content_dir / prefix).rglob("*.md")),
+        *sorted(
+            path
+            for path in folder.rglob("*.md")
+            if path.relative_to(folder).parts[0] not in NOT_GUIDANCE
+        ),
     ]
     for path in candidates:
         if not path.is_file():
