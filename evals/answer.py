@@ -204,8 +204,9 @@ async def answer(
             first = next(iter(records or unscored), None)
             if first and not first["ok"] and "403" in first["error"]:
                 message = (
-                    "Bedrock refused the first question (403). Your AWS "
-                    "credentials have probably expired: paste fresh ones into "
+                    "Bedrock refused the first question (403). Your Bedrock "
+                    "API key or AWS credentials have probably expired: set a "
+                    "fresh AWS_BEARER_TOKEN_BEDROCK, or paste fresh keys into "
                     "~/.aws/credentials from the access portal. "
                     f"{first['error'][:200]}"
                 )

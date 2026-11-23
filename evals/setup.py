@@ -101,7 +101,7 @@ def load_env_file() -> None:
     skip = AWS_KEYS if CREDENTIALS.exists() else frozenset()
     for line in SECRETS.read_text(encoding="utf-8").splitlines():
         key, sep, value = line.partition("=")
-        key, value = key.strip(), value.strip()
+        key, value = key.strip().removeprefix("export ").strip(), value.strip()
         if sep and key and not key.startswith("#") and value and key not in skip:
             os.environ.setdefault(key, value)
 
@@ -130,16 +130,24 @@ def aws_profile() -> str | None:
 
 
 NO_CREDENTIALS = (
-    "No AWS credentials found. Paste a profile from the AWS access portal into "
-    "~/.aws/credentials (or run `aws configure`). With more than one profile and "
-    "no [default], set AWS_PROFILE. Temporary credentials expire: paste them "
-    "again if Bedrock answers 403."
+    "No Bedrock credentials found. Set AWS_BEARER_TOKEN_BEDROCK to a Bedrock "
+    "API key (in the environment or compose/secrets.env), or paste a profile "
+    "from the AWS access portal into ~/.aws/credentials (or run `aws "
+    "configure`). With more than one profile and no [default], set "
+    "AWS_PROFILE. Temporary credentials expire: paste them again if Bedrock "
+    "answers 403."
 )
 
 
 def check_credentials() -> None:
-    """Stop before the first model call if boto3 would find no credentials."""
+    """Stop before the first model call if boto3 would find no credentials.
+
+    A Bedrock API key in the environment is enough on its own: boto3 sends it
+    as a bearer token to Bedrock, ahead of any AWS keys or profile.
+    """
     load_env_file()
+    if os.environ.get("AWS_BEARER_TOKEN_BEDROCK"):
+        return
     aws_profile()
     import boto3
 

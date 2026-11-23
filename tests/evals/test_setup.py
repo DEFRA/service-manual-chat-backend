@@ -82,3 +82,23 @@ def test_no_credentials_anywhere_stops_with_the_fix(home, monkeypatch):
     with pytest.raises(SystemExit) as stopped:
         setup.check_credentials()
     assert "~/.aws/credentials" in str(stopped.value)
+
+
+def test_a_bedrock_api_key_needs_no_aws_profile(home, monkeypatch):
+    # Two profiles and no default would stop aws_profile(); the key skips it.
+    (home / "credentials").write_text("[one]\n[two]\n")
+    monkeypatch.setenv("AWS_BEARER_TOKEN_BEDROCK", "from-the-shell")
+    setup.check_credentials()
+    assert "AWS_PROFILE" not in setup.os.environ
+
+
+def test_a_bedrock_api_key_can_come_from_secrets_env(home):
+    (home / "secrets.env").write_text("AWS_BEARER_TOKEN_BEDROCK=from-the-file\n")
+    setup.check_credentials()
+    assert setup.os.environ["AWS_BEARER_TOKEN_BEDROCK"] == "from-the-file"  # noqa: S105 - not a secret
+
+
+def test_secrets_env_accepts_export_lines(home):
+    (home / "secrets.env").write_text("export AWS_BEARER_TOKEN_BEDROCK=from-the-file\n")
+    setup.load_env_file()
+    assert setup.os.environ["AWS_BEARER_TOKEN_BEDROCK"] == "from-the-file"  # noqa: S105 - not a secret

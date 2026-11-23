@@ -8,9 +8,13 @@ spend and the release baseline are in
 
 ## Run it
 
-You need AWS credentials that can call Bedrock in `~/.aws/credentials` (see the
-main README). With one profile there, the run picks it; otherwise set
-`AWS_PROFILE`.
+You need a way to call Bedrock. Either:
+
+- a Bedrock API key in `AWS_BEARER_TOKEN_BEDROCK` (in your shell or in
+  `compose/secrets.env`). Nothing else is needed, and it wins over any AWS
+  profile; or
+- AWS credentials in `~/.aws/credentials` (see the main README). With one
+  profile there, the run picks it; otherwise set `AWS_PROFILE`.
 
 ```bash
 uv sync
