@@ -45,8 +45,12 @@ Work is tracked in the Jira project
 1. Merge one pull request at a time. Two quick merges can collide on one image
    version.
 2. Deploy to dev, then test, in the CDP portal. Ask one question on each.
-3. Raise a change request in ServiceNow. The service owner approves it.
-4. Deploy to prod and ask a known question (golden set row 6).
+3. If the change touches the model, the data kept or who can use Ask, update
+   the [assurance records](#assurance-records) and ask the delivery group's
+   security representative whether a pen test or IT Health Check is needed.
+   Do this before the change request.
+4. Raise a change request in ServiceNow. The service owner approves it.
+5. Deploy to prod and ask a known question (golden set row 6).
 
 The runbook has the detail, including the config sync trap.
 
@@ -59,12 +63,15 @@ a run is needed.
 
 ### Routine
 
-| Task | How often |
-| :-- | :-- |
-| Watch `#aice-team-alerts-prod` and `#aice-team-alerts-non-prod` | Daily, office hours |
-| Read "Report a problem with this answer" emails; delete any holding personal data | Weekly |
-| Dependabot updates and security alerts on both repos | Weekly |
-| Usage against the daily ceiling and the Bedrock bill | Monthly |
+Each task belongs to a role. The Confluence people page says who holds each role
+and who covers when they are away.
+
+| Task | How often | Owner |
+| :-- | :-- | :-- |
+| Watch `#aice-team-alerts-prod` and `#aice-team-alerts-non-prod` | Daily, office hours | How it works |
+| Read "Report a problem with this answer" emails; delete any holding personal data | Weekly | How it speaks |
+| Dependabot updates and security alerts on both repos | Weekly | How it works |
+| Usage against the daily ceiling and the Bedrock bill | Monthly | How it works, reported to the service owner |
 
 ### Access a new team member needs
 
@@ -75,11 +82,25 @@ a run is needed.
 - The team mailbox
 - AWS credentials from CCOE, for evaluation runs
 
+### When someone leaves the team
+
+The service owner or delivery manager checks each of these is done by the
+person's last day:
+
+- Write access removed on this repo and
+  [service-manual-ui](https://github.com/DEFRA/service-manual-ui)
+- Access removed to the CDP portal and `cdp-app-config`
+- Removed from the two Slack alert channels
+- Removed from the team mailbox
+- CCOE asked to delete their AWS key for the Bedrock sandbox account
+- Their name taken off the Confluence people page, and any role they held
+  given to someone else
+
 ## Assurance records
 
 These describe the service as it is now. A change to the model, the data kept or
-who can use Ask means updating them before it goes live. They are not copied
-or linked here.
+who can use Ask means updating them before it goes live. They are not copied or
+linked here.
 
 | Record | Where it is filed |
 | :-- | :-- |
