@@ -6,15 +6,15 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "asgi-logger==0.1.0",
-    "aws-embedded-metrics==3.3.0",
+    "aws-embedded-metrics==3.5.0",
     "dnspython==2.9.2",
     "ecs-logging==2.3.0",
-    "fastapi==0.141.1",
+    "fastapi==0.163.2",
     "httpx==0.28.1",
-    "pydantic-ai-slim[bedrock]==2.54.0",
-    "pydantic-settings==2.15.0",
-    "pymongo[aws,encryption,snappy,zstd]==4.18.3",
-    "uvicorn==0.34.3",
+    "pydantic-ai-slim[bedrock]==2.70.0",
+    "pydantic-settings==2.16.3",
+    "pymongo[aws,encryption,snappy,zstd]==4.20.0",
+    "uvicorn==0.54.0",
 ]
 
 [project.scripts]
@@ -22,20 +22,20 @@ service-manual-chat-backend = "app.entrypoints.fastapi:main"
 
 [dependency-groups]
 dev = [
-    "mypy==2.4.0",
-    "pre-commit==4.6.2",
-    "pytest==9.1.1",
-    "pytest-asyncio==1.4.0",
+    "mypy==2.4.1",
+    "pre-commit==4.7.0",
+    "pytest==9.2.0",
+    "pytest-asyncio==1.5.0",
     "pytest-cov==7.1.0",
-    "pytest-mock==3.15.1",
-    "ruff==0.16.8",
+    "pytest-mock==3.17.0",
+    "ruff==0.17.5",
     "taskipy==1.14.1",
 ]
 
 # Upper bound must stay compatible with the `uv` version baked into the
 # Dockerfile's FROM lines - check both when bumping either.
 [build-system]
-requires = ["uv_build>=0.10.4,<0.11"]
+requires = ["uv_build>=0.10.4,<0.14"]
 build-backend = "uv_build"
 
 [tool.uv]
