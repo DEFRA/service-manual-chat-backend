@@ -8,7 +8,8 @@ sources and, where a rule applies, the rule quoted word for word.
 Running it: [the runbook](docs/runbook.md) covers how it fits together,
 alerts, known issues and who to ask. Changing the prompt, the model or the
 toolkit pages: [evaluating Ask the toolkit](docs/evaluation.md) says what to
-run and what it costs.
+run and what it costs. Who looks after it, the teams around it and where its
+assurance records are kept: [who and how](docs/who-and-how.md).
 
 This is work-in-progress. See [To Do List](./TODO.md)
 

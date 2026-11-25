@@ -215,3 +215,6 @@ and delete the report email.
 | Whether a pen test or IT Health Check is needed | The delivery group's security rep |
 | The toolkit's content | The AI digital toolkit team, through the team mailbox |
 | Tickets | Jira project CAIT |
+
+Roles, processes and where the assurance records are filed are in
+[who and how](who-and-how.md). Names and contacts are on Confluence.
